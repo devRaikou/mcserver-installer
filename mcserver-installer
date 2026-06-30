@@ -1773,15 +1773,16 @@ run_server_management_menu() {
         echo -e "    ${COLOR_YELLOW}5.${COLOR_RESET} Connect to Raw Console (GNU Screen)"
         echo -e "    ${COLOR_YELLOW}6.${COLOR_RESET} View Server Logs"
         echo -e "    ${COLOR_YELLOW}7.${COLOR_RESET} Edit server.properties"
-        echo -e "    ${COLOR_YELLOW}8.${COLOR_RESET} Create Backup"
-        echo -e "    ${COLOR_YELLOW}9.${COLOR_RESET} Restore Backup"
-        echo -e "   ${COLOR_YELLOW}10.${COLOR_RESET} Change Server Memory Allocation (RAM)"
-        echo -e "   ${COLOR_YELLOW}11.${COLOR_RESET} Real-time Resource Monitor"
-        echo -e "   ${COLOR_YELLOW}12.${COLOR_RESET} Enable/Disable Boot Auto-start (systemd)"
-        echo -e "   ${COLOR_YELLOW}13.${COLOR_RESET} Return to Main Menu"
+        echo -e "    ${COLOR_YELLOW}8.${COLOR_RESET} Create Manual Backup"
+        echo -e "    ${COLOR_YELLOW}9.${COLOR_RESET} Setup Automated Backup Schedule"
+        echo -e "   ${COLOR_YELLOW}10.${COLOR_RESET} Restore Backup"
+        echo -e "   ${COLOR_YELLOW}11.${COLOR_RESET} Change Server Memory Allocation (RAM)"
+        echo -e "   ${COLOR_YELLOW}12.${COLOR_RESET} Real-time Resource Monitor"
+        echo -e "   ${COLOR_YELLOW}13.${COLOR_RESET} Enable/Disable Boot Auto-start (systemd)"
+        echo -e "   ${COLOR_YELLOW}14.${COLOR_RESET} Return to Main Menu"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
         
-        echo -n "  Select option (1-13): "
+        echo -n "  Select option (1-14): "
         read -r choice
         choice=$(echo "$choice" | tr -d '\r')
         
@@ -1816,6 +1817,9 @@ run_server_management_menu() {
                 create_server_backup "$s_path"
                 ;;
             9)
+                manage_backup_scheduler "$s_name" "$s_path"
+                ;;
+            10)
                 if is_server_running "$session_name"; then
                     log_error "Please stop the server before running a restore!"
                     sleep 2
@@ -1823,7 +1827,7 @@ run_server_management_menu() {
                     run_server_restore "$s_path"
                 fi
                 ;;
-            10)
+            11)
                 if [ ! -f "${s_path}/start.sh" ]; then
                     log_error "No start.sh script found to modify memory values."
                     sleep 2
@@ -1834,7 +1838,6 @@ run_server_management_menu() {
                     local min_ram; min_ram=$(prompt_input "Enter new Minimum RAM allocation" "1024M")
                     local max_ram; max_ram=$(prompt_input "Enter new Maximum RAM allocation" "4096M")
                     
-                    # Update start.sh variables
                     if [[ "$OSTYPE" == "darwin"* ]]; then
                         sed -i '' "s|^MEM_MIN=.*|MEM_MIN=\"${min_ram}\"|" "${s_path}/start.sh"
                         sed -i '' "s|^MEM_MAX=.*|MEM_MAX=\"${max_ram}\"|" "${s_path}/start.sh"
@@ -1843,7 +1846,6 @@ run_server_management_menu() {
                         sed -i "s|^MEM_MAX=.*|MEM_MAX=\"${max_ram}\"|" "${s_path}/start.sh"
                     fi
                     
-                    # Check for forge user_jvm_args.txt
                     if [ -f "${s_path}/user_jvm_args.txt" ]; then
                         if [[ "$OSTYPE" == "darwin"* ]]; then
                             sed -i '' "s|-Xms.*|-Xms${min_ram}|" "${s_path}/user_jvm_args.txt"
@@ -1858,13 +1860,13 @@ run_server_management_menu() {
                     sleep 2
                 fi
                 ;;
-            11)
+            12)
                 monitor_server_resources "$s_name" "$s_path"
                 ;;
-            12)
+            13)
                 toggle_systemd_service "$s_name" "$s_path"
                 ;;
-            13)
+            14)
                 break
                 ;;
             *)
@@ -2334,5 +2336,37 @@ main_menu() {
     done
 }
 
+# --- Command Line Argument Parser (Headless Execution) ---
+if [ $# -gt 0 ]; then
+    if [ "$1" = "--backup" ]; then
+        if [ $# -lt 2 ]; then
+            echo "Usage: $0 --backup <server_name>" >&2
+            exit 1
+        fi
+        
+        HEADLESS_MODE="true"
+        target_name="$2"
+        if [ -f "$REGISTRY_FILE" ]; then
+            line=$(grep "^${target_name}:" "$REGISTRY_FILE" | head -n 1)
+            if [ -n "$line" ]; then
+                s_path=$(echo "$line" | cut -d: -f2)
+                create_server_backup "$s_path"
+                exit $?
+            else
+                echo "Error: Server '${target_name}' not found in registry." >&2
+                exit 1
+            fi
+        else
+            echo "Error: Registry file is empty or does not exist." >&2
+            exit 1
+        fi
+    else
+        echo "Unknown argument: $1" >&2
+        echo "Usage: $0 [--backup <server_name>]" >&2
+        exit 1
+    fi
+fi
+
 # Launch Application
+HEADLESS_MODE="false"
 main_menu
