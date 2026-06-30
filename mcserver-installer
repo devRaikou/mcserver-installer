@@ -1902,6 +1902,352 @@ monitor_server_resources() {
     done
 }
 
+manage_server_plugins() {
+    local s_name="$1"
+    local server_path="$2"
+    local s_type="$3"
+    local s_ver="$4"
+    
+    local loaders=()
+    case "$s_type" in
+        paper)
+            loaders=("paper" "spigot" "bukkit")
+            ;;
+        purpur)
+            loaders=("purpur" "paper" "spigot" "bukkit")
+            ;;
+        spigot)
+            loaders=("spigot" "bukkit")
+            ;;
+        folia)
+            loaders=("folia" "paper")
+            ;;
+        velocity)
+            loaders=("velocity")
+            ;;
+        bungeecord|waterfall)
+            loaders=("bungeecord")
+            ;;
+        fabric)
+            loaders=("fabric")
+            ;;
+        forge)
+            loaders=("forge")
+            ;;
+        neoforge)
+            loaders=("neoforge")
+            ;;
+        *)
+            loaders=("$s_type")
+            ;;
+    esac
+    
+    while true; do
+        clear_screen
+        draw_header
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}SERVER PLUGIN MANAGER: $s_name${COLOR_RESET}"
+        echo -e "  Minecraft Version: $s_ver | Software: $s_type"
+        echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
+        
+        echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} Search and Install Plugins"
+        echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} List and Remove Plugins"
+        echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} Return to Management Menu"
+        echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
+        
+        local choice
+        choice=$(prompt_input "Select option" "3")
+        
+        case "$choice" in
+            1)
+                search_and_install_plugin "$server_path" "$s_ver" "$s_type" "${loaders[@]}"
+                ;;
+            2)
+                list_and_remove_plugins "$server_path"
+                ;;
+            3)
+                break
+                ;;
+            *)
+                log_warn "Invalid selection."
+                sleep 1.5
+                ;;
+        esac
+    done
+}
+
+search_and_install_plugin() {
+    local server_path="$1"
+    local s_ver="$2"
+    local s_type="$3"
+    shift 3
+    local loaders=("$@")
+    
+    clear_screen
+    draw_header
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}SEARCH AND INSTALL PLUGINS${COLOR_RESET}\n"
+    
+    local query
+    query=$(prompt_input "Enter plugin name to search" "")
+    if [ -z "$query" ]; then
+        log_warn "Search query cannot be empty."
+        sleep 1.5
+        return 1
+    fi
+    
+    local url_query
+    url_query=$(echo -n "$query" | jq -sRr @uri)
+    
+    log_info "Searching Modrinth API..."
+    local res
+    res=$(curl -s "https://api.modrinth.com/v2/search?query=${url_query}&facets=%5B%5B%22project_type:plugin%22%5D%5D")
+    
+    local count
+    count=$(echo "$res" | jq '.hits | length' 2>/dev/null || echo 0)
+    if [ -z "$count" ] || [ "$count" -eq 0 ]; then
+        log_warn "No plugins found for search term."
+        sleep 2
+        return 1
+    fi
+    
+    local hits
+    hits=$(echo "$res" | jq -c '.hits[]')
+    
+    local titles=()
+    local ids=()
+    local slugs=()
+    
+    while IFS= read -r hit || [ -n "$hit" ]; do
+        [ -z "$hit" ] && continue
+        local title; title=$(echo "$hit" | jq -r '.title')
+        local id; id=$(echo "$hit" | jq -r '.project_id')
+        local slug; slug=$(echo "$hit" | jq -r '.slug')
+        local desc; desc=$(echo "$hit" | jq -r '.description // ""' | cut -c1-50)
+        titles+=("${title} (${slug}) - ${desc}")
+        ids+=("$id")
+        slugs+=("$slug")
+    done <<< "$hits"
+    
+    local chosen
+    chosen=$(prompt_selection "Select plugin to install:" "${titles[@]}")
+    
+    local idx=-1
+    for i in "${!titles[@]}"; do
+        if [ "${titles[$i]}" = "$chosen" ]; then
+            idx=$i
+            break
+        fi
+    done
+    
+    if [ "$idx" -eq -1 ]; then
+        return 1
+    fi
+    
+    local project_id="${ids[$idx]}"
+    local project_slug="${slugs[$idx]}"
+    
+    log_info "Fetching available versions for ${project_slug}..."
+    local res_ver
+    res_ver=$(curl -s "https://api.modrinth.com/v2/project/${project_id}/version")
+    
+    local loader_json
+    loader_json=$(printf '%s\n' "${loaders[@]}" | jq -R . | jq -s -c .)
+    
+    local matched_versions
+    matched_versions=$(echo "$res_ver" | jq --arg ver "$s_ver" --argjson lds "$loader_json" -c '
+        map(select(
+            (.game_versions | contains([$ver])) and 
+            (.loaders | unique | . - ($unique = . | . - $lds) | length > 0)
+        ))
+    ' 2>/dev/null || echo "[]")
+    
+    local matched_count
+    matched_count=$(echo "$matched_versions" | jq 'length' 2>/dev/null || echo 0)
+    
+    local chosen_ver_obj=""
+    if [ "$matched_count" -gt 0 ]; then
+        local v_names=()
+        local v_ids=()
+        
+        while IFS= read -r row || [ -n "$row" ]; do
+            [ -z "$row" ] && continue
+            local name; name=$(echo "$row" | jq -r '.name')
+            local num; num=$(echo "$row" | jq -r '.version_number')
+            local id; id=$(echo "$row" | jq -r '.id')
+            v_names+=("${name} [Ver: ${num}] (Recommended)")
+            v_ids+=("$id")
+        done <<< "$(echo "$matched_versions" | jq -c '.[]')"
+        
+        local chosen_name
+        chosen_name=$(prompt_selection "Select compatible version to install:" "${v_names[@]}")
+        
+        local v_idx=-1
+        for i in "${!v_names[@]}"; do
+            if [ "${v_names[$i]}" = "$chosen_name" ]; then
+                v_idx=$i
+                break
+            fi
+        done
+        
+        if [ "$v_idx" -ne -1 ]; then
+            chosen_ver_obj=$(echo "$matched_versions" | jq -c ".[${v_idx}]")
+        fi
+    else
+        echo -e ""
+        log_warn "No exact compatible versions found for Minecraft ${s_ver} on ${s_type}."
+        prompt_yes_no "Would you like to list all available versions instead?" "y"
+        if [ "$choice" = "y" ]; then
+            local all_names=()
+            local all_ids=()
+            
+            while IFS= read -r row || [ -n "$row" ]; do
+                [ -z "$row" ] && continue
+                local name; name=$(echo "$row" | jq -r '.name')
+                local num; num=$(echo "$row" | jq -r '.version_number')
+                local id; id=$(echo "$row" | jq -r '.id')
+                all_names+=("${name} [Ver: ${num}]")
+                all_ids+=("$id")
+            done <<< "$(echo "$res_ver" | jq -c '.[]' | head -n 10)"
+            
+            local chosen_name
+            chosen_name=$(prompt_selection "Select version to install (at your own risk):" "${all_names[@]}")
+            
+            local v_idx=-1
+            for i in "${!all_names[@]}"; do
+                if [ "${all_names[$i]}" = "$chosen_name" ]; then
+                    v_idx=$i
+                    break
+                fi
+            done
+            
+            if [ "$v_idx" -ne -1 ]; then
+                chosen_ver_obj=$(echo "$res_ver" | jq -c ".[${v_idx}]")
+            fi
+        fi
+    fi
+    
+    if [ -n "$chosen_ver_obj" ]; then
+        local dl_url
+        dl_url=$(echo "$chosen_ver_obj" | jq -r '.files[0].url')
+        local dl_name
+        dl_name=$(echo "$chosen_ver_obj" | jq -r '.files[0].filename')
+        
+        if [ -n "$dl_url" ] && [ "$dl_url" != "null" ]; then
+            local plugins_dir="${server_path}/plugins"
+            mkdir -p "$plugins_dir"
+            
+            run_with_spinner "Downloading plugin ${dl_name}..." curl -s -L -o "${plugins_dir}/${dl_name}" "$dl_url"
+            log_success "Plugin ${dl_name} installed successfully!"
+            send_discord_notification "🔌 Installed plugin **${dl_name}** successfully!" 3066993 "$server_path"
+            sleep 2
+        else
+            log_error "Failed to resolve download URL for selected version."
+            sleep 2
+        fi
+    fi
+}
+
+list_and_remove_plugins() {
+    local server_path="$1"
+    local plugins_dir="${server_path}/plugins"
+    
+    if [ ! -d "$plugins_dir" ] || [ -z "$(ls -A "$plugins_dir" 2>/dev/null | grep '\.jar$')" ]; then
+        clear_screen
+        draw_header
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}LIST AND REMOVE PLUGINS${COLOR_RESET}\n"
+        log_warn "No plugins found in plugins directory."
+        sleep 2
+        return 1
+    fi
+    
+    local files=()
+    for f in "$plugins_dir"/*.jar; do
+        [ -f "$f" ] && files+=("$(basename "$f")")
+    done
+    
+    if [ ${#files[@]} -eq 0 ]; then
+        log_warn "No plugin jar files found."
+        sleep 2
+        return 1
+    fi
+    
+    local chosen
+    chosen=$(prompt_selection "Select a plugin jar to remove:" "${files[@]}")
+    
+    prompt_yes_no "Are you sure you want to delete ${chosen}?" "n"
+    if [ "$choice" = "y" ]; then
+        rm -f "${plugins_dir}/${chosen}"
+        log_success "Plugin ${chosen} removed successfully!"
+        send_discord_notification "🗑️ Removed plugin **${chosen}** successfully!" 15158332 "$server_path"
+        sleep 2
+    fi
+}
+
+install_geyser_floodgate() {
+    local s_name="$1"
+    local server_path="$2"
+    local s_type="$3"
+    
+    local platform=""
+    case "$s_type" in
+        paper|purpur|spigot|folia)
+            platform="spigot"
+            ;;
+        velocity)
+            platform="velocity"
+            ;;
+        bungeecord|waterfall)
+            platform="bungeecord"
+            ;;
+        *)
+            log_error "GeyserMC & Floodgate auto-installer currently supports Spigot, Paper, Purpur, Velocity, BungeeCord, and Waterfall servers."
+            sleep 3
+            return 1
+            ;;
+    esac
+    
+    clear_screen
+    draw_header
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}INSTALL GEYSERMC & FLOODGATE (CROSS-PLAY)${COLOR_RESET}"
+    echo -e "  Server: $s_name | Platform: $platform"
+    echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
+    
+    local plugins_dir="${server_path}/plugins"
+    mkdir -p "$plugins_dir"
+    
+    local geyser_url="https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/${platform}"
+    local floodgate_url="https://download.geysermc.org/v2/projects/floodgate/versions/latest/builds/latest/downloads/${platform}"
+    
+    run_with_spinner "Downloading GeyserMC (${platform})..." curl -s -L -o "${plugins_dir}/Geyser.jar" "$geyser_url"
+    run_with_spinner "Downloading Floodgate (${platform})..." curl -s -L -o "${plugins_dir}/Floodgate.jar" "$floodgate_url"
+    
+    log_success "GeyserMC and Floodgate downloaded successfully into plugins folder!"
+    
+    if command -v ufw &>/dev/null; then
+        local ufw_status
+        ufw_status=$(sudo ufw status 2>/dev/null || ufw status 2>/dev/null || echo "inactive")
+        if echo "$ufw_status" | grep -q "Status: active"; then
+            if ! echo "$ufw_status" | grep -q "19132/udp"; then
+                echo -e ""
+                log_warn "UFW firewall is active, but Bedrock UDP port 19132 is NOT allowed!"
+                prompt_yes_no "Would you like to open UDP port 19132 in UFW automatically?" "y"
+                if [ "$choice" = "y" ]; then
+                    if [ "$EUID" -ne 0 ]; then
+                        run_with_spinner "Opening UDP port 19132 in UFW (via sudo)" sudo ufw allow 19132/udp
+                    else
+                        run_with_spinner "Opening UDP port 19132 in UFW" ufw allow 19132/udp
+                    fi
+                fi
+            fi
+        fi
+    fi
+    
+    send_discord_notification "🎮 GeyserMC and Floodgate (Cross-play) have been successfully installed on server **${s_name}**!" 3066993 "$server_path"
+    
+    echo -e "\n  Please restart your Minecraft server for GeyserMC & Floodgate to load."
+    echo -n "  Press [Enter] to return: "
+    read -r _
+}
+
 # --- Management Menu for a Specific Server ---
 run_server_management_menu() {
     local s_name="$1"
@@ -1945,11 +2291,13 @@ run_server_management_menu() {
         echo -e "   ${COLOR_YELLOW}10.${COLOR_RESET} Restore Backup"
         echo -e "   ${COLOR_YELLOW}11.${COLOR_RESET} Change Server Memory Allocation (RAM)"
         echo -e "   ${COLOR_YELLOW}12.${COLOR_RESET} Real-time Resource Monitor"
-        echo -e "   ${COLOR_YELLOW}13.${COLOR_RESET} Enable/Disable Boot Auto-start (systemd)"
-        echo -e "   ${COLOR_YELLOW}14.${COLOR_RESET} Return to Main Menu"
+        echo -e "   ${COLOR_YELLOW}13.${COLOR_RESET} Plugin Manager"
+        echo -e "   ${COLOR_YELLOW}14.${COLOR_RESET} Setup Geyser & Floodgate (Cross-play)"
+        echo -e "   ${COLOR_YELLOW}15.${COLOR_RESET} Enable/Disable Boot Auto-start (systemd)"
+        echo -e "   ${COLOR_YELLOW}16.${COLOR_RESET} Return to Main Menu"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
         
-        echo -n "  Select option (1-14): "
+        echo -n "  Select option (1-16): "
         read -r choice
         choice=$(echo "$choice" | tr -d '\r')
         
@@ -2031,9 +2379,15 @@ run_server_management_menu() {
                 monitor_server_resources "$s_name" "$s_path"
                 ;;
             13)
-                toggle_systemd_service "$s_name" "$s_path"
+                manage_server_plugins "$s_name" "$s_path" "$s_type" "$s_ver"
                 ;;
             14)
+                install_geyser_floodgate "$s_name" "$s_path" "$s_type"
+                ;;
+            15)
+                toggle_systemd_service "$s_name" "$s_path"
+                ;;
+            16)
                 break
                 ;;
             *)
