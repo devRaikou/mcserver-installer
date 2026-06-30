@@ -63,36 +63,36 @@ log_error() { echo -e "  ${COLOR_RED}${ICON_ERROR} $*${COLOR_RESET}" >&2; }
 
 # --- Terminal UI Helpers ---
 clear_screen() {
-    clear
+    clear >&2
 }
 
 draw_header() {
-    echo -e "${COLOR_CYAN}${COLOR_BOLD}"
-    echo "  __  __  _____  _____                                 "
-    echo " |  \/  |/ ____|/ ____|                                "
-    echo " | \  / | |    | (___   ___ _ ____   _____ _ __        "
-    echo " | |\/| | |     \___ \ / _ \ '__\ \ / / _ \ '__|       "
-    echo " | |  | | |____ ____) |  __/ |   \ V /  __/ |          "
-    echo " |_|  |_|\_____|_____/ \___|_|    \_/ \___|_|          "
-    echo "  _           _        _   _                           "
-    echo " (_)         | |      | | | |                          "
-    echo "  _ _ __  ___| |_ __ _| | | | ___ _ __                 "
-    echo " | | '_ \/ __| __/ _\` | | | |/ _ \ '__|                "
-    echo " | | | | \__ \ || (_| | | | |  __/ |                   "
-    echo " |_|_| |_|___/\__\__,_|_| |_|\___|_|                   "
-    echo -e "${COLOR_RESET}"
-    echo -e "  ${COLOR_GRAY}Developer: ${COLOR_MAGENTA}${COLOR_BOLD}${DEVELOPER}${COLOR_RESET}${COLOR_GRAY} | Version: ${COLOR_GREEN}${COLOR_BOLD}${APP_VERSION}${COLOR_RESET}"
-    echo -e "  ${COLOR_GRAY}GitHub:    ${COLOR_BLUE}https://github.com/devRaikou/mcserver-installer${COLOR_RESET}"
-    echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
+    echo -e "${COLOR_CYAN}${COLOR_BOLD}" >&2
+    echo "  __  __  _____  _____                                 " >&2
+    echo " |  \/  |/ ____|/ ____|                                " >&2
+    echo " | \  / | |    | (___   ___ _ ____   _____ _ __        " >&2
+    echo " | |\/| | |     \___ \ / _ \ '__\ \ / / _ \ '__|       " >&2
+    echo " | |  | | |____ ____) |  __/ |   \ V /  __/ |          " >&2
+    echo " |_|  |_|\_____|_____/ \___|_|    \_/ \___|_|          " >&2
+    echo "  _           _        _   _                           " >&2
+    echo " (_)         | |      | | | |                          " >&2
+    echo "  _ _ __  ___| |_ __ _| | | | ___ _ __                 " >&2
+    echo " | | '_ \/ __| __/ _\` | | | |/ _ \ '__|                " >&2
+    echo " | | | | \__ \ || (_| | | | |  __/ |                   " >&2
+    echo " |_|_| |_|___/\__\__,_|_| |_|\___|_|                   " >&2
+    echo -e "${COLOR_RESET}" >&2
+    echo -e "  ${COLOR_GRAY}Developer: ${COLOR_MAGENTA}${COLOR_BOLD}${DEVELOPER}${COLOR_RESET}${COLOR_GRAY} | Version: ${COLOR_GREEN}${COLOR_BOLD}${APP_VERSION}${COLOR_RESET}" >&2
+    echo -e "  ${COLOR_GRAY}GitHub:    ${COLOR_BLUE}https://github.com/devRaikou/mcserver-installer${COLOR_RESET}" >&2
+    echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}" >&2
 }
 
 draw_box_open() {
     local title="$1"
-    echo -e " ┌── ${COLOR_BOLD}${COLOR_BLUE}${title}${COLOR_RESET} ──────────────────────────────────────"
+    echo -e " ┌── ${COLOR_BOLD}${COLOR_BLUE}${title}${COLOR_RESET} ──────────────────────────────────────" >&2
 }
 
 draw_box_close() {
-    echo -e " └─────────────────────────────────────────────────────"
+    echo -e " └─────────────────────────────────────────────────────" >&2
 }
 
 # Spinner logic for background operations
