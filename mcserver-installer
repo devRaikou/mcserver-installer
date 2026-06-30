@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.4
+# Version: 1.5
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.4"
+APP_VERSION="1.5"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.4 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.5 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -1241,10 +1241,12 @@ create_server_backup() {
     local backup_dir="${server_path}/backups"
     mkdir -p "$backup_dir"
     
-    clear_screen
-    draw_header
-    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}BACKUP CREATION${COLOR_RESET}"
-    echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
+    if [ "${HEADLESS_MODE:-false}" = "false" ]; then
+        clear_screen
+        draw_header
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}BACKUP CREATION${COLOR_RESET}"
+        echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
+    fi
     
     local timestamp
     timestamp=$(date +"%Y%m%d_%H%M%S")
@@ -1253,8 +1255,6 @@ create_server_backup() {
     
     log_info "Creating backup archive in progress..."
     
-    # Archive files, excluding logs and backups folder
-    # We do cd server_path so we archive relative paths
     (cd "$server_path" && tar --exclude='./backups' --exclude='./logs' -czf "$tar_path" .)
     local status=$?
     
@@ -1268,12 +1268,78 @@ create_server_backup() {
         local size_mb=$((size_bytes / 1024 / 1024))
         log_success "Backup completed successfully!"
         log_success "Saved as: backups/${tar_name} (${size_mb} MB)"
+        send_discord_notification "💾 Backup created successfully!" 3066993 "$server_path" "Backup Archive" "${tar_name} (${size_mb} MB)"
     else
         log_error "Backup compression failed."
+        send_discord_notification "⚠️ Backup compression failed!" 15158332 "$server_path"
     fi
     
-    echo -e -n "\n  Press [Enter] to return: "
-    read -r _
+    if [ "${HEADLESS_MODE:-false}" = "false" ]; then
+        echo -e -n "\n  Press [Enter] to return: "
+        read -r _
+    fi
+}
+
+manage_backup_scheduler() {
+    local s_name="$1"
+    local s_path="$2"
+    
+    while true; do
+        clear_screen
+        draw_header
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}AUTOMATED BACKUP SCHEDULER${COLOR_RESET}"
+        echo -e "  Server: $s_name"
+        echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
+        
+        local current_cron
+        current_cron=$(crontab -l 2>/dev/null | grep "mcserver-installer --backup ${s_name}" || true)
+        
+        if [ -n "$current_cron" ]; then
+            echo -e "  Active Schedule: ${COLOR_GREEN}${current_cron}${COLOR_RESET}"
+        else
+            echo -e "  Active Schedule: ${COLOR_YELLOW}None (Disabled)${COLOR_RESET}"
+        fi
+        
+        echo -e "\n  Options:"
+        echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} Schedule Daily Backup (at 04:00 AM)"
+        echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} Schedule Weekly Backup (Sundays at 04:00 AM)"
+        echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} Remove Automated Backup Schedule"
+        echo -e "    ${COLOR_YELLOW}4.${COLOR_RESET} Return to Management Menu"
+        echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
+        
+        local choice
+        choice=$(prompt_input "Select option" "4")
+        
+        local script_path
+        script_path=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+        
+        case "$choice" in
+            1)
+                local schedule_line="0 4 * * * \"${script_path}\" --backup \"${s_name}\" >/dev/null 2>&1"
+                (crontab -l 2>/dev/null | grep -v "mcserver-installer --backup ${s_name}"; echo "$schedule_line") | crontab -
+                log_success "Daily backup successfully scheduled!"
+                sleep 2
+                ;;
+            2)
+                local schedule_line="0 4 * * 0 \"${script_path}\" --backup \"${s_name}\" >/dev/null 2>&1"
+                (crontab -l 2>/dev/null | grep -v "mcserver-installer --backup ${s_name}"; echo "$schedule_line") | crontab -
+                log_success "Weekly backup successfully scheduled!"
+                sleep 2
+                ;;
+            3)
+                crontab -l 2>/dev/null | grep -v "mcserver-installer --backup ${s_name}" | crontab - || crontab -r 2>/dev/null
+                log_success "Automated backup schedule removed."
+                sleep 2
+                ;;
+            4)
+                break
+                ;;
+            *)
+                log_warn "Invalid selection."
+                sleep 1.5
+                ;;
+        esac
+    done
 }
 
 run_server_restore() {
@@ -1668,6 +1734,39 @@ EOF
     sleep 2
 }
 
+get_java_pid_for_session() {
+    local session_name="$1"
+    
+    local screen_pid
+    screen_pid=$(screen -ls | grep "\.${session_name}" | head -n 1 | awk '{print $1}' | cut -d. -f1 | tr -d '\r\n')
+    if [ -z "$screen_pid" ]; then
+        return 1
+    fi
+    
+    local java_pids
+    java_pids=$(pgrep -x java || pgrep -f java || true)
+    if [ -z "$java_pids" ]; then
+        return 1
+    fi
+    
+    for pid in $java_pids; do
+        local curr=$pid
+        while [ "$curr" -gt 1 ]; do
+            local ppid
+            ppid=$(ps -o ppid= -p "$curr" 2>/dev/null | tr -d ' ' | tr -d '\r\n')
+            if [ -z "$ppid" ] || [ "$ppid" -le 1 ]; then
+                break
+            fi
+            if [ "$ppid" -eq "$screen_pid" ]; then
+                echo "$pid"
+                return 0
+            fi
+            curr=$ppid
+        done
+    done
+    return 1
+}
+
 monitor_server_resources() {
     local s_name="$1"
     local s_path="$2"
@@ -1688,7 +1787,7 @@ monitor_server_resources() {
     clear_screen
     while true; do
         local pid
-        pid=$(pgrep -f "java.*${session_name}" | head -n 1)
+        pid=$(get_java_pid_for_session "$session_name")
         if [ -z "$pid" ]; then
             echo -e "  Server process not found (stopped?)." >&2
             sleep 2
