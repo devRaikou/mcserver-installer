@@ -1978,6 +1978,133 @@ update_server_software() {
     sleep 2
 }
 
+configure_discord_webhook() {
+    clear_screen
+    draw_header
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}CONFIGURE DISCORD WEBHOOK${COLOR_RESET}"
+    echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
+    
+    local settings_file="${HOME}/.mcserver-installer/settings.conf"
+    local current_webhook=""
+    if [ -f "$settings_file" ]; then
+        # Load existing webhook setting safely
+        current_webhook=$(grep '^DISCORD_WEBHOOK=' "$settings_file" | cut -d'"' -f2 | tr -d '\r')
+    fi
+    
+    if [ -n "$current_webhook" ]; then
+        echo -e "  Active Webhook URL: ${COLOR_GREEN}${current_webhook:0:55}...${COLOR_RESET}"
+        prompt_yes_no "Do you want to disable or update the Discord webhook?" "n"
+        if [ $? -eq 0 ]; then
+            current_webhook=""
+        else
+            return 0
+        fi
+    fi
+    
+    if [ -z "$current_webhook" ]; then
+        local webhook
+        webhook=$(prompt_input "Enter Discord Webhook URL (leave empty to disable)" "")
+        
+        if [ -n "$webhook" ]; then
+            echo "DISCORD_WEBHOOK=\"${webhook}\"" > "$settings_file"
+            log_success "Discord Webhook saved successfully!"
+        else
+            rm -f "$settings_file"
+            log_success "Discord Webhook disabled."
+        fi
+    fi
+    
+    sleep 2
+}
+
+run_java_manager_menu() {
+    while true; do
+        clear_screen
+        draw_header
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}JAVA JRE MANAGER${COLOR_RESET}"
+        echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
+        
+        local active_ver
+        active_ver=$(get_java_installed_version)
+        echo -e "  Active System JRE:   Java ${COLOR_GREEN}${active_ver}${COLOR_RESET}"
+        echo -e "  Installed Java environments found:"
+        
+        local javas_found=0
+        for jv in 8 17 21 25; do
+            local jpath
+            jpath=$(find_java_binary_path "$jv")
+            if [ "$jpath" != "java" ] && [ -x "$jpath" ]; then
+                echo -e "    - JRE ${COLOR_YELLOW}${jv}${COLOR_RESET}: Located at $jpath"
+                javas_found=$((javas_found + 1))
+            fi
+        done
+        
+        if [ "$javas_found" -eq 0 ]; then
+            echo -e "    - No directory-isolated OpenJDK versions found."
+        fi
+        
+        echo -e "\n  Options:"
+        echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} Install OpenJDK 8"
+        echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} Install OpenJDK 17"
+        echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} Install OpenJDK 21"
+        echo -e "    ${COLOR_YELLOW}4.${COLOR_RESET} Install OpenJDK 25 (requires Ubuntu PPA check)"
+        echo -e "    ${COLOR_YELLOW}5.${COLOR_RESET} Return to Settings"
+        echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
+        
+        local choice
+        choice=$(prompt_input "Select option" "5")
+        
+        case "$choice" in
+            1) install_java_package 8; sleep 2 ;;
+            2) install_java_package 17; sleep 2 ;;
+            3) install_java_package 21; sleep 2 ;;
+            4) install_java_package 25; sleep 2 ;;
+            5) break ;;
+            *) log_warn "Invalid selection."; sleep 1.5 ;;
+        esac
+    done
+}
+
+run_settings_menu() {
+    while true; do
+        clear_screen
+        draw_header
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}SETTINGS & SYSTEM CHECKS${COLOR_RESET}"
+        echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
+        echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} Run System Verification Tests"
+        echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} Manage Java JRE Installations"
+        echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} Configure Discord Webhook Alert"
+        echo -e "    ${COLOR_YELLOW}4.${COLOR_RESET} Return to Main Menu"
+        echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
+        
+        local choice
+        choice=$(prompt_input "Select option" "4")
+        
+        case "$choice" in
+            1)
+                clear_screen
+                draw_header
+                verify_system_requirements
+                echo -n -e "\n  Press [Enter] to continue: "
+                read -r _
+                ;;
+            2)
+                run_java_manager_menu
+                ;;
+            3)
+                configure_discord_webhook
+                ;;
+            4)
+                break
+                ;;
+            *)
+                log_warn "Invalid selection."
+                sleep 1.5
+                ;;
+        esac
+    done
+}
+
 # --- Main Application Menu Loop ---
 main_menu() {
     # Start background public IP fetch
@@ -2026,9 +2153,7 @@ main_menu() {
                 remove_server_registration
                 ;;
             7)
-                verify_system_requirements
-                echo -n -e "\n  Press [Enter] to continue: "
-                read -r _
+                run_settings_menu
                 ;;
             8)
                 show_about
