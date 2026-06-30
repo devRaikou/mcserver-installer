@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.1
+# Version: 1.2
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.1"
+APP_VERSION="1.2"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.1 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.2 (${DEVELOPER})"
 
 # Ensure application config directory exists
 mkdir -p "${HOME}/.mcserver-installer"
@@ -81,7 +81,8 @@ draw_header() {
     echo " | | | | \__ \ || (_| | | | |  __/ |                   "
     echo " |_|_| |_|___/\__\__,_|_| |_|\___|_|                   "
     echo -e "${COLOR_RESET}"
-    echo -e "  ${COLOR_GRAY}Developer: ${COLOR_WHITE}${DEVELOPER}${COLOR_GRAY} | Project: ${COLOR_WHITE}mcserver-installer${COLOR_GRAY} | Version: ${COLOR_WHITE}${APP_VERSION}${COLOR_RESET}"
+    echo -e "  ${COLOR_GRAY}Developer: ${COLOR_MAGENTA}${COLOR_BOLD}${DEVELOPER}${COLOR_RESET}${COLOR_GRAY} | Version: ${COLOR_GREEN}${COLOR_BOLD}${APP_VERSION}${COLOR_RESET}"
+    echo -e "  ${COLOR_GRAY}GitHub:    ${COLOR_BLUE}https://github.com/devRaikou/mcserver-installer${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
 }
 
@@ -545,22 +546,98 @@ prompt_selection() {
     shift
     local options=("$@")
     
-    echo -e "  ${COLOR_CYAN}${msg}${COLOR_RESET}" >&2
-    local i=1
-    for opt in "${options[@]}"; do
-        echo -e "    ${COLOR_YELLOW}${i}.${COLOR_RESET} $opt" >&2
-        i=$((i + 1))
-    done
+    local max_visible=10
+    local total=${#options[@]}
     
-    local choice=0
+    # If options are few, display them normally without pagination
+    if [ "$total" -le "$((max_visible + 2))" ]; then
+        echo -e "  ${COLOR_CYAN}${msg}${COLOR_RESET}" >&2
+        local i=1
+        for opt in "${options[@]}"; do
+            echo -e "    ${COLOR_YELLOW}${i}.${COLOR_RESET} $opt" >&2
+            i=$((i + 1))
+        done
+        
+        local choice=0
+        while true; do
+            echo -n "  Select option (1-${total}): " >&2
+            read -r choice
+            if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "$total" ]; then
+                echo "${options[$((choice - 1))]}"
+                return 0
+            fi
+            log_warn "Invalid selection. Please try again."
+        done
+    fi
+    
+    # Otherwise, paginate!
+    local current_page=0
+    local pages_count=$(( (total + max_visible - 1) / max_visible ))
+    
     while true; do
-        echo -n "  Select option (1-${#options[@]}): " >&2
+        clear_screen
+        draw_header
+        echo -e "  ${COLOR_CYAN}${msg} (Page $((current_page + 1)) of ${pages_count})${COLOR_RESET}" >&2
+        
+        local start_idx=$((current_page * max_visible))
+        local end_idx=$((start_idx + max_visible))
+        [ "$end_idx" -gt "$total" ] && end_idx=$total
+        
+        local displayed_options=()
+        local map_idx=()
+        local item_num=1
+        
+        for ((i=start_idx; i<end_idx; i++)); do
+            echo -e "    ${COLOR_YELLOW}${item_num}.${COLOR_RESET} ${options[$i]}" >&2
+            displayed_options+=("${options[$i]}")
+            map_idx+=($i)
+            item_num=$((item_num + 1))
+        done
+        
+        local next_num=$item_num
+        local prev_num=$((item_num + 1))
+        local max_choice=$item_num
+        
+        local has_next=false
+        local has_prev=false
+        
+        if [ "$current_page" -lt "$((pages_count - 1))" ]; then
+            echo -e "    ${COLOR_YELLOW}${next_num}.${COLOR_RESET} ${COLOR_BLUE}[Next Page ->]${COLOR_RESET}" >&2
+            has_next=true
+            max_choice=$next_num
+        fi
+        
+        if [ "$current_page" -gt 0 ]; then
+            if [ "$has_next" = "true" ]; then
+                prev_num=$((next_num + 1))
+            else
+                prev_num=$next_num
+            fi
+            echo -e "    ${COLOR_YELLOW}${prev_num}.${COLOR_RESET} ${COLOR_BLUE}[<- Previous Page]${COLOR_RESET}" >&2
+            has_prev=true
+            max_choice=$prev_num
+        fi
+        
+        local choice=0
+        echo -n "  Select option (1-${max_choice}): " >&2
         read -r choice
-        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "${#options[@]}" ]; then
-            echo "${options[$((choice - 1))]}"
+        
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "$max_choice" ]; then
+            if [ "$has_next" = "true" ] && [ "$choice" -eq "$next_num" ]; then
+                current_page=$((current_page + 1))
+                continue
+            fi
+            if [ "$has_prev" = "true" ] && [ "$choice" -eq "$prev_num" ]; then
+                current_page=$((current_page - 1))
+                continue
+            fi
+            
+            local selected_mapped_idx=${map_idx[$((choice - 1))]}
+            echo "${options[$selected_mapped_idx]}"
             return 0
         fi
         log_warn "Invalid selection. Please try again."
+        sleep 1.5
     done
 }
 
