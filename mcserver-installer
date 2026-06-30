@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.10
+# Version: 1.11
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.10"
+APP_VERSION="1.11"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.10 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.11 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -999,12 +999,13 @@ EOF
             echo "${backend_names[$i]} = \"127.0.0.1:${backend_ports[$i]}\"" >> "$toml_path"
         done
         
+        echo "try = [" >> "$toml_path"
+        echo "  \"${backend_names[0]}\"" >> "$toml_path"
+        echo "]" >> "$toml_path"
+        
         cat >> "$toml_path" <<EOF
 
 [forced-hosts]
-
-[try]
-servers = ["${backend_names[0]}"]
 EOF
         
         for name in "${backend_names[@]}"; do
