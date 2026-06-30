@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.9
+# Version: 1.10
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.9"
+APP_VERSION="1.10"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.9 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.10 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -1221,10 +1221,19 @@ run_installation_wizard() {
     # 4. Installation Directory
     local default_dir="${HOME}/MinecraftServer"
     local inst_dir
-    inst_dir=$(prompt_input "Enter installation directory" "$default_dir")
+    if [ "$LANG_PREF" = "tr" ]; then
+        inst_dir=$(prompt_input "Kurulum dizinini girin" "$default_dir")
+    else
+        inst_dir=$(prompt_input "Enter installation directory" "$default_dir")
+    fi
     
     # Expand tilde if present
     inst_dir="${inst_dir/#\~/$HOME}"
+    
+    # Resolve relative paths to absolute path
+    if [[ "$inst_dir" != /* ]]; then
+        inst_dir="$(pwd)/${inst_dir}"
+    fi
     
     if [ -d "$inst_dir" ] && [ "$(ls -A "$inst_dir" 2>/dev/null)" ]; then
         log_warn "Directory $inst_dir exists and is NOT empty."
