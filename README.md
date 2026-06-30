@@ -76,7 +76,7 @@ When launched, the script presents an interactive dashboard:
  | | | | \__ \ || (_| | | | |  __/ |                   
  |_|_| |_|___/\__\__,_|_| |_|\___|_|                   
                                                        
- Developer: devRaikou | Project: mcserver-installer | Version: 1.0
+ Developer: devRaikou | Project: mcserver-installer | Version: 1.1
  ================================================================
 
   MAIN DIRECTORY MENU

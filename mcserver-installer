@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.0
+# Version: 1.1
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.0"
+APP_VERSION="1.1"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.0 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.1 (${DEVELOPER})"
 
 # Ensure application config directory exists
 mkdir -p "${HOME}/.mcserver-installer"
@@ -335,6 +335,72 @@ get_java_installed_version() {
     fi
 }
 
+get_required_java_version() {
+    local mc_ver="$1"
+    
+    # Defaults for proxies/latest
+    if [ "$mc_ver" = "latest" ]; then
+        echo 21
+        return
+    fi
+    
+    # Try fetching dynamically from Mojang packages JSON
+    local pkg_url
+    pkg_url=$(curl -s "https://launchermeta.mojang.com/mc/game/version_manifest_v2.json" | jq -r --arg ver "$mc_ver" '.versions[] | select(.id == $ver) | .url' 2>/dev/null)
+    if [ -n "$pkg_url" ] && [ "$pkg_url" != "null" ]; then
+        local maj_ver
+        maj_ver=$(curl -s "$pkg_url" | jq -r '.javaVersion.majorVersion' 2>/dev/null)
+        if [[ "$maj_ver" =~ ^[0-9]+$ ]]; then
+            echo "$maj_ver"
+            return
+        fi
+    fi
+    
+    # Fallbacks based on standard conventions
+    if [[ "$mc_ver" =~ ^2[56789]\. ]]; then
+        echo 25
+    elif [[ "$mc_ver" =~ ^1\.20\.[5-9] || "$mc_ver" =~ ^1\.21 ]]; then
+        echo 21
+    elif [[ "$mc_ver" =~ ^1\.17 || "$mc_ver" =~ ^1\.18 || "$mc_ver" =~ ^1\.19 || "$mc_ver" =~ ^1\.20 ]]; then
+        echo 17
+    else
+        echo 8
+    fi
+}
+
+find_java_binary_path() {
+    local version="$1"
+    
+    # 1. Check standard JVM folders
+    local paths
+    paths=$(ls -d /usr/lib/jvm/java-${version}-openjdk* 2>/dev/null)
+    for p in $paths; do
+        if [ -x "${p}/bin/java" ]; then
+            echo "${p}/bin/java"
+            return
+        fi
+    done
+    
+    # 2. Check using update-alternatives
+    local alt_path
+    alt_path=$(update-alternatives --display java 2>/dev/null | grep -E "priority|link" | grep -oE "/usr/lib/jvm/[^ ]+/bin/java" | grep "java-${version}" | head -n 1)
+    if [ -n "$alt_path" ] && [ -x "$alt_path" ]; then
+        echo "$alt_path"
+        return
+    fi
+    
+    # 3. Fallback to default if matching JRE is current
+    local current_ver
+    current_ver=$(get_java_installed_version)
+    if [ "$current_ver" -eq "$version" ]; then
+        echo "java"
+        return
+    fi
+    
+    # Fallback to general java
+    echo "java"
+}
+
 install_java_package() {
     local version="$1"
     local pkg_name="openjdk-${version}-jdk"
@@ -344,6 +410,26 @@ install_java_package() {
     if [ "$EUID" -ne 0 ] && ! command -v sudo &>/dev/null; then
         log_error "Root permissions or sudo required to install Java."
         return 1
+    fi
+    
+    # Check if package is available
+    local pkg_avail=false
+    if apt-cache show "$pkg_name" &>/dev/null; then
+        pkg_avail=true
+    fi
+    
+    if [ "$pkg_avail" = "false" ]; then
+        log_warn "Package $pkg_name not found in default repositories."
+        # If Ubuntu/Debian, try adding openjdk PPA
+        if [ -f /etc/os-release ] && grep -q -i "ubuntu" /etc/os-release; then
+            log_info "Adding PPA ppa:openjdk-r/ppa for Ubuntu..."
+            local ppa_cmd="apt-get install -y software-properties-common && add-apt-repository -y ppa:openjdk-r/ppa && apt-get update"
+            if [ "$EUID" -eq 0 ]; then
+                run_with_spinner "Adding PPA" bash -c "$ppa_cmd"
+            else
+                run_with_spinner "Adding PPA (via sudo)" sudo bash -c "$ppa_cmd"
+            fi
+        fi
     fi
     
     local install_cmd="apt-get update && apt-get install -y $pkg_name"
@@ -681,18 +767,18 @@ run_installation_wizard() {
     max_ram=$(prompt_input "Enter Maximum RAM allocation (e.g., 4096M, 4G)" "4096M")
     
     # 6. Java Detection & Required Java configuration
-    local required_java=8
-    if [[ "$mc_version" =~ ^1\.20\.[5-9] || "$mc_version" =~ ^1\.21 || "$mc_version" == "26."* || "$mc_version" == "latest" ]]; then
-        required_java=21
-    elif [[ "$mc_version" =~ ^1\.17 || "$mc_version" =~ ^1\.18 || "$mc_version" =~ ^1\.19 || "$mc_version" =~ ^1\.20 ]]; then
-        required_java=17
-    fi
+    local required_java
+    required_java=$(get_required_java_version "$mc_version")
     
     verify_or_install_java "$required_java"
     if [ $? -ne 0 ]; then
         log_error "Java setup failed. Cannot continue."
         exit 1
     fi
+    
+    local java_path
+    java_path=$(find_java_binary_path "$required_java")
+
     
     # 7. Port check
     local default_port="25565"
@@ -832,10 +918,19 @@ run_installation_wizard() {
     fi
     
     # Create start.sh script
+    local java_dir
+    java_dir=$(dirname "$java_path")
+    local path_inject=""
+    if [ "$java_dir" != "." ] && [ "$java_dir" != "/usr/bin" ] && [ "$java_dir" != "/bin" ]; then
+        path_inject="export PATH=\"${java_dir}:\$PATH\""
+    fi
+
     cat > start.sh <<EOF
 #!/usr/bin/env bash
 # Generated by mcserver-installer (${DEVELOPER})
 # Minecraft Server Auto-Restart script
+
+${path_inject}
 
 MEM_MIN="${min_ram}"
 MEM_MAX="${max_ram}"
