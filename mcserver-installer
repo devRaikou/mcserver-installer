@@ -56,10 +56,10 @@ cleanup() {
 trap cleanup EXIT SIGINT SIGTERM
 
 # --- Logging Helpers ---
-log_info() { echo -e "  ${COLOR_BLUE}${ICON_INFO} %s${COLOR_RESET}" "$*"; }
-log_success() { echo -e "  ${COLOR_GREEN}${ICON_SUCCESS} %s${COLOR_RESET}" "$*"; }
-log_warn() { echo -e "  ${COLOR_YELLOW}${ICON_WARNING} %s${COLOR_RESET}" "$*"; }
-log_error() { echo -e "  ${COLOR_RED}${ICON_ERROR} %s${COLOR_RESET}" "$*"; }
+log_info() { echo -e "  ${COLOR_BLUE}${ICON_INFO} $*${COLOR_RESET}" >&2; }
+log_success() { echo -e "  ${COLOR_GREEN}${ICON_SUCCESS} $*${COLOR_RESET}" >&2; }
+log_warn() { echo -e "  ${COLOR_YELLOW}${ICON_WARNING} $*${COLOR_RESET}" >&2; }
+log_error() { echo -e "  ${COLOR_RED}${ICON_ERROR} $*${COLOR_RESET}" >&2; }
 
 # --- Terminal UI Helpers ---
 clear_screen() {
@@ -459,16 +459,16 @@ prompt_selection() {
     shift
     local options=("$@")
     
-    echo -e "  ${COLOR_CYAN}%s${COLOR_RESET}" "$msg"
+    echo -e "  ${COLOR_CYAN}${msg}${COLOR_RESET}" >&2
     local i=1
     for opt in "${options[@]}"; do
-        echo -e "    ${COLOR_YELLOW}${i}.${COLOR_RESET} $opt"
+        echo -e "    ${COLOR_YELLOW}${i}.${COLOR_RESET} $opt" >&2
         i=$((i + 1))
     done
     
     local choice=0
     while true; do
-        echo -n "  Select option (1-${#options[@]}): "
+        echo -n "  Select option (1-${#options[@]}): " >&2
         read -r choice
         if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "${#options[@]}" ]; then
             echo "${options[$((choice - 1))]}"
@@ -481,7 +481,8 @@ prompt_selection() {
 prompt_input() {
     local msg="$1"
     local default="$2"
-    echo -e -n "  ${COLOR_CYAN}${msg}${COLOR_RESET} [${COLOR_GRAY}${default}${COLOR_RESET}]: "
+    echo -e -n "  ${COLOR_CYAN}${msg}${COLOR_RESET} [${COLOR_GRAY}${default}${COLOR_RESET}]: " >&2
+    local input
     read -r input
     if [ -z "$input" ]; then
         echo "$default"
@@ -497,7 +498,8 @@ prompt_yes_no() {
     [ "$default" = "n" ] && prompt_str="[y/N]"
     
     while true; do
-        echo -n -e "  ${COLOR_CYAN}${msg}${COLOR_RESET} ${prompt_str}: "
+        echo -n -e "  ${COLOR_CYAN}${msg}${COLOR_RESET} ${prompt_str}: " >&2
+        local choice
         read -r choice
         if [ -z "$choice" ]; then
             choice="$default"
@@ -511,6 +513,7 @@ prompt_yes_no() {
         log_warn "Invalid entry. Enter Y or N."
     done
 }
+
 
 # --- Installation Wizard ---
 run_installation_wizard() {
