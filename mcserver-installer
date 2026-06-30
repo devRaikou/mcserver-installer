@@ -1336,6 +1336,33 @@ is_server_running() {
     screen -list | grep -q "\.${session_name}"
 }
 
+check_firewall_rules() {
+    local port="$1"
+    if command -v ufw &>/dev/null; then
+        local status
+        status=$(sudo ufw status 2>/dev/null || ufw status 2>/dev/null || echo "inactive")
+        if echo "$status" | grep -q "Status: active"; then
+            # Check if port is allowed
+            if ! echo "$status" | grep -q "${port}"; then
+                log_warn "UFW firewall is active but port ${port} is NOT allowed!"
+                echo -n "  Would you like to open port ${port} in UFW automatically? [Y/n]: " >&2
+                local choice
+                read -r choice
+                if [[ ! "$choice" =~ ^[Nn] ]]; then
+                    local open_cmd="ufw allow ${port}/tcp && ufw allow ${port}/udp && ufw reload"
+                    if [ "$EUID" -eq 0 ]; then
+                        run_with_spinner "Opening port ${port} in UFW" bash -c "$open_cmd"
+                    else
+                        run_with_spinner "Opening port ${port} in UFW (via sudo)" sudo bash -c "$open_cmd"
+                    fi
+                fi
+            else
+                log_success "UFW firewall rule check: Port ${port} is already allowed."
+            fi
+        fi
+    fi
+}
+
 start_minecraft_server() {
     local server_path="$1"
     local session_name
@@ -1346,6 +1373,10 @@ start_minecraft_server() {
         sleep 2
         return 1
     fi
+    
+    # Check firewall port rules
+    local port; port=$(get_server_port "$server_path" "standard")
+    check_firewall_rules "$port"
     
     log_info "Starting server..."
     # Ensure any residual stop files are gone
@@ -1440,6 +1471,66 @@ connect_server_console() {
     local server_path="$1"
     local session_name
     session_name=$(get_session_name "$server_path")
+    local log_file="${server_path}/logs/latest.log"
+    
+    if ! is_server_running "$session_name"; then
+        log_error "Server is not running. Start the server first!"
+        sleep 2
+        return 1
+    fi
+    
+    local port; port=$(get_server_port "$server_path" "standard")
+    local local_ip; local_ip=$(get_local_ip)
+    local public_ip="Unknown"
+    if [ -f "${HOME}/.mcserver-installer/.public_ip" ]; then
+        public_ip=$(cat "${HOME}/.mcserver-installer/.public_ip" 2>/dev/null)
+    fi
+    [ -z "$public_ip" ] && public_ip="Unknown"
+    
+    # Custom interactive console loop (keeps UI overlay above logs)
+    while true; do
+        clear_screen
+        draw_header
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}INTERACTIVE CONSOLE${COLOR_RESET} (Type 'exit' to quit console)"
+        echo -e "  Address:  ${COLOR_GREEN}${local_ip}:${port}${COLOR_RESET} (Local) | ${COLOR_GREEN}${public_ip}:${port}${COLOR_RESET} (Public)"
+        echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
+        
+        if [ -f "$log_file" ]; then
+            tail -n 18 "$log_file"
+        else
+            echo "  No log file found at $log_file"
+        fi
+        echo -e "${COLOR_CYAN}────────────────────────────────────────────────────────────────${COLOR_RESET}"
+        
+        # Read user input with 1.5-second timeout for real-time log updates
+        local cmd=""
+        echo -n -e "${COLOR_YELLOW}[Console Input]${COLOR_RESET} > " >&2
+        read -t 1.5 -r cmd
+        
+        local status=$?
+        if [ $status -gt 128 ]; then
+            # Read timed out, loop back to refresh logs
+            continue
+        fi
+        
+        # Handle manual exit commands
+        if [ "$cmd" = "exit" ] || [ "$cmd" = "quit" ] || [ "$cmd" = "quit_console" ]; then
+            break
+        fi
+        
+        if [ -n "$cmd" ]; then
+            # Send command to screen session
+            screen -S "$session_name" -p 0 -X stuff "${cmd}$(printf \\r)"
+            # Quick sleep to let JRE write logs
+            sleep 0.15
+        fi
+    done
+}
+
+connect_server_console_raw() {
+    local server_path="$1"
+    local session_name
+    session_name=$(get_session_name "$server_path")
     
     if ! is_server_running "$session_name"; then
         log_error "Server is not running. Start the server first!"
@@ -1449,13 +1540,13 @@ connect_server_console() {
     
     clear_screen
     draw_header
-    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}CONNECTING TO SERVER CONSOLE${COLOR_RESET}"
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}CONNECTING TO RAW CONSOLE${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}IMPORTANT: To detach from the console without stopping the server,${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}Press: Ctrl+A, then D${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
     
-    echo -e "  Connecting in 3 seconds..."
-    sleep 3
+    echo -e "  Connecting in 2 seconds..."
+    sleep 2
     
     screen -r "$session_name"
 }
@@ -1528,16 +1619,17 @@ run_server_management_menu() {
         echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} Start Server"
         echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} Stop Server"
         echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} Restart Server"
-        echo -e "    ${COLOR_YELLOW}4.${COLOR_RESET} Connect to Console"
-        echo -e "    ${COLOR_YELLOW}5.${COLOR_RESET} View Server Logs"
-        echo -e "    ${COLOR_YELLOW}6.${COLOR_RESET} Edit server.properties"
-        echo -e "    ${COLOR_YELLOW}7.${COLOR_RESET} Create Backup"
-        echo -e "    ${COLOR_YELLOW}8.${COLOR_RESET} Restore Backup"
-        echo -e "    ${COLOR_YELLOW}9.${COLOR_RESET} Change Server Memory Allocation (RAM)"
-        echo -e "   ${COLOR_YELLOW}10.${COLOR_RESET} Return to Main Menu"
+        echo -e "    ${COLOR_YELLOW}4.${COLOR_RESET} Connect to Interactive Console (UI Overlay)"
+        echo -e "    ${COLOR_YELLOW}5.${COLOR_RESET} Connect to Raw Console (GNU Screen)"
+        echo -e "    ${COLOR_YELLOW}6.${COLOR_RESET} View Server Logs"
+        echo -e "    ${COLOR_YELLOW}7.${COLOR_RESET} Edit server.properties"
+        echo -e "    ${COLOR_YELLOW}8.${COLOR_RESET} Create Backup"
+        echo -e "    ${COLOR_YELLOW}9.${COLOR_RESET} Restore Backup"
+        echo -e "   ${COLOR_YELLOW}10.${COLOR_RESET} Change Server Memory Allocation (RAM)"
+        echo -e "   ${COLOR_YELLOW}11.${COLOR_RESET} Return to Main Menu"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
         
-        echo -n "  Select option (1-10): "
+        echo -n "  Select option (1-11): "
         read -r choice
         
         case "$choice" in
@@ -1554,9 +1646,12 @@ run_server_management_menu() {
                 connect_server_console "$s_path"
                 ;;
             5)
-                view_server_logs "$s_path"
+                connect_server_console_raw "$s_path"
                 ;;
             6)
+                view_server_logs "$s_path"
+                ;;
+            7)
                 if [ "$s_type" = "velocity" ] || [ "$s_type" = "waterfall" ] || [ "$s_type" = "bungeecord" ]; then
                     log_warn "Proxy servers do not use standard server.properties files."
                     sleep 2
@@ -1564,10 +1659,10 @@ run_server_management_menu() {
                     run_properties_editor "$s_path"
                 fi
                 ;;
-            7)
+            8)
                 create_server_backup "$s_path"
                 ;;
-            8)
+            9)
                 if is_server_running "$session_name"; then
                     log_error "Please stop the server before running a restore!"
                     sleep 2
@@ -1575,7 +1670,7 @@ run_server_management_menu() {
                     run_server_restore "$s_path"
                 fi
                 ;;
-            9)
+            10)
                 if [ ! -f "${s_path}/start.sh" ]; then
                     log_error "No start.sh script found to modify memory values."
                     sleep 2
@@ -1610,7 +1705,7 @@ run_server_management_menu() {
                     sleep 2
                 fi
                 ;;
-            10)
+            11)
                 break
                 ;;
             *)
