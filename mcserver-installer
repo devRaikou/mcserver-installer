@@ -1645,6 +1645,96 @@ EOF
     sleep 2
 }
 
+monitor_server_resources() {
+    local s_name="$1"
+    local s_path="$2"
+    local session_name
+    session_name=$(get_session_name "$s_path")
+    
+    if ! is_server_running "$session_name"; then
+        log_error "Server is not running. Start it first to monitor resources!"
+        sleep 2
+        return 1
+    fi
+    
+    local max_ram="Unknown"
+    if [ -f "${s_path}/start.sh" ]; then
+        max_ram=$(grep "^MEM_MAX=" "${s_path}/start.sh" | cut -d= -f2- | tr -d '"\r ')
+    fi
+    
+    clear_screen
+    while true; do
+        local pid
+        pid=$(pgrep -f "java.*${session_name}" | head -n 1)
+        if [ -z "$pid" ]; then
+            echo -e "  Server process not found (stopped?)." >&2
+            sleep 2
+            break
+        fi
+        
+        local cpu
+        cpu=$(ps -p "$pid" -o %cpu= 2>/dev/null | tr -d ' ' | tr -d '\r\n')
+        local rss
+        rss=$(ps -p "$pid" -o rss= 2>/dev/null | tr -d ' ' | tr -d '\r\n')
+        local disk
+        disk=$(du -sh "$s_path" 2>/dev/null | awk '{print $1}' | tr -d '\r\n')
+        
+        clear_screen
+        draw_header
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}REAL-TIME RESOURCE MONITOR${COLOR_RESET}"
+        echo -e "  Server: $s_name | Session: $session_name | PID: $pid"
+        echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
+        
+        if [ -n "$cpu" ]; then
+            echo -e "  CPU Usage:      ${COLOR_YELLOW}${cpu}%${COLOR_RESET}"
+        else
+            echo -e "  CPU Usage:      Unknown"
+        fi
+        
+        if [ -n "$rss" ] && [[ "$rss" =~ ^[0-9]+$ ]]; then
+            local rss_mb=$((rss / 1024))
+            local max_mb=0
+            if [[ "$max_ram" =~ ^[0-9]+[GMgm]$ ]]; then
+                local num
+                num=$(echo "$max_ram" | tr -d 'GMgm')
+                local unit
+                unit=$(echo "$max_ram" | grep -oE "[GMgm]" | tr -d '\r\n')
+                if [[ "$unit" =~ [Gg] ]]; then
+                    max_mb=$((num * 1024))
+                else
+                    max_mb=$num
+                fi
+            fi
+            
+            if [ "$max_mb" -gt 0 ]; then
+                local pct=$((rss_mb * 100 / max_mb))
+                [ "$pct" -gt 100 ] && pct=100
+                local filled=$((pct / 10))
+                local empty=$((10 - filled))
+                local bar=""
+                for ((k=0; k<filled; k++)); do bar="${bar}█"; done
+                for ((k=0; k<empty; k++)); do bar="${bar}░"; done
+                echo -e "  RAM Usage:      ${COLOR_GREEN}[${bar}]${COLOR_RESET} ${rss_mb} MB / ${max_mb} MB (${pct}%)"
+            else
+                echo -e "  RAM Usage:      ${COLOR_GREEN}${rss_mb} MB${COLOR_RESET} / ${max_ram}"
+            fi
+        else
+            echo -e "  RAM Usage:      Unknown"
+        fi
+        
+        echo -e "  Disk Footprint: ${COLOR_BLUE}${disk}${COLOR_RESET}"
+        echo -e "\n  Press 'q' and enter to return to the management menu."
+        echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
+        
+        local input_char=""
+        read -t 2 -r input_char
+        input_char=$(echo "$input_char" | tr -d '\r')
+        if [ "$input_char" = "q" ] || [ "$input_char" = "Q" ]; then
+            break
+        fi
+    done
+}
+
 # --- Management Menu for a Specific Server ---
 run_server_management_menu() {
     local s_name="$1"
@@ -1686,11 +1776,12 @@ run_server_management_menu() {
         echo -e "    ${COLOR_YELLOW}8.${COLOR_RESET} Create Backup"
         echo -e "    ${COLOR_YELLOW}9.${COLOR_RESET} Restore Backup"
         echo -e "   ${COLOR_YELLOW}10.${COLOR_RESET} Change Server Memory Allocation (RAM)"
-        echo -e "   ${COLOR_YELLOW}11.${COLOR_RESET} Enable/Disable Boot Auto-start (systemd)"
-        echo -e "   ${COLOR_YELLOW}12.${COLOR_RESET} Return to Main Menu"
+        echo -e "   ${COLOR_YELLOW}11.${COLOR_RESET} Real-time Resource Monitor"
+        echo -e "   ${COLOR_YELLOW}12.${COLOR_RESET} Enable/Disable Boot Auto-start (systemd)"
+        echo -e "   ${COLOR_YELLOW}13.${COLOR_RESET} Return to Main Menu"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
         
-        echo -n "  Select option (1-12): "
+        echo -n "  Select option (1-13): "
         read -r choice
         choice=$(echo "$choice" | tr -d '\r')
         
@@ -1768,9 +1859,12 @@ run_server_management_menu() {
                 fi
                 ;;
             11)
-                toggle_systemd_service "$s_name" "$s_path"
+                monitor_server_resources "$s_name" "$s_path"
                 ;;
             12)
+                toggle_systemd_service "$s_name" "$s_path"
+                ;;
+            13)
                 break
                 ;;
             *)
