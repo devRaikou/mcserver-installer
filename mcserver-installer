@@ -77,10 +77,17 @@ t() {
             "srv_geyser") echo "Geyser & Floodgate Kur (Cross-play)" ;;
             "srv_systemd") echo "Sistem Açılışında Başlatmayı Etkinleştir/Kaldır (systemd)" ;;
             "srv_back") echo "Ana Menüye Dön" ;;
-            "srv_select") echo "Seçim yapın (1-16):" ;;
-            
             "invalid_sel") echo "Geçersiz seçim." ;;
             "press_enter") echo "Devam etmek için [Enter] tuşuna basın: " ;;
+            
+            # Orchestrator
+            "orch_title") echo "PROXY ARKA PLAN ORKESTRASYONU" ;;
+            "orch_prompt") echo "Bu proxy arkasına otomatik arka plan sunucuları (Lobby, Survival vb.) kurmak ister misiniz?" ;;
+            "orch_names_prompt") echo "Kurulacak arka plan sunucularının isimlerini girin (virgülle ayırın)" ;;
+            "orch_version_prompt") echo "Arka plan sunucuları için Minecraft sürümünü seçin:" ;;
+            "orch_fetching") echo "Paper sürümünün son derlemesi çekiliyor..." ;;
+            "orch_installing") echo "Arka plan sunucusu kuruluyor" ;;
+            "orch_success") echo "Arka plan sunucuları başarıyla orkestre edildi ve proxy'ye bağlandı!" ;;
             *) echo "$default_msg" ;;
         esac
     else
@@ -809,6 +816,246 @@ prompt_yes_no() {
 }
 
 
+# --- Proxy Backend Server Orchestrator ---
+orchestrate_proxy_network() {
+    local proxy_dir="$1"
+    local proxy_name="$2"
+    local proxy_type="$3"
+    
+    clear_screen
+    draw_header
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "orch_title" "PROXY BACKEND ORCHESTRATION")${COLOR_RESET}"
+    echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
+    
+    prompt_yes_no "$(t "orch_prompt" "Would you like to automatically deploy backend servers (Lobby, Survival, etc.) behind this proxy?")" "y"
+    if [ $? -ne 0 ]; then
+        return 0
+    fi
+    
+    local default_names="hub-1,survival-1"
+    local backend_names_str
+    backend_names_str=$(prompt_input "$(t "orch_names_prompt" "Enter names of backend servers to deploy (comma-separated)")" "$default_names")
+    
+    local backend_names=()
+    IFS=',' read -ra ADDR <<< "$backend_names_str"
+    for i in "${ADDR[@]}"; do
+        local name; name=$(echo "$i" | xargs)
+        [ -n "$name" ] && backend_names+=("$name")
+    done
+    
+    if [ ${#backend_names[@]} -eq 0 ]; then
+        log_error "No backend server names entered."
+        sleep 2
+        return 1
+    fi
+    
+    # 2. Select backend version
+    local releases
+    releases=$(fetch_vanilla_releases)
+    local mc_version
+    mc_version=$(prompt_selection "$(t "orch_version_prompt" "Select Minecraft version for backend servers:")" $releases)
+    
+    # 3. Find latest build of Paper for this version
+    log_info "$(t "orch_fetching" "Fetching latest Paper build for version ${mc_version}...")"
+    local builds
+    builds=$(fetch_papermc_builds "paper" "$mc_version" | sort -nr)
+    local build_num
+    if [ -n "$builds" ]; then
+        build_num=$(echo "$builds" | head -n 1)
+    else
+        log_error "Could not resolve Paper build for version ${mc_version}."
+        sleep 2
+        return 1
+    fi
+    
+    local paper_url
+    paper_url=$(fetch_papermc_download_url "paper" "$mc_version" "$build_num")
+    if [ -z "$paper_url" ]; then
+        log_error "Failed to resolve Paper download URL."
+        sleep 2
+        return 1
+    fi
+    
+    # Allocate ports for each backend
+    local backend_ports=()
+    local starting_port=25566
+    for name in "${backend_names[@]}"; do
+        while true; do
+            if command -v ss &>/dev/null; then
+                if ss -tuln | grep -q ":${starting_port} "; then
+                    starting_port=$((starting_port + 1))
+                    continue
+                fi
+            fi
+            if [ -f "$REGISTRY_FILE" ] && grep -q ":[0-9]*:[0-9]*:${starting_port}$" "$REGISTRY_FILE"; then
+                starting_port=$((starting_port + 1))
+                continue
+            fi
+            local allocated=0
+            for p in "${backend_ports[@]}"; do
+                if [ "$p" -eq "$starting_port" ]; then
+                    allocated=1
+                    break
+                fi
+            done
+            if [ "$allocated" -eq 1 ]; then
+                starting_port=$((starting_port + 1))
+                continue
+            fi
+            break
+        done
+        backend_ports+=("$starting_port")
+        starting_port=$((starting_port + 1))
+    done
+    
+    local parent_dir; parent_dir=$(dirname "$proxy_dir")
+    
+    local tmp_paper_jar="${parent_dir}/.paper_${mc_version}_${build_num}.jar"
+    if [ ! -f "$tmp_paper_jar" ]; then
+        download_file_with_progress "$paper_url" "$tmp_paper_jar" "Paper jar"
+    fi
+    
+    local required_java; required_java=$(get_required_java_version "$mc_version")
+    verify_or_install_java "$required_java"
+    local java_path; java_path=$(find_java_binary_path "$required_java")
+    local java_dir; java_dir=$(dirname "$java_path")
+    local path_inject=""
+    if [ "$java_dir" != "." ] && [ "$java_dir" != "/usr/bin" ] && [ "$java_dir" != "/bin" ]; then
+        path_inject="export PATH=\"${java_dir}:\$PATH\""
+    fi
+    
+    for i in "${!backend_names[@]}"; do
+        local name="${backend_names[$i]}"
+        local port="${backend_ports[$i]}"
+        local b_dir="${parent_dir}/${name}"
+        
+        log_info "$(t "orch_installing" "Installing backend server"): ${name} on port ${port}..."
+        mkdir -p "$b_dir"
+        cp "$tmp_paper_jar" "${b_dir}/server.jar"
+        echo "eula=true" > "${b_dir}/eula.txt"
+        
+        echo "# Generated by mcserver-installer proxy orchestrator" > "${b_dir}/server.properties"
+        echo "server-port=$port" >> "${b_dir}/server.properties"
+        echo "online-mode=false" >> "${b_dir}/server.properties"
+        
+        cat > "${b_dir}/start.sh" <<EOF
+#!/usr/bin/env bash
+# Generated by mcserver-installer (${DEVELOPER})
+
+${path_inject}
+
+MEM_MIN="1024M"
+MEM_MAX="2048M"
+
+cd "\$(dirname "\$0")"
+
+while [ ! -f .stop_restart ]; do
+    echo "[mcserver-installer] Starting Minecraft backend server..."
+    java -Xms"\${MEM_MIN}" -Xmx"\${MEM_MAX}" -jar server.jar nogui
+    if [ -f .stop_restart ]; then
+        break
+    fi
+    echo "[mcserver-installer] Server stopped. Restarting in 5 seconds (Press Ctrl+C to cancel)..."
+    sleep 5
+done
+rm -f .stop_restart
+EOF
+        chmod +x "${b_dir}/start.sh"
+        
+        if [ -f "$REGISTRY_FILE" ]; then
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                sed -i '' "s|^.*:${b_dir}:.*$||" "$REGISTRY_FILE"
+            else
+                sed -i "s|^.*:${b_dir}:.*$||" "$REGISTRY_FILE"
+            fi
+            sed -i '/^[[:space:]]*$/d' "$REGISTRY_FILE"
+        fi
+        echo "${name}:${b_dir}:paper:${mc_version}" >> "$REGISTRY_FILE"
+    done
+    
+    rm -f "$tmp_paper_jar"
+    
+    if [ "$proxy_type" = "velocity" ]; then
+        local secret; secret=$(LC_ALL=C tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)
+        echo "$secret" > "${proxy_dir}/forwarding.secret"
+        
+        local toml_path="${proxy_dir}/velocity.toml"
+        
+        cat > "$toml_path" <<EOF
+# Generated by mcserver-installer proxy orchestrator
+[servers]
+EOF
+        for i in "${!backend_names[@]}"; do
+            echo "${backend_names[$i]} = \"127.0.0.1:${backend_ports[$i]}\"" >> "$toml_path"
+        done
+        
+        echo "try = [\"${backend_names[0]}\"]" >> "$toml_path"
+        
+        cat >> "$toml_path" <<EOF
+
+[advanced]
+player-info-forwarding-mode = "modern"
+EOF
+        
+        for name in "${backend_names[@]}"; do
+            local b_dir="${parent_dir}/${name}"
+            mkdir -p "${b_dir}/config"
+            cat > "${b_dir}/config/paper-global.yml" <<EOF
+# Generated by mcserver-installer proxy orchestrator
+proxies:
+  velocity:
+    enabled: true
+    online-mode: true
+    secret: "${secret}"
+EOF
+        done
+        
+    elif [ "$proxy_type" = "bungeecord" ] || [ "$proxy_type" = "waterfall" ]; then
+        local bungee_config="${proxy_dir}/config.yml"
+        
+        cat > "$bungee_config" <<EOF
+# Generated by mcserver-installer proxy orchestrator
+listeners:
+- query_port: 25577
+  motd: '&1Another BungeeCord Proxy Server'
+  tab_list: GLOBAL_PING
+  query_enabled: false
+  proxy_protocol: false
+  forced_hosts:
+    pvp.md-5.net: pvp
+  ping_passthrough: false
+  priorities:
+  - ${backend_names[0]}
+  bind_local_address: true
+  host: 0.0.0.0:25577
+  max_players: 1
+  tab_size: 60
+  force_default_server: false
+ip_forward: true
+online_mode: true
+servers:
+EOF
+        for i in "${!backend_names[@]}"; do
+            cat >> "$bungee_config" <<EOF
+  ${backend_names[$i]}:
+    motd: '&1${backend_names[$i]} Server'
+    address: localhost:${backend_ports[$i]}
+    restricted: false
+EOF
+        done
+        
+        for name in "${backend_names[@]}"; do
+            local b_dir="${parent_dir}/${name}"
+            echo "settings:" > "${b_dir}/spigot.yml"
+            echo "  bungeecord: true" >> "${b_dir}/spigot.yml"
+        done
+    fi
+    
+    log_success "$(t "orch_success" "Backend servers successfully orchestrated and connected to proxy!")"
+    sleep 3
+}
+
+
 # --- Installation Wizard ---
 run_installation_wizard() {
     clear_screen
@@ -1200,6 +1447,11 @@ EOF
         sed -i '/^[[:space:]]*$/d' "$REGISTRY_FILE"
     fi
     echo "${server_name}:${inst_dir}:${s_type}:${mc_version}" >> "$REGISTRY_FILE"
+    
+    # Run backend orchestrator if proxy server software was installed
+    if [ "$s_type" = "velocity" ] || [ "$s_type" = "waterfall" ] || [ "$s_type" = "bungeecord" ]; then
+        orchestrate_proxy_network "$inst_dir" "$server_name" "$s_type"
+    fi
     
     echo -e "\n"
     draw_box_open "Installation Complete!"
