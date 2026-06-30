@@ -91,7 +91,7 @@ Başlatıldığında, script sizi etkileşimli bir ana menü ile karşılar:
  | | | | \__ \ || (_| | | | |  __/ |                   
  |_|_| |_|___/\__\__,_|_| |_|\___|_|                   
 
-  Geliştirici: devRaikou | Proje: mcserver-installer | Sürüm: 1.7
+  Geliştirici: devRaikou | Proje: mcserver-installer | Sürüm: 1.8
   ================================================================
 
   ANA MENÜ
