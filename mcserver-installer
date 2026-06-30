@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.12
+# Version: 1.13
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.12"
+APP_VERSION="1.13"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.12 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.13 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -481,6 +481,12 @@ get_java_installed_version() {
 
 get_required_java_version() {
     local mc_ver="$1"
+    local s_type="${2:-standard}"
+    
+    if [ "$s_type" = "velocity" ] || [ "$s_type" = "waterfall" ] || [ "$s_type" = "bungeecord" ]; then
+        echo 17
+        return
+    fi
     
     if [ "$mc_ver" = "latest" ]; then
         echo 21
@@ -916,7 +922,7 @@ orchestrate_proxy_network() {
         download_file_with_progress "$paper_url" "$tmp_paper_jar" "Paper jar"
     fi
     
-    local required_java; required_java=$(get_required_java_version "$mc_version")
+    local required_java; required_java=$(get_required_java_version "$mc_version" "paper")
     verify_or_install_java "$required_java"
     local java_path; java_path=$(find_java_binary_path "$required_java")
     local java_dir; java_dir=$(dirname "$java_path")
@@ -1253,7 +1259,7 @@ run_installation_wizard() {
     
     # 6. Java Detection & Required Java configuration
     local required_java
-    required_java=$(get_required_java_version "$mc_version")
+    required_java=$(get_required_java_version "$mc_version" "$s_type")
     
     verify_or_install_java "$required_java"
     if [ $? -ne 0 ]; then
