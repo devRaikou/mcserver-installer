@@ -65,18 +65,65 @@ log_error() { echo -e "  ${COLOR_RED}${ICON_ERROR} $*${COLOR_RESET}" >&2; }
 send_discord_notification() {
     local msg="$1"
     local color="${2:-3066993}"
-    local settings_file="${HOME}/.mcserver-installer/settings.conf"
+    local server_path="${3:-}"
+    local extra_field_name="${4:-}"
+    local extra_field_val="${5:-}"
     
+    local settings_file="${HOME}/.mcserver-installer/settings.conf"
     if [ -f "$settings_file" ]; then
         local webhook
         webhook=$(grep '^DISCORD_WEBHOOK=' "$settings_file" | cut -d'"' -f2 | tr -d '\r')
         if [ -n "$webhook" ]; then
+            local s_name="Unknown"
+            local s_type="Unknown"
+            local s_ver="Unknown"
+            local local_ip="Unknown"
+            local public_ip="Unknown"
+            local port="Unknown"
+            
+            if [ -n "$server_path" ] && [ -f "$REGISTRY_FILE" ]; then
+                local abs_target
+                abs_target=$(cd "$server_path" 2>/dev/null && pwd -P || echo "$server_path")
+                
+                while IFS=":" read -r r_name r_path r_type r_ver || [ -n "$r_name" ]; do
+                    [ -z "$r_name" ] && continue
+                    local abs_reg
+                    abs_reg=$(cd "$r_path" 2>/dev/null && pwd -P || echo "$r_path")
+                    if [ "$abs_target" = "$abs_reg" ]; then
+                        s_name="$r_name"
+                        s_type="$r_type"
+                        s_ver="$r_ver"
+                        local_ip=$(get_local_ip)
+                        public_ip=$(cat "${HOME}/.mcserver-installer/.public_ip" 2>/dev/null || echo "Unknown")
+                        [ -z "$public_ip" ] && public_ip="Unknown"
+                        port=$(get_server_port "$r_path" "$s_type")
+                        break
+                    fi
+                done < "$REGISTRY_FILE"
+            fi
+            
+            local fields_json=""
+            if [ "$s_name" != "Unknown" ]; then
+                fields_json=", \"fields\": [
+                    { \"name\": \"Server Name\", \"value\": \"${s_name}\", \"inline\": true },
+                    { \"name\": \"Software & Version\", \"value\": \"${s_type} (${s_ver})\", \"inline\": true },
+                    { \"name\": \"Connection Address\", \"value\": \"\`${public_ip}:${port}\` (Public)\\n\`${local_ip}:${port}\` (Local)\", \"inline\": false }"
+                    
+                if [ -n "$extra_field_name" ] && [ -n "$extra_field_val" ]; then
+                    fields_json="${fields_json}, { \"name\": \"${extra_field_name}\", \"value\": \"${extra_field_val}\", \"inline\": true }"
+                fi
+                fields_json="${fields_json} ]"
+            elif [ -n "$extra_field_name" ] && [ -n "$extra_field_val" ]; then
+                fields_json=", \"fields\": [ { \"name\": \"${extra_field_name}\", \"value\": \"${extra_field_val}\", \"inline\": true } ]"
+            fi
+            
             local clean_msg
             clean_msg=$(echo "$msg" | sed 's/"/\\"/g')
+            
             (
                 curl -s -H "Content-Type: application/json" \
                      -X POST \
-                     -d "{\"embeds\": [{\"title\": \"mcserver-installer Notification\", \"description\": \"${clean_msg}\", \"color\": ${color}, \"footer\": {\"text\": \"devRaikou mcserver-installer\"}, \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}]}" \
+                     -d "{\"embeds\": [{\"title\": \"🖥️ mcserver-installer Notification\", \"description\": \"${clean_msg}\", \"color\": ${color} ${fields_json}, \"footer\": {\"text\": \"devRaikou mcserver-installer | GitHub: https://github.com/devRaikou/mcserver-installer\"}, \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}]}" \
                      "$webhook" >/dev/null 2>&1
             ) &
         fi
@@ -1478,8 +1525,7 @@ start_minecraft_server() {
     if is_server_running "$session_name"; then
         log_success "Server started successfully in background!"
         log_info "Screen session: $session_name"
-        local s_name; s_name=$(basename "$server_path")
-        send_discord_notification "🟢 Server **${s_name}** has started successfully!" 3066993
+        send_discord_notification "🟢 Server has started successfully!" 3066993 "$server_path"
     else
         log_error "Server failed to start. Check your logs/latest.log or start.sh."
     fi
@@ -1511,15 +1557,14 @@ stop_minecraft_server() {
     done
     printf "\n"
     
-    local s_name; s_name=$(basename "$server_path")
     if is_server_running "$session_name"; then
         log_warn "Server did not stop gracefully. Forcing termination..."
         screen -S "$session_name" -p 0 -X quit
         pkill -f "java.*${session_name}"
-        send_discord_notification "🔴 Server **${s_name}** did not stop gracefully. Forced termination applied." 15158332
+        send_discord_notification "🔴 Server did not stop gracefully. Forced termination applied." 15158332 "$server_path"
     else
         log_success "Server stopped gracefully."
-        send_discord_notification "🔴 Server **${s_name}** has stopped gracefully." 15158332
+        send_discord_notification "🔴 Server has stopped gracefully." 15158332 "$server_path"
     fi
     rm -f "${server_path}/.stop_restart"
     sleep 2
