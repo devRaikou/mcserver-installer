@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.11
+# Version: 1.12
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.11"
+APP_VERSION="1.12"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.11 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.12 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -1494,12 +1494,38 @@ EOF
     fi
     
     echo -e "\n"
-    draw_box_open "Installation Complete!"
-    log_success "Server type: $s_type ($mc_version) installed successfully."
-    log_success "Path: $inst_dir"
-    log_success "Executable: ./start.sh"
-    log_info "You can now start and manage this server from the main menu!"
-    draw_box_close
+    local local_ip; local_ip=$(get_local_ip)
+    local public_ip="Unknown"
+    if [ -f "${HOME}/.mcserver-installer/.public_ip" ]; then
+        public_ip=$(cat "${HOME}/.mcserver-installer/.public_ip" 2>/dev/null)
+    fi
+    [ -z "$public_ip" ] && public_ip="Unknown"
+
+    if [ "$LANG_PREF" = "tr" ]; then
+        draw_box_open "Kurulum Tamamlandı!"
+        log_success "Sunucu türü: $s_type ($mc_version) başarıyla kuruldu."
+        log_success "Dizin: $inst_dir"
+        log_success "Çalıştırılabilir: ./start.sh"
+        if [ "$s_type" = "velocity" ] || [ "$s_type" = "waterfall" ] || [ "$s_type" = "bungeecord" ]; then
+            echo -e ""
+            log_success "👉 Oyuncu Giriş Adresi (Proxy): ${COLOR_GREEN}${public_ip}:${port}${COLOR_RESET} veya ${COLOR_GREEN}${local_ip}:${port}${COLOR_RESET}"
+            log_warn "⚠️ ÖNEMLİ: Arka plan sunucularına doğrudan bağlanamazsınız. Sunucuya giriş yapmak için yukarıdaki PROXY portunu kullanmalısınız."
+        fi
+        log_info "Artık bu sunucuyu ana menüden başlatabilir ve yönetebilirsiniz!"
+        draw_box_close
+    else
+        draw_box_open "Installation Complete!"
+        log_success "Server type: $s_type ($mc_version) installed successfully."
+        log_success "Path: $inst_dir"
+        log_success "Executable: ./start.sh"
+        if [ "$s_type" = "velocity" ] || [ "$s_type" = "waterfall" ] || [ "$s_type" = "bungeecord" ]; then
+            echo -e ""
+            log_success "👉 Player Connection Address (Proxy): ${COLOR_GREEN}${public_ip}:${port}${COLOR_RESET} or ${COLOR_GREEN}${local_ip}:${port}${COLOR_RESET}"
+            log_warn "⚠️ IMPORTANT: Do NOT connect directly to backend ports. You must connect via the PROXY port listed above."
+        fi
+        log_info "You can now start and manage this server from the main menu!"
+        draw_box_close
+    fi
     
     echo -e -n "\n  Press [Enter] to return to the main menu: "
     read -r _
