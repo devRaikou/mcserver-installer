@@ -1383,6 +1383,40 @@ connect_server_console() {
     screen -r "$session_name"
 }
 
+get_server_port() {
+    local s_path="$1"
+    local s_type="$2"
+    local port=""
+    if [ -f "${s_path}/server.properties" ]; then
+        port=$(grep "^server-port=" "${s_path}/server.properties" | cut -d= -f2- | tr -d '\r')
+    elif [ -f "${s_path}/velocity.toml" ]; then
+        port=$(grep "bind =" "${s_path}/velocity.toml" | head -n 1 | cut -d: -f2 | tr -d '"\r ' | cut -d']' -f1)
+    elif [ -f "${s_path}/config.yml" ]; then
+        port=$(grep -A 5 "listeners:" "${s_path}/config.yml" 2>/dev/null | grep "host:" | head -n 1 | cut -d: -f3 | tr -d '\r ')
+    fi
+    
+    # Default fallbacks
+    if [ -z "$port" ]; then
+        if [ "$s_type" = "velocity" ] || [ "$s_type" = "waterfall" ] || [ "$s_type" = "bungeecord" ]; then
+            echo "25577"
+        else
+            echo "25565"
+        fi
+    else
+        echo "$port"
+    fi
+}
+
+get_local_ip() {
+    if command -v hostname &>/dev/null; then
+        hostname -I | awk '{print $1}' | tr -d '\r\n '
+    elif command -v ip &>/dev/null; then
+        ip route get 1.1.1.1 2>/dev/null | awk '{print $7}' | tr -d '\r\n '
+    else
+        ifconfig 2>/dev/null | grep -E "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -n 1 | tr -d '\r\n '
+    fi
+}
+
 # --- Management Menu for a Specific Server ---
 run_server_management_menu() {
     local s_name="$1"
@@ -1398,11 +1432,20 @@ run_server_management_menu() {
             status_str="${COLOR_GREEN}Running${COLOR_RESET}"
         fi
         
+        local port; port=$(get_server_port "$s_path" "$s_type")
+        local local_ip; local_ip=$(get_local_ip)
+        local public_ip="Unknown"
+        if [ -f "${HOME}/.mcserver-installer/.public_ip" ]; then
+            public_ip=$(cat "${HOME}/.mcserver-installer/.public_ip" 2>/dev/null)
+        fi
+        [ -z "$public_ip" ] && public_ip="Unknown"
+
         clear_screen
         draw_header
         echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}MANAGE SERVER: $s_name${COLOR_RESET}"
         echo -e "  Path: $s_path"
         echo -e "  Software: $s_type ($s_ver) | Status: $status_str"
+        echo -e "  Address:  ${COLOR_GREEN}${local_ip}:${port}${COLOR_RESET} (Local) | ${COLOR_GREEN}${public_ip}:${port}${COLOR_RESET} (Public)"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
         
         echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} Start Server"
@@ -1770,6 +1813,9 @@ update_server_software() {
 
 # --- Main Application Menu Loop ---
 main_menu() {
+    # Start background public IP fetch
+    (curl -s --connect-timeout 2.5 https://api.ipify.org > "${HOME}/.mcserver-installer/.public_ip" 2>/dev/null &)
+
     # System startup requirements checks
     verify_system_requirements
     
