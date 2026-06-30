@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.16
+# Version: 1.17
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.16"
+APP_VERSION="1.17"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.16 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.17 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -2616,10 +2616,43 @@ list_and_remove_plugins() {
     fi
 }
 
+download_modrinth_plugin_by_slug() {
+    local slug="$1"
+    local dest_dir="$2"
+    local mc_ver="$3"
+    
+    log_info "Fetching latest release for ${slug}..."
+    local res_ver
+    res_ver=$(curl -s -H "${UA_HEADER}" "https://api.modrinth.com/v2/project/${slug}/version")
+    if [ -z "$res_ver" ] || [ "$res_ver" = "null" ]; then
+        log_error "Failed to fetch versions for ${slug}."
+        return 1
+    fi
+    
+    local dl_url
+    dl_url=$(echo "$res_ver" | jq -r --arg ver "$mc_ver" '
+        map(select(.game_versions | contains([$ver]))) | .[0].files[0].url
+    ' 2>/dev/null)
+    
+    if [ -z "$dl_url" ] || [ "$dl_url" = "null" ]; then
+        dl_url=$(echo "$res_ver" | jq -r '.[0].files[0].url' 2>/dev/null)
+    fi
+    
+    if [ -z "$dl_url" ] || [ "$dl_url" = "null" ]; then
+        log_error "No valid download URL found for ${slug}."
+        return 1
+    fi
+    
+    local filename; filename=$(basename "$dl_url")
+    run_with_spinner "Downloading ${filename}..." curl -s -L -o "${dest_dir}/${filename}" "$dl_url"
+    log_success "Downloaded ${filename} successfully."
+}
+
 install_geyser_floodgate() {
     local s_name="$1"
     local server_path="$2"
     local s_type="$3"
+    local s_ver="${4:-latest}"
     
     local platform=""
     case "$s_type" in
@@ -2655,6 +2688,21 @@ install_geyser_floodgate() {
     run_with_spinner "Downloading Floodgate (${platform})..." curl -s -L -o "${plugins_dir}/Floodgate.jar" "$floodgate_url"
     
     log_success "GeyserMC and Floodgate downloaded successfully into plugins folder!"
+    
+    echo -e ""
+    local install_via="n"
+    if [ "$LANG_PREF" = "tr" ]; then
+        prompt_yes_no "Farklı istemci sürümlerinin (daha yeni Bedrock sürümleri dahil) bağlanabilmesi için ViaVersion ve ViaBackwards kurmak ister misiniz?" "y"
+        [ "$choice" = "y" ] && install_via="y"
+    else
+        prompt_yes_no "Would you like to install ViaVersion and ViaBackwards to support different client versions (including newer Bedrock clients)?" "y"
+        [ "$choice" = "y" ] && install_via="y"
+    fi
+    
+    if [ "$install_via" = "y" ]; then
+        download_modrinth_plugin_by_slug "viaversion" "$plugins_dir" "$s_ver"
+        download_modrinth_plugin_by_slug "viabackwards" "$plugins_dir" "$s_ver"
+    fi
     
     if command -v ufw &>/dev/null; then
         local ufw_status
@@ -2855,7 +2903,7 @@ run_server_management_menu() {
                 manage_server_plugins "$s_name" "$s_path" "$s_type" "$s_ver"
                 ;;
             14)
-                install_geyser_floodgate "$s_name" "$s_path" "$s_type"
+                install_geyser_floodgate "$s_name" "$s_path" "$s_type" "$s_ver"
                 ;;
             15)
                 toggle_systemd_service "$s_name" "$s_path"
