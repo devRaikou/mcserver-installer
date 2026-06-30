@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.15
+# Version: 1.16
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.15"
+APP_VERSION="1.16"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.15 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.16 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -3014,24 +3014,18 @@ remove_server_registration() {
     fi
     
     if [ "$selection" = "DELETE ALL SERVERS" ] || [ "$selection" = "TÜM SUNUCULARI SİL" ]; then
-        local running_servers=()
         for k in "${!paths[@]}"; do
             local path="${paths[$k]}"
             local sess_name; sess_name=$(get_session_name "$path")
             if is_server_running "$sess_name"; then
-                running_servers+=("${servers[$k]}")
+                if [ "$LANG_PREF" = "tr" ]; then
+                    log_info "Çalışan sunucu kapatılıyor: ${servers[$k]}..."
+                else
+                    log_info "Stopping running server: ${servers[$k]}..."
+                fi
+                stop_minecraft_server "$path"
             fi
         done
-        
-        if [ ${#running_servers[@]} -gt 0 ]; then
-            if [ "$LANG_PREF" = "tr" ]; then
-                log_error "Şu sunucular hala çalışıyor: ${running_servers[*]}. Lütfen önce onları durdurun!"
-            else
-                log_error "Following servers are still running: ${running_servers[*]}. Please stop them first!"
-            fi
-            sleep 3
-            return 1
-        fi
         
         local delete_files="false"
         if [ "$LANG_PREF" = "tr" ]; then
@@ -3087,12 +3081,11 @@ remove_server_registration() {
     
     if is_server_running "$sess_name"; then
         if [ "$LANG_PREF" = "tr" ]; then
-            log_error "Sunucu şu anda çalışıyor. Lütfen önce durdurun!"
+            log_info "Çalışan sunucu kapatılıyor: ${sel_name}..."
         else
-            log_error "The server is currently running. Please stop it first!"
+            log_info "Stopping running server: ${sel_name}..."
         fi
-        sleep 2
-        return 1
+        stop_minecraft_server "$sel_path"
     fi
     
     local delete_files="false"
