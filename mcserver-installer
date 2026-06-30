@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.6
+# Version: 1.7
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,15 +11,82 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.6"
+APP_VERSION="1.7"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.6 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.7 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
 mkdir -p "${HOME}/.mcserver-installer"
 touch "$REGISTRY_FILE"
+
+SETTINGS_FILE="${HOME}/.mcserver-installer/settings.conf"
+if [ ! -f "$SETTINGS_FILE" ]; then
+    echo 'LANG="en"' > "$SETTINGS_FILE"
+    echo 'DISCORD_WEBHOOK=""' >> "$SETTINGS_FILE"
+fi
+
+LANG_PREF="en"
+if [ -f "$SETTINGS_FILE" ]; then
+    LANG_PREF=$(grep '^LANG=' "$SETTINGS_FILE" | cut -d'"' -f2 | tr -d '\r')
+fi
+[ -z "$LANG_PREF" ] && LANG_PREF="en"
+
+t() {
+    local key="$1"
+    local default_msg="$2"
+    
+    if [ "$LANG_PREF" = "tr" ]; then
+        case "$key" in
+            "settings_title") echo "AYARLAR VE SİSTEM KONTROLLERİ" ;;
+            "settings_verif") echo "Sistem Doğrulama Testlerini Çalıştır" ;;
+            "settings_java") echo "Java JRE Kurulumlarını Yönet" ;;
+            "settings_webhook") echo "Discord Webhook Bildirimini Yapılandır" ;;
+            "settings_lang") echo "Dili Değiştir (Change Language)" ;;
+            "settings_back") echo "Ana Menüye Dön" ;;
+            
+            "main_title") echo "ANA MENÜ" ;;
+            "main_install") echo "Minecraft Sunucusu Kur" ;;
+            "main_manage") echo "Mevcut Sunucuyu Yönet" ;;
+            "main_update") echo "Sunucu Jar Dosyasını Güncelle" ;;
+            "main_backup") echo "Sunucuyu Yedekle" ;;
+            "main_restore") echo "Yedeği Geri Yükle" ;;
+            "main_remove") echo "Sunucuyu Kaldır / Kaydı Sil" ;;
+            "main_settings") echo "Ayarlar ve Sistem Kontrolleri" ;;
+            "main_about") echo "Hakkında" ;;
+            "main_exit") echo "Çıkış" ;;
+            "main_select") echo "Seçim yapın" ;;
+            
+            "stopped") echo "Durduruldu" ;;
+            "running") echo "Çalışıyor" ;;
+            "srv_manage_title") echo "SUNUCU YÖNETİMİ" ;;
+            "srv_start") echo "Sunucuyu Başlat" ;;
+            "srv_stop") echo "Sunucuyu Durdur" ;;
+            "srv_restart") echo "Sunucuyu Yeniden Başlat" ;;
+            "srv_console_ui") echo "Etkileşimli Konsola Bağlan (UI Arayüzü)" ;;
+            "srv_console_raw") echo "Ham Konsola Bağlan (GNU Screen)" ;;
+            "srv_logs") echo "Sunucu Günlüklerini Görüntüle" ;;
+            "srv_properties") echo "server.properties Düzenle" ;;
+            "srv_manual_backup") echo "Manuel Yedek Oluştur" ;;
+            "srv_auto_backup") echo "Otomatik Yedekleme Zamanlaması Ayarla" ;;
+            "srv_restore") echo "Yedeği Geri Yükle" ;;
+            "srv_memory") echo "Sunucu Bellek Ayarlarını Değiştir (RAM)" ;;
+            "srv_monitor") echo "Gerçek Zamanlı Kaynak İzleme" ;;
+            "srv_plugins") echo "Eklenti Yöneticisi" ;;
+            "srv_geyser") echo "Geyser & Floodgate Kur (Cross-play)" ;;
+            "srv_systemd") echo "Sistem Açılışında Başlatmayı Etkinleştir/Kaldır (systemd)" ;;
+            "srv_back") echo "Ana Menüye Dön" ;;
+            "srv_select") echo "Seçim yapın (1-16):" ;;
+            
+            "invalid_sel") echo "Geçersiz seçim." ;;
+            "press_enter") echo "Devam etmek için [Enter] tuşuna basın: " ;;
+            *) echo "$default_msg" ;;
+        esac
+    else
+        echo "$default_msg"
+    fi
+}
 
 # --- UI Color Schemes ---
 COLOR_RESET="\033[0m"
@@ -2258,9 +2325,9 @@ run_server_management_menu() {
     while true; do
         local session_name
         session_name=$(get_session_name "$s_path")
-        local status_str="${COLOR_RED}Stopped${COLOR_RESET}"
+        local status_str="${COLOR_RED}$(t "stopped" "Stopped")${COLOR_RESET}"
         if is_server_running "$session_name"; then
-            status_str="${COLOR_GREEN}Running${COLOR_RESET}"
+            status_str="${COLOR_GREEN}$(t "running" "Running")${COLOR_RESET}"
         fi
         
         local port; port=$(get_server_port "$s_path" "$s_type")
@@ -2273,31 +2340,37 @@ run_server_management_menu() {
 
         clear_screen
         draw_header
-        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}MANAGE SERVER: $s_name${COLOR_RESET}"
-        echo -e "  Path: $s_path"
-        echo -e "  Software: $s_type ($s_ver) | Status: $status_str"
-        echo -e "  Address:  ${COLOR_GREEN}${local_ip}:${port}${COLOR_RESET} (Local) | ${COLOR_GREEN}${public_ip}:${port}${COLOR_RESET} (Public)"
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "srv_manage_title" "MANAGE SERVER"): $s_name${COLOR_RESET}"
+        if [ "$LANG_PREF" = "tr" ]; then
+            echo -e "  Dizin: $s_path"
+            echo -e "  Yazılım: $s_type ($s_ver) | Durum: $status_str"
+            echo -e "  Adres:  ${COLOR_GREEN}${local_ip}:${port}${COLOR_RESET} (Yerel) | ${COLOR_GREEN}${public_ip}:${port}${COLOR_RESET} (Genel)"
+        else
+            echo -e "  Path: $s_path"
+            echo -e "  Software: $s_type ($s_ver) | Status: $status_str"
+            echo -e "  Address:  ${COLOR_GREEN}${local_ip}:${port}${COLOR_RESET} (Local) | ${COLOR_GREEN}${public_ip}:${port}${COLOR_RESET} (Public)"
+        fi
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
         
-        echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} Start Server"
-        echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} Stop Server"
-        echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} Restart Server"
-        echo -e "    ${COLOR_YELLOW}4.${COLOR_RESET} Connect to Interactive Console (UI Overlay)"
-        echo -e "    ${COLOR_YELLOW}5.${COLOR_RESET} Connect to Raw Console (GNU Screen)"
-        echo -e "    ${COLOR_YELLOW}6.${COLOR_RESET} View Server Logs"
-        echo -e "    ${COLOR_YELLOW}7.${COLOR_RESET} Edit server.properties"
-        echo -e "    ${COLOR_YELLOW}8.${COLOR_RESET} Create Manual Backup"
-        echo -e "    ${COLOR_YELLOW}9.${COLOR_RESET} Setup Automated Backup Schedule"
-        echo -e "   ${COLOR_YELLOW}10.${COLOR_RESET} Restore Backup"
-        echo -e "   ${COLOR_YELLOW}11.${COLOR_RESET} Change Server Memory Allocation (RAM)"
-        echo -e "   ${COLOR_YELLOW}12.${COLOR_RESET} Real-time Resource Monitor"
-        echo -e "   ${COLOR_YELLOW}13.${COLOR_RESET} Plugin Manager"
-        echo -e "   ${COLOR_YELLOW}14.${COLOR_RESET} Setup Geyser & Floodgate (Cross-play)"
-        echo -e "   ${COLOR_YELLOW}15.${COLOR_RESET} Enable/Disable Boot Auto-start (systemd)"
-        echo -e "   ${COLOR_YELLOW}16.${COLOR_RESET} Return to Main Menu"
+        echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} $(t "srv_start" "Start Server")"
+        echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} $(t "srv_stop" "Stop Server")"
+        echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} $(t "srv_restart" "Restart Server")"
+        echo -e "    ${COLOR_YELLOW}4.${COLOR_RESET} $(t "srv_console_ui" "Connect to Interactive Console (UI Overlay)")"
+        echo -e "    ${COLOR_YELLOW}5.${COLOR_RESET} $(t "srv_console_raw" "Connect to Raw Console (GNU Screen)")"
+        echo -e "    ${COLOR_YELLOW}6.${COLOR_RESET} $(t "srv_logs" "View Server Logs")"
+        echo -e "    ${COLOR_YELLOW}7.${COLOR_RESET} $(t "srv_properties" "Edit server.properties")"
+        echo -e "    ${COLOR_YELLOW}8.${COLOR_RESET} $(t "srv_manual_backup" "Create Manual Backup")"
+        echo -e "    ${COLOR_YELLOW}9.${COLOR_RESET} $(t "srv_auto_backup" "Setup Automated Backup Schedule")"
+        echo -e "   ${COLOR_YELLOW}10.${COLOR_RESET} $(t "srv_restore" "Restore Backup")"
+        echo -e "   ${COLOR_YELLOW}11.${COLOR_RESET} $(t "srv_memory" "Change Server Memory Allocation (RAM)")"
+        echo -e "   ${COLOR_YELLOW}12.${COLOR_RESET} $(t "srv_monitor" "Real-time Resource Monitor")"
+        echo -e "   ${COLOR_YELLOW}13.${COLOR_RESET} $(t "srv_plugins" "Plugin Manager")"
+        echo -e "   ${COLOR_YELLOW}14.${COLOR_RESET} $(t "srv_geyser" "Setup Geyser & Floodgate (Cross-play)")"
+        echo -e "   ${COLOR_YELLOW}15.${COLOR_RESET} $(t "srv_systemd" "Enable/Disable Boot Auto-start (systemd)")"
+        echo -e "   ${COLOR_YELLOW}16.${COLOR_RESET} $(t "srv_back" "Return to Main Menu")"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
         
-        echo -n "  Select option (1-16): "
+        echo -n "  $(t "srv_select" "Select option (1-16):") "
         read -r choice
         choice=$(echo "$choice" | tr -d '\r')
         
@@ -2322,7 +2395,11 @@ run_server_management_menu() {
                 ;;
             7)
                 if [ "$s_type" = "velocity" ] || [ "$s_type" = "waterfall" ] || [ "$s_type" = "bungeecord" ]; then
-                    log_warn "Proxy servers do not use standard server.properties files."
+                    if [ "$LANG_PREF" = "tr" ]; then
+                        log_warn "Proxy sunucuları standart server.properties dosyalarını kullanmaz."
+                    else
+                        log_warn "Proxy servers do not use standard server.properties files."
+                    fi
                     sleep 2
                 else
                     run_properties_editor "$s_path"
@@ -2336,7 +2413,11 @@ run_server_management_menu() {
                 ;;
             10)
                 if is_server_running "$session_name"; then
-                    log_error "Please stop the server before running a restore!"
+                    if [ "$LANG_PREF" = "tr" ]; then
+                        log_error "Lütfen yedeği geri yüklemeden önce sunucuyu durdurun!"
+                    else
+                        log_error "Please stop the server before running a restore!"
+                    fi
                     sleep 2
                 else
                     run_server_restore "$s_path"
@@ -2344,14 +2425,24 @@ run_server_management_menu() {
                 ;;
             11)
                 if [ ! -f "${s_path}/start.sh" ]; then
-                    log_error "No start.sh script found to modify memory values."
+                    if [ "$LANG_PREF" = "tr" ]; then
+                        log_error "Bellek miktarlarını değiştirmek için start.sh betiği bulunamadı."
+                    else
+                        log_error "No start.sh script found to modify memory values."
+                    fi
                     sleep 2
                 else
                     clear_screen
                     draw_header
-                    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}CHANGE MEMORY CONFIGURATION${COLOR_RESET}\n"
-                    local min_ram; min_ram=$(prompt_input "Enter new Minimum RAM allocation" "1024M")
-                    local max_ram; max_ram=$(prompt_input "Enter new Maximum RAM allocation" "4096M")
+                    if [ "$LANG_PREF" = "tr" ]; then
+                        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}BELLEK YAPILANDIRMASINI DEĞİŞTİR${COLOR_RESET}\n"
+                        local min_ram; min_ram=$(prompt_input "Yeni Minimum RAM miktarını girin" "1024M")
+                        local max_ram; max_ram=$(prompt_input "Yeni Maksimum RAM miktarını girin" "4096M")
+                    else
+                        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}CHANGE MEMORY CONFIGURATION${COLOR_RESET}\n"
+                        local min_ram; min_ram=$(prompt_input "Enter new Minimum RAM allocation" "1024M")
+                        local max_ram; max_ram=$(prompt_input "Enter new Maximum RAM allocation" "4096M")
+                    fi
                     
                     if [[ "$OSTYPE" == "darwin"* ]]; then
                         sed -i '' "s|^MEM_MIN=.*|MEM_MIN=\"${min_ram}\"|" "${s_path}/start.sh"
@@ -2371,7 +2462,11 @@ run_server_management_menu() {
                         fi
                     fi
                     
-                    log_success "Memory values updated successfully!"
+                    if [ "$LANG_PREF" = "tr" ]; then
+                        log_success "Bellek sınırları başarıyla güncellendi!"
+                    else
+                        log_success "Memory values updated successfully!"
+                    fi
                     sleep 2
                 fi
                 ;;
@@ -2391,7 +2486,7 @@ run_server_management_menu() {
                 break
                 ;;
             *)
-                log_warn "Invalid selection."
+                log_warn "$(t "invalid_sel" "Invalid selection.")"
                 sleep 1
                 ;;
         esac
@@ -2752,27 +2847,76 @@ run_java_manager_menu() {
     done
 }
 
+change_language_settings() {
+    clear_screen
+    draw_header
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}CHANGE LANGUAGE / DİLİ DEĞİŞTİR${COLOR_RESET}"
+    echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
+    echo -e "    Current Language / Mevcut Dil: ${COLOR_GREEN}${LANG_PREF}${COLOR_RESET}\n"
+    echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} English"
+    echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} Türkçe"
+    echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} Back / Geri"
+    echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
+    
+    local choice
+    choice=$(prompt_input "Select Option / Seçim Yapın" "3")
+    
+    case "$choice" in
+        1)
+            LANG_PREF="en"
+            if grep -q '^LANG=' "$SETTINGS_FILE"; then
+                if [[ "$OSTYPE" == "darwin"* ]]; then
+                    sed -i '' "s|^LANG=.*|LANG=\"en\"|" "$SETTINGS_FILE"
+                else
+                    sed -i "s|^LANG=.*|LANG=\"en\"|" "$SETTINGS_FILE"
+                fi
+            else
+                echo 'LANG="en"' >> "$SETTINGS_FILE"
+            fi
+            log_success "Language changed to English successfully!"
+            sleep 2
+            ;;
+        2)
+            LANG_PREF="tr"
+            if grep -q '^LANG=' "$SETTINGS_FILE"; then
+                if [[ "$OSTYPE" == "darwin"* ]]; then
+                    sed -i '' "s|^LANG=.*|LANG=\"tr\"|" "$SETTINGS_FILE"
+                else
+                    sed -i "s|^LANG=.*|LANG=\"tr\"|" "$SETTINGS_FILE"
+                fi
+            else
+                echo 'LANG="tr"' >> "$SETTINGS_FILE"
+            fi
+            log_success "Dil Türkçe olarak değiştirildi!"
+            sleep 2
+            ;;
+        *)
+            ;;
+    esac
+}
+
 run_settings_menu() {
     while true; do
         clear_screen
         draw_header
-        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}SETTINGS & SYSTEM CHECKS${COLOR_RESET}"
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "settings_title" "SETTINGS & SYSTEM CHECKS")${COLOR_RESET}"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-        echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} Run System Verification Tests"
-        echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} Manage Java JRE Installations"
-        echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} Configure Discord Webhook Alert"
-        echo -e "    ${COLOR_YELLOW}4.${COLOR_RESET} Return to Main Menu"
+        echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} $(t "settings_verif" "Run System Verification Tests")"
+        echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} $(t "settings_java" "Manage Java JRE Installations")"
+        echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} $(t "settings_webhook" "Configure Discord Webhook Alert")"
+        echo -e "    ${COLOR_YELLOW}4.${COLOR_RESET} $(t "settings_lang" "Change Language (Dili Değiştir)")"
+        echo -e "    ${COLOR_YELLOW}5.${COLOR_RESET} $(t "settings_back" "Return to Main Menu")"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
         
         local choice
-        choice=$(prompt_input "Select option" "4")
+        choice=$(prompt_input "$(t "main_select" "Select option")" "5")
         
         case "$choice" in
             1)
                 clear_screen
                 draw_header
                 verify_system_requirements
-                echo -n -e "\n  Press [Enter] to continue: "
+                echo -n -e "\n  $(t "press_enter" "Press [Enter] to continue: ")"
                 read -r _
                 ;;
             2)
@@ -2782,10 +2926,13 @@ run_settings_menu() {
                 configure_discord_webhook
                 ;;
             4)
+                change_language_settings
+                ;;
+            5)
                 break
                 ;;
             *)
-                log_warn "Invalid selection."
+                log_warn "$(t "invalid_sel" "Invalid selection.")"
                 sleep 1.5
                 ;;
         esac
@@ -2803,21 +2950,22 @@ main_menu() {
     while true; do
         clear_screen
         draw_header
-        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}MAIN DIRECTORY MENU${COLOR_RESET}"
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "main_title" "MAIN DIRECTORY MENU")${COLOR_RESET}"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-        echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} Install Minecraft Server"
-        echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} Manage Existing Server"
-        echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} Update Server Jar"
-        echo -e "    ${COLOR_YELLOW}4.${COLOR_RESET} Backup Server"
-        echo -e "    ${COLOR_YELLOW}5.${COLOR_RESET} Restore Backup"
-        echo -e "    ${COLOR_YELLOW}6.${COLOR_RESET} Remove Server / Registration"
-        echo -e "    ${COLOR_YELLOW}7.${COLOR_RESET} Settings & System checks"
-        echo -e "    ${COLOR_YELLOW}8.${COLOR_RESET} About"
-        echo -e "    ${COLOR_YELLOW}9.${COLOR_RESET} Exit"
+        echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} $(t "main_install" "Install Minecraft Server")"
+        echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} $(t "main_manage" "Manage Existing Server")"
+        echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} $(t "main_update" "Update Server Jar")"
+        echo -e "    ${COLOR_YELLOW}4.${COLOR_RESET} $(t "main_backup" "Backup Server")"
+        echo -e "    ${COLOR_YELLOW}5.${COLOR_RESET} $(t "main_restore" "Restore Backup")"
+        echo -e "    ${COLOR_YELLOW}6.${COLOR_RESET} $(t "main_remove" "Remove Server / Registration")"
+        echo -e "    ${COLOR_YELLOW}7.${COLOR_RESET} $(t "main_settings" "Settings & System checks")"
+        echo -e "    ${COLOR_YELLOW}8.${COLOR_RESET} $(t "main_about" "About")"
+        echo -e "    ${COLOR_YELLOW}9.${COLOR_RESET} $(t "main_exit" "Exit")"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
         
-        echo -n "  Select option (1-9): "
+        echo -n "  $(t "main_select" "Select option (1-9):") "
         read -r choice
+        choice=$(echo "$choice" | tr -d '\r')
         
         case "$choice" in
             1)
@@ -2830,7 +2978,6 @@ main_menu() {
                 update_server_software
                 ;;
             4)
-                # Quick redirect to management select
                 select_and_manage_server
                 ;;
             5)
@@ -2846,11 +2993,19 @@ main_menu() {
                 show_about
                 ;;
             9)
-                echo -e "\n  Thank you for using ${COLOR_CYAN}mcserver-installer${COLOR_RESET}! Goodbye."
+                if [ "$LANG_PREF" = "tr" ]; then
+                    echo -e "\n  ${COLOR_CYAN}mcserver-installer${COLOR_RESET} kullandığınız için teşekkürler! Görüşmek üzere."
+                else
+                    echo -e "\n  Thank you for using ${COLOR_CYAN}mcserver-installer${COLOR_RESET}! Goodbye."
+                fi
                 exit 0
                 ;;
             *)
-                log_warn "Invalid selection. Please input a number from 1 to 9."
+                if [ "$LANG_PREF" = "tr" ]; then
+                    log_warn "Geçersiz seçim. Lütfen 1 ile 9 arasında bir sayı girin."
+                else
+                    log_warn "Invalid selection. Please input a number from 1 to 9."
+                fi
                 sleep 1.5
                 ;;
         esac
