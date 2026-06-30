@@ -1,8 +1,8 @@
 # mcserver-installer
 
-A modern, robust, and premium Shell (Bash) command-line interface (CLI) application designed to automate the installation, configuration, and lifecycle management of Minecraft servers on Linux systems (optimized for Ubuntu and Debian).
+A professional command-line interface (CLI) tool for automating Minecraft server installation, configuration, and management on Linux systems (optimized for Debian/Ubuntu). 
 
-Created with visual excellence and operational safety in mind, it provides a full suite of management tools to run servers professionally.
+Designed for administrators who require visual clarity, operational safety, and full control over their server lifecycles.
 
 ---
 
@@ -14,16 +14,18 @@ Developed by **devRaikou** and released under the MIT License.
 
 ## Features
 
-- ⚡ **Automated Java OpenJDK Management:** Detects active Java environments, identifies requirements based on Minecraft version (e.g. Java 17, Java 21), and installs them via `apt`.
-- 🌀 **Multiple Server Softwares:** Automated installation and updating for:
-  - **Releases:** Vanilla, Paper, Folia, Purpur, Fabric, Forge, NeoForge
-  - **Proxies:** Velocity, Waterfall, BungeeCord
-- ⚙ **Properties Editor:** Read, modify, and save configurations inside `server.properties` dynamically from an interactive CLI menu.
-- 💾 **Integrated Backup System:** Fast tarball compression (`tar.gz`) excluding logs and recursive archives. View and restore backups with a single key press.
-- ⏳ **Background Daemon Execution:** Runs servers detached in independent background GNU `screen` sessions to prevent termination when SSH sessions end. Easily attach/detach from the game console.
-- 🛡 **Crash & Stop Guard:** Auto-restart loop with dynamic `.stop_restart` locking checks, allowing servers to restart on crashes but stop cleanly on manual closures.
-- ⚡ **Optimized JVM Flags:** Automatically configures JVM runtime allocations and offers to set Aikar's optimized Garbage Collection flags.
-- 🌀 **Modern Terminal User Interface:** Employs vibrant color styling, Unicode status indicators, custom loading spinners, and visual download progress bars.
+- **Automated Java JRE Manager:** Scans the host system for isolated runtime installations (Java 8, 17, 21, 25), identifies requirements based on the chosen Minecraft version, and downloads/configures JREs.
+- **Multiple Server Platforms:** Automatically fetches builds and updates for:
+  - Production Softwares: Vanilla, Paper, Folia, Purpur, Fabric, Forge, NeoForge
+  - Proxy Softwares: Velocity, Waterfall, BungeeCord
+- **Real-time Resource Monitor:** Dynamic dashboard showcasing live CPU, RAM (with visual progress bar gauges based on start configuration), and storage footprints.
+- **systemd Integration:** Installs and registers systemd unit files to enable automated server boots on host restarts, executing securely under current user sessions.
+- **Automated Backup Scheduler:** Integrated cron-scheduler for daily/weekly automated server backups, featuring absolute path validations and headless arguments execution.
+- **Discord Webhook Alerts:** Asynchronous, non-blocking notification dispatcher sending detailed embed logs (Server Name, JRE Version, Public/Local IPs, Connection Ports, and GitHub references) to Discord webhooks upon starting, stopping, or backing up servers.
+- **Live Properties Editor:** Read, modify, and save configurations inside `server.properties` dynamically from an interactive CLI menu.
+- **Background Daemon Execution:** Runs servers detached in independent background GNU `screen` sessions to prevent termination when SSH sessions end.
+- **Crash & Stop Guard:** Auto-restart loop with dynamic `.stop_restart` locking checks, allowing servers to restart on crashes but stop cleanly on manual closures.
+- **Optimized JVM Flags:** Automatically configures JVM runtime allocations and offers to set Aikar's optimized Garbage Collection flags.
 
 ---
 
@@ -36,7 +38,7 @@ The installer runs natively on Debian and Ubuntu distributions. It automatically
 - `tar` & `gzip` (backups creation and extraction)
 - Appropriate Java JDK version (automatically chosen and installed if missing)
 
-*A warning is provided on non-Debian or macOS environments to allow compatibility runs.*
+*A compatibility warning is provided on non-Debian or macOS environments.*
 
 ---
 
@@ -45,7 +47,7 @@ The installer runs natively on Debian and Ubuntu distributions. It automatically
 To download the script and make it executable, execute the following commands on your system:
 
 ```bash
-# Clone the repository (or copy the script)
+# Clone the repository
 git clone https://github.com/devRaikou/mcserver-installer.git
 cd mcserver-installer
 
@@ -54,6 +56,17 @@ chmod +x mcserver-installer
 
 # Run the installer
 ./mcserver-installer
+```
+
+---
+
+## Command Line Arguments
+
+For headless automation, such as crontabs or external automation dashboards, the script supports running operations without interactive prompts:
+
+```bash
+# Force backup creation for a specific server headlessly
+./mcserver-installer --backup <server_name>
 ```
 
 ---
@@ -75,9 +88,9 @@ When launched, the script presents an interactive dashboard:
  | | '_ \/ __| __/ _` | | | |/ _ \ '__|                
  | | | | \__ \ || (_| | | | |  __/ |                   
  |_|_| |_|___/\__\__,_|_| |_|\___|_|                   
-                                                       
- Developer: devRaikou | Project: mcserver-installer | Version: 1.5
- ================================================================
+
+  Developer: devRaikou | Project: mcserver-installer | Version: 1.5
+  ================================================================
 
   MAIN DIRECTORY MENU
   ================================================================
@@ -104,26 +117,8 @@ Once you select **Manage Existing Server**, you can access a dedicated operation
 - **Connect to Console:** Attaches interactive terminal to standard input/output. (Press `Ctrl+A` then `D` to detach safely).
 - **Edit server.properties:** Change Port, MOTD, Max Players, GameMode, online mode, etc. in real-time.
 - **Change RAM Allocation:** Modifies memory boundaries in the server's `start.sh` configuration.
-
----
-
-## Examples
-
-### 1. Creating a Paper 1.21.4 Server
-1. Select Option `1` (Install Minecraft Server).
-2. Choose `Paper` as server software.
-3. Select version `1.21.4` (the API dynamically lists available builds).
-4. Specify target path (e.g. `/home/user/my_server`).
-5. Choose RAM limits (e.g., Min `2G` / Max `4G`).
-6. Set custom port, MOTD, and default survival gamemode.
-7. Accept Mojang's EULA and choose Aikar's GC flags.
-8. The installer downloads the files, sets up properties, and generates the `start.sh` script.
-
-### 2. Attaching to Console
-1. Select Option `2` (Manage Existing Server).
-2. Choose your server from the status list.
-3. Choose Option `4` (Connect to Console).
-4. Enter commands directly. Detach by typing `Ctrl+A` followed by `D`.
+- **Real-time Resource Monitor:** Live system tracking of resources.
+- **Enable/Disable Boot Auto-start:** Toggles systemd auto-reboot configs.
 
 ---
 
