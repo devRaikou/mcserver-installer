@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.17
+# Version: 1.18
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.17"
+APP_VERSION="1.18"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.17 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.18 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -2693,10 +2693,10 @@ install_geyser_floodgate() {
     local install_via="n"
     if [ "$LANG_PREF" = "tr" ]; then
         prompt_yes_no "Farklı istemci sürümlerinin (daha yeni Bedrock sürümleri dahil) bağlanabilmesi için ViaVersion ve ViaBackwards kurmak ister misiniz?" "y"
-        [ "$choice" = "y" ] && install_via="y"
+        [ $? -eq 0 ] && install_via="y"
     else
         prompt_yes_no "Would you like to install ViaVersion and ViaBackwards to support different client versions (including newer Bedrock clients)?" "y"
-        [ "$choice" = "y" ] && install_via="y"
+        [ $? -eq 0 ] && install_via="y"
     fi
     
     if [ "$install_via" = "y" ]; then
@@ -2712,7 +2712,7 @@ install_geyser_floodgate() {
                 echo -e ""
                 log_warn "UFW firewall is active, but Bedrock UDP port 19132 is NOT allowed!"
                 prompt_yes_no "Would you like to open UDP port 19132 in UFW automatically?" "y"
-                if [ "$choice" = "y" ]; then
+                if [ $? -eq 0 ]; then
                     if [ "$EUID" -ne 0 ]; then
                         run_with_spinner "Opening UDP port 19132 in UFW (via sudo)" sudo ufw allow 19132/udp
                     else
