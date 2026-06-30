@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.2
+# Version: 1.3
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.2"
+APP_VERSION="1.3"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.2 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.3 (${DEVELOPER})"
 
 # Ensure application config directory exists
 mkdir -p "${HOME}/.mcserver-installer"
@@ -339,13 +339,11 @@ get_java_installed_version() {
 get_required_java_version() {
     local mc_ver="$1"
     
-    # Defaults for proxies/latest
     if [ "$mc_ver" = "latest" ]; then
         echo 21
         return
     fi
     
-    # Try fetching dynamically from Mojang packages JSON
     local pkg_url
     pkg_url=$(curl -s "https://launchermeta.mojang.com/mc/game/version_manifest_v2.json" | jq -r --arg ver "$mc_ver" '.versions[] | select(.id == $ver) | .url' 2>/dev/null)
     if [ -n "$pkg_url" ] && [ "$pkg_url" != "null" ]; then
@@ -357,7 +355,6 @@ get_required_java_version() {
         fi
     fi
     
-    # Fallbacks based on standard conventions
     if [[ "$mc_ver" =~ ^2[56789]\. ]]; then
         echo 25
     elif [[ "$mc_ver" =~ ^1\.20\.[5-9] || "$mc_ver" =~ ^1\.21 ]]; then
@@ -372,7 +369,6 @@ get_required_java_version() {
 find_java_binary_path() {
     local version="$1"
     
-    # 1. Check standard JVM folders
     local paths
     paths=$(ls -d /usr/lib/jvm/java-${version}-openjdk* 2>/dev/null)
     for p in $paths; do
@@ -382,7 +378,6 @@ find_java_binary_path() {
         fi
     done
     
-    # 2. Check using update-alternatives
     local alt_path
     alt_path=$(update-alternatives --display java 2>/dev/null | grep -E "priority|link" | grep -oE "/usr/lib/jvm/[^ ]+/bin/java" | grep "java-${version}" | head -n 1)
     if [ -n "$alt_path" ] && [ -x "$alt_path" ]; then
@@ -390,7 +385,6 @@ find_java_binary_path() {
         return
     fi
     
-    # 3. Fallback to default if matching JRE is current
     local current_ver
     current_ver=$(get_java_installed_version)
     if [ "$current_ver" -eq "$version" ]; then
@@ -398,7 +392,6 @@ find_java_binary_path() {
         return
     fi
     
-    # Fallback to general java
     echo "java"
 }
 
@@ -413,7 +406,6 @@ install_java_package() {
         return 1
     fi
     
-    # Check if package is available
     local pkg_avail=false
     if apt-cache show "$pkg_name" &>/dev/null; then
         pkg_avail=true
@@ -421,7 +413,6 @@ install_java_package() {
     
     if [ "$pkg_avail" = "false" ]; then
         log_warn "Package $pkg_name not found in default repositories."
-        # If Ubuntu/Debian, try adding openjdk PPA
         if [ -f /etc/os-release ] && grep -q -i "ubuntu" /etc/os-release; then
             log_info "Adding PPA ppa:openjdk-r/ppa for Ubuntu..."
             local ppa_cmd="apt-get install -y software-properties-common && add-apt-repository -y ppa:openjdk-r/ppa && apt-get update"
@@ -562,8 +553,9 @@ prompt_selection() {
         while true; do
             echo -n "  Select option (1-${total}): " >&2
             read -r choice
+            choice=$(echo "$choice" | tr -d '\r')
             if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "$total" ]; then
-                echo "${options[$((choice - 1))]}"
+                echo "${options[$((choice - 1))]}" | tr -d '\r'
                 return 0
             fi
             log_warn "Invalid selection. Please try again."
@@ -621,6 +613,7 @@ prompt_selection() {
         local choice=0
         echo -n "  Select option (1-${max_choice}): " >&2
         read -r choice
+        choice=$(echo "$choice" | tr -d '\r')
         
         if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "$max_choice" ]; then
             if [ "$has_next" = "true" ] && [ "$choice" -eq "$next_num" ]; then
@@ -633,7 +626,7 @@ prompt_selection() {
             fi
             
             local selected_mapped_idx=${map_idx[$((choice - 1))]}
-            echo "${options[$selected_mapped_idx]}"
+            echo "${options[$selected_mapped_idx]}" | tr -d '\r'
             return 0
         fi
         log_warn "Invalid selection. Please try again."
@@ -647,10 +640,11 @@ prompt_input() {
     echo -e -n "  ${COLOR_CYAN}${msg}${COLOR_RESET} [${COLOR_GRAY}${default}${COLOR_RESET}]: " >&2
     local input
     read -r input
+    input=$(echo "$input" | tr -d '\r')
     if [ -z "$input" ]; then
-        echo "$default"
+        echo "$default" | tr -d '\r'
     else
-        echo "$input"
+        echo "$input" | tr -d '\r'
     fi
 }
 
@@ -664,6 +658,7 @@ prompt_yes_no() {
         echo -n -e "  ${COLOR_CYAN}${msg}${COLOR_RESET} ${prompt_str}: " >&2
         local choice
         read -r choice
+        choice=$(echo "$choice" | tr -d '\r')
         if [ -z "$choice" ]; then
             choice="$default"
         fi
@@ -703,7 +698,7 @@ run_installation_wizard() {
         vanilla)
             log_info "Fetching Minecraft Vanilla versions..."
             local releases
-            releases=$(fetch_vanilla_releases | head -n 15)
+            releases=$(fetch_vanilla_releases)
             mc_version=$(prompt_selection "Select Minecraft version:" $releases)
             
             log_info "Resolving download URL for Vanilla $mc_version..."
@@ -712,12 +707,17 @@ run_installation_wizard() {
         paper|folia|velocity|waterfall)
             log_info "Fetching $s_type versions..."
             local versions
-            versions=$(fetch_papermc_versions "$s_type" | head -n 15)
+            versions=$(fetch_papermc_versions "$s_type")
             mc_version=$(prompt_selection "Select Minecraft version:" $versions)
             
             log_info "Fetching builds for $s_type $mc_version..."
             local builds
-            builds=$(fetch_papermc_builds "$s_type" "$mc_version" | sort -nr | head -n 15)
+            builds=$(fetch_papermc_builds "$s_type" "$mc_version" | sort -nr)
+            
+            if [ -z "$builds" ]; then
+                log_error "No builds found for $s_type version $mc_version."
+                exit 1
+            fi
             
             local build_choices=()
             for b in $builds; do build_choices+=("$b"); done
@@ -737,12 +737,17 @@ run_installation_wizard() {
         purpur)
             log_info "Fetching Purpur versions..."
             local versions
-            versions=$(fetch_purpur_versions | head -n 15)
+            versions=$(fetch_purpur_versions)
             mc_version=$(prompt_selection "Select Minecraft version:" $versions)
             
             log_info "Fetching builds for Purpur $mc_version..."
             local builds
-            builds=$(fetch_purpur_builds "$mc_version" | sort -nr | head -n 15)
+            builds=$(fetch_purpur_builds "$mc_version" | sort -nr)
+            
+            if [ -z "$builds" ]; then
+                log_error "No builds found for Purpur version $mc_version."
+                exit 1
+            fi
             
             local build_choices=()
             for b in $builds; do build_choices+=("$b"); done
@@ -761,12 +766,12 @@ run_installation_wizard() {
         fabric)
             log_info "Fetching Fabric game versions..."
             local releases
-            releases=$(fetch_vanilla_releases | head -n 15)
+            releases=$(fetch_vanilla_releases)
             mc_version=$(prompt_selection "Select Minecraft version:" $releases)
             
             log_info "Fetching Fabric Loader versions..."
             local loaders
-            loaders=$(fetch_fabric_loaders | head -n 10)
+            loaders=$(fetch_fabric_loaders)
             loader_version=$(prompt_selection "Select Fabric Loader version:" $loaders)
             
             log_info "Resolving Fabric Installer URL..."
@@ -775,12 +780,12 @@ run_installation_wizard() {
         forge)
             log_info "Fetching supported Minecraft versions for Forge..."
             local releases
-            releases=(1.21.4 1.21.1 1.21 1.20.6 1.20.4 1.20.2 1.20.1 1.20 1.19.4 1.19.2 1.18.2 1.17.1 1.16.5 1.12.2)
+            releases=(1.21.4 1.21.1 1.21 1.20.6 1.20.4 1.20.2 1.20.1 1.20 1.19.4 1.19.2 1.18.2 1.17.1 1.16.5 1.12.2 1.8.8 1.7.10)
             mc_version=$(prompt_selection "Select Minecraft version:" "${releases[@]}")
             
             log_info "Fetching Forge builds for $mc_version..."
             local builds
-            builds=$(fetch_forge_versions "$mc_version" | head -n 10)
+            builds=$(fetch_forge_versions "$mc_version")
             
             if [ -z "$builds" ]; then
                 log_error "No Forge builds found for Minecraft $mc_version."
@@ -798,7 +803,7 @@ run_installation_wizard() {
             
             log_info "Fetching NeoForge builds for $mc_version..."
             local builds
-            builds=$(fetch_neoforge_versions "$mc_version" | head -n 10)
+            builds=$(fetch_neoforge_versions "$mc_version")
             
             if [ -z "$builds" ]; then
                 log_error "No NeoForge builds found for Minecraft $mc_version."
@@ -1342,7 +1347,6 @@ check_firewall_rules() {
         local status
         status=$(sudo ufw status 2>/dev/null || ufw status 2>/dev/null || echo "inactive")
         if echo "$status" | grep -q "Status: active"; then
-            # Check if port is allowed
             if ! echo "$status" | grep -q "${port}"; then
                 log_warn "UFW firewall is active but port ${port} is NOT allowed!"
                 echo -n "  Would you like to open port ${port} in UFW automatically? [Y/n]: " >&2
@@ -1374,17 +1378,14 @@ start_minecraft_server() {
         return 1
     fi
     
-    # Check firewall port rules
     local port; port=$(get_server_port "$server_path" "standard")
     check_firewall_rules "$port"
     
     log_info "Starting server..."
-    # Ensure any residual stop files are gone
     rm -f "${server_path}/.stop_restart"
     
     (cd "$server_path" && screen -dmS "$session_name" ./start.sh)
     
-    # Wait and check status
     sleep 2
     if is_server_running "$session_name"; then
         log_success "Server started successfully in background!"
@@ -1487,7 +1488,6 @@ connect_server_console() {
     fi
     [ -z "$public_ip" ] && public_ip="Unknown"
     
-    # Custom interactive console loop (keeps UI overlay above logs)
     while true; do
         clear_screen
         draw_header
@@ -1502,26 +1502,21 @@ connect_server_console() {
         fi
         echo -e "${COLOR_CYAN}────────────────────────────────────────────────────────────────${COLOR_RESET}"
         
-        # Read user input with 1.5-second timeout for real-time log updates
         local cmd=""
         echo -n -e "${COLOR_YELLOW}[Console Input]${COLOR_RESET} > " >&2
         read -t 1.5 -r cmd
         
         local status=$?
         if [ $status -gt 128 ]; then
-            # Read timed out, loop back to refresh logs
             continue
         fi
         
-        # Handle manual exit commands
         if [ "$cmd" = "exit" ] || [ "$cmd" = "quit" ] || [ "$cmd" = "quit_console" ]; then
             break
         fi
         
         if [ -n "$cmd" ]; then
-            # Send command to screen session
             screen -S "$session_name" -p 0 -X stuff "${cmd}$(printf \\r)"
-            # Quick sleep to let JRE write logs
             sleep 0.15
         fi
     done
