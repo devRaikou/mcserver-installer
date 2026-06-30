@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.3
+# Version: 1.4
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,11 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.3"
+APP_VERSION="1.4"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.3 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.4 (${DEVELOPER})"
+HEADLESS_MODE="false"
 
 # Ensure application config directory exists
 mkdir -p "${HOME}/.mcserver-installer"
