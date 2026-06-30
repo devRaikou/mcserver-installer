@@ -61,6 +61,27 @@ log_success() { echo -e "  ${COLOR_GREEN}${ICON_SUCCESS} $*${COLOR_RESET}" >&2; 
 log_warn() { echo -e "  ${COLOR_YELLOW}${ICON_WARNING} $*${COLOR_RESET}" >&2; }
 log_error() { echo -e "  ${COLOR_RED}${ICON_ERROR} $*${COLOR_RESET}" >&2; }
 
+send_discord_notification() {
+    local msg="$1"
+    local color="${2:-3066993}"
+    local settings_file="${HOME}/.mcserver-installer/settings.conf"
+    
+    if [ -f "$settings_file" ]; then
+        local webhook
+        webhook=$(grep '^DISCORD_WEBHOOK=' "$settings_file" | cut -d'"' -f2 | tr -d '\r')
+        if [ -n "$webhook" ]; then
+            local clean_msg
+            clean_msg=$(echo "$msg" | sed 's/"/\\"/g')
+            (
+                curl -s -H "Content-Type: application/json" \
+                     -X POST \
+                     -d "{\"embeds\": [{\"title\": \"mcserver-installer Notification\", \"description\": \"${clean_msg}\", \"color\": ${color}, \"footer\": {\"text\": \"devRaikou mcserver-installer\"}, \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}]}" \
+                     "$webhook" >/dev/null 2>&1
+            ) &
+        fi
+    fi
+}
+
 # --- Terminal UI Helpers ---
 clear_screen() {
     clear >&2
@@ -1390,6 +1411,8 @@ start_minecraft_server() {
     if is_server_running "$session_name"; then
         log_success "Server started successfully in background!"
         log_info "Screen session: $session_name"
+        local s_name; s_name=$(basename "$server_path")
+        send_discord_notification "🟢 Server **${s_name}** has started successfully!" 3066993
     else
         log_error "Server failed to start. Check your logs/latest.log or start.sh."
     fi
@@ -1408,13 +1431,10 @@ stop_minecraft_server() {
     fi
     
     log_info "Sending stop command to server..."
-    # Write stop file so the start.sh restart loop breaks
     touch "${server_path}/.stop_restart"
     
-    # Send "stop" command to the screen console input
     screen -S "$session_name" -p 0 -X stuff "stop$(printf \\r)"
     
-    # Wait loop
     local count=0
     printf "  Waiting for server to stop gracefully "
     while is_server_running "$session_name" && [ $count -lt 30 ]; do
@@ -1424,13 +1444,15 @@ stop_minecraft_server() {
     done
     printf "\n"
     
+    local s_name; s_name=$(basename "$server_path")
     if is_server_running "$session_name"; then
         log_warn "Server did not stop gracefully. Forcing termination..."
         screen -S "$session_name" -p 0 -X quit
-        # Kill any remaining java processes started under the screen directory
         pkill -f "java.*${session_name}"
+        send_discord_notification "🔴 Server **${s_name}** did not stop gracefully. Forced termination applied." 15158332
     else
         log_success "Server stopped gracefully."
+        send_discord_notification "🔴 Server **${s_name}** has stopped gracefully." 15158332
     fi
     rm -f "${server_path}/.stop_restart"
     sleep 2
