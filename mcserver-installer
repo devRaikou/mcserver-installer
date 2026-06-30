@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.13
+# Version: 1.14
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.13"
+APP_VERSION="1.14"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.13 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.14 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -1068,6 +1068,12 @@ EOF
         done
     fi
     
+    for name in "${backend_names[@]}"; do
+        local b_dir="${parent_dir}/${name}"
+        log_info "Auto-starting backend server: ${name}..."
+        start_minecraft_server "$b_dir"
+    done
+    
     log_success "$(t "orch_success" "Backend servers successfully orchestrated and connected to proxy!")"
     sleep 3
 }
@@ -1499,6 +1505,16 @@ EOF
         orchestrate_proxy_network "$inst_dir" "$server_name" "$s_type" "$port"
     fi
     
+    # Auto-start server
+    log_info "Auto-starting server..."
+    start_minecraft_server "$inst_dir"
+    
+    local session_name; session_name=$(get_session_name "$inst_dir")
+    local start_status="false"
+    if is_server_running "$session_name"; then
+        start_status="true"
+    fi
+
     echo -e "\n"
     local local_ip; local_ip=$(get_local_ip)
     local public_ip="Unknown"
@@ -1512,6 +1528,9 @@ EOF
         log_success "Sunucu türü: $s_type ($mc_version) başarıyla kuruldu."
         log_success "Dizin: $inst_dir"
         log_success "Çalıştırılabilir: ./start.sh"
+        if [ "$start_status" = "true" ]; then
+            log_success "✔ Sunucu arka planda başarıyla başlatıldı! (Ekran oturumu: $session_name)"
+        fi
         if [ "$s_type" = "velocity" ] || [ "$s_type" = "waterfall" ] || [ "$s_type" = "bungeecord" ]; then
             echo -e ""
             log_success "👉 Oyuncu Giriş Adresi (Proxy): ${COLOR_GREEN}${public_ip}:${port}${COLOR_RESET} veya ${COLOR_GREEN}${local_ip}:${port}${COLOR_RESET}"
@@ -1524,6 +1543,9 @@ EOF
         log_success "Server type: $s_type ($mc_version) installed successfully."
         log_success "Path: $inst_dir"
         log_success "Executable: ./start.sh"
+        if [ "$start_status" = "true" ]; then
+            log_success "✔ Server started successfully in the background! (Screen session: $session_name)"
+        fi
         if [ "$s_type" = "velocity" ] || [ "$s_type" = "waterfall" ] || [ "$s_type" = "bungeecord" ]; then
             echo -e ""
             log_success "👉 Player Connection Address (Proxy): ${COLOR_GREEN}${public_ip}:${port}${COLOR_RESET} or ${COLOR_GREEN}${local_ip}:${port}${COLOR_RESET}"
@@ -2683,6 +2705,11 @@ run_server_management_menu() {
         fi
         [ -z "$public_ip" ] && public_ip="Unknown"
 
+        local geyser_installed="false"
+        if [ -f "${s_path}/plugins/Geyser.jar" ] || [ -f "${s_path}/plugins/Geyser-Velocity.jar" ] || [ -f "${s_path}/plugins/Geyser-Spigot.jar" ] || [ -f "${s_path}/plugins/geyser.jar" ]; then
+            geyser_installed="true"
+        fi
+
         clear_screen
         draw_header
         echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "srv_manage_title" "MANAGE SERVER"): $s_name${COLOR_RESET}"
@@ -2690,10 +2717,16 @@ run_server_management_menu() {
             echo -e "  Dizin: $s_path"
             echo -e "  Yazılım: $s_type ($s_ver) | Durum: $status_str"
             echo -e "  Adres:  ${COLOR_GREEN}${local_ip}:${port}${COLOR_RESET} (Yerel) | ${COLOR_GREEN}${public_ip}:${port}${COLOR_RESET} (Genel)"
+            if [ "$geyser_installed" = "true" ]; then
+                echo -e "  Mobil Giriş (Bedrock): ${COLOR_GREEN}${local_ip}:19132${COLOR_RESET} (Yerel) | ${COLOR_GREEN}${public_ip}:19132${COLOR_RESET} (Genel)"
+            fi
         else
             echo -e "  Path: $s_path"
             echo -e "  Software: $s_type ($s_ver) | Status: $status_str"
             echo -e "  Address:  ${COLOR_GREEN}${local_ip}:${port}${COLOR_RESET} (Local) | ${COLOR_GREEN}${public_ip}:${port}${COLOR_RESET} (Public)"
+            if [ "$geyser_installed" = "true" ]; then
+                echo -e "  Mobile Address (Bedrock): ${COLOR_GREEN}${local_ip}:19132${COLOR_RESET} (Local) | ${COLOR_GREEN}${public_ip}:19132${COLOR_RESET} (Public)"
+            fi
         fi
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
         
