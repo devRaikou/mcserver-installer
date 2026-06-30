@@ -1,5 +1,7 @@
 # mcserver-installer
 
+English | [Türkçe](README_TR.md)
+
 A professional command-line interface (CLI) tool for automating Minecraft server installation, configuration, and management on Linux systems (optimized for Debian/Ubuntu). 
 
 Designed for administrators who require visual clarity, operational safety, and full control over their server lifecycles.

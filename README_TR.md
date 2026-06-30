@@ -1,5 +1,7 @@
 # mcserver-installer
 
+[English](README.md) | Türkçe
+
 Linux sistemlerinde (Debian/Ubuntu için optimize edilmiştir) Minecraft sunucu kurulumu, yapılandırılması ve yaşam döngüsü yönetimini otomatikleştiren profesyonel bir komut satırı arayüzü (CLI) aracıdır.
 
 Görsel netlik, operasyonel güvenlik ve sunucu yönetiminde tam kontrol isteyen yöneticiler için tasarlanmıştır.
