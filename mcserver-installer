@@ -1580,6 +1580,71 @@ get_local_ip() {
     fi
 }
 
+toggle_systemd_service() {
+    local s_name="$1"
+    local s_path="$2"
+    local session_name
+    session_name=$(get_session_name "$s_path")
+    
+    local service_file="/etc/systemd/system/mc-${session_name}.service"
+    local active_str="Disabled"
+    if [ -f "$service_file" ]; then
+        active_str="Enabled"
+    fi
+    
+    clear_screen
+    draw_header
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}SYSTEMD BOOT AUTO-START CONTROLLER${COLOR_RESET}"
+    echo -e "  Server: $s_name | Auto-start status: ${COLOR_YELLOW}${active_str}${COLOR_RESET}"
+    echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
+    
+    if [ "$active_str" = "Enabled" ]; then
+        prompt_yes_no "Do you want to disable boot auto-start for this server?" "n"
+        if [ $? -eq 0 ]; then
+            local disable_cmd="systemctl stop mc-${session_name} && systemctl disable mc-${session_name} && rm -f $service_file && systemctl daemon-reload"
+            if [ "$EUID" -eq 0 ]; then
+                run_with_spinner "Disabling systemd service" bash -c "$disable_cmd"
+            else
+                run_with_spinner "Disabling systemd service (via sudo)" sudo bash -c "$disable_cmd"
+            fi
+            log_success "Boot auto-start disabled successfully."
+        fi
+    else
+        prompt_yes_no "Do you want to enable boot auto-start for this server?" "y"
+        if [ $? -eq 0 ]; then
+            local tmp_service
+            tmp_service=$(mktemp)
+            cat > "$tmp_service" <<EOF
+[Unit]
+Description=Minecraft Server - ${s_name}
+After=network.target
+
+[Service]
+Type=forking
+User=${USER}
+WorkingDirectory=${s_path}
+ExecStart=/usr/bin/screen -dmS ${session_name} ./start.sh
+ExecStop=/bin/bash -c "/usr/bin/screen -S ${session_name} -p 0 -X stuff 'stop\r'"
+TimeoutStopSec=30
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+            
+            local enable_cmd="cp $tmp_service $service_file && chown root:root $service_file && chmod 644 $service_file && systemctl daemon-reload && systemctl enable mc-${session_name}"
+            if [ "$EUID" -eq 0 ]; then
+                run_with_spinner "Enabling systemd service" bash -c "$enable_cmd"
+            else
+                run_with_spinner "Enabling systemd service (via sudo)" sudo bash -c "$enable_cmd"
+            fi
+            rm -f "$tmp_service"
+            log_success "Boot auto-start enabled successfully!"
+        fi
+    fi
+    sleep 2
+}
+
 # --- Management Menu for a Specific Server ---
 run_server_management_menu() {
     local s_name="$1"
@@ -1621,11 +1686,13 @@ run_server_management_menu() {
         echo -e "    ${COLOR_YELLOW}8.${COLOR_RESET} Create Backup"
         echo -e "    ${COLOR_YELLOW}9.${COLOR_RESET} Restore Backup"
         echo -e "   ${COLOR_YELLOW}10.${COLOR_RESET} Change Server Memory Allocation (RAM)"
-        echo -e "   ${COLOR_YELLOW}11.${COLOR_RESET} Return to Main Menu"
+        echo -e "   ${COLOR_YELLOW}11.${COLOR_RESET} Enable/Disable Boot Auto-start (systemd)"
+        echo -e "   ${COLOR_YELLOW}12.${COLOR_RESET} Return to Main Menu"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
         
-        echo -n "  Select option (1-11): "
+        echo -n "  Select option (1-12): "
         read -r choice
+        choice=$(echo "$choice" | tr -d '\r')
         
         case "$choice" in
             1)
@@ -1701,6 +1768,9 @@ run_server_management_menu() {
                 fi
                 ;;
             11)
+                toggle_systemd_service "$s_name" "$s_path"
+                ;;
+            12)
                 break
                 ;;
             *)
