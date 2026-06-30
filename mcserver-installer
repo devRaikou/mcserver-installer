@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.14
+# Version: 1.15
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.14"
+APP_VERSION="1.15"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.14 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.15 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -2965,14 +2965,22 @@ show_about() {
 
 remove_server_registration() {
     if [ ! -f "$REGISTRY_FILE" ] || [ ! -s "$REGISTRY_FILE" ]; then
-        log_warn "No installed servers registered."
+        if [ "$LANG_PREF" = "tr" ]; then
+            log_warn "Kayıtlı kurulu sunucu bulunamadı."
+        else
+            log_warn "No installed servers registered."
+        fi
         sleep 2
         return 1
     fi
     
     clear_screen
     draw_header
-    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}DELETE SERVER / REGISTRATION${COLOR_RESET}"
+    if [ "$LANG_PREF" = "tr" ]; then
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}SUNUCUYU SİL / KAYDI SİL${COLOR_RESET}"
+    else
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}DELETE SERVER / REGISTRATION${COLOR_RESET}"
+    fi
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
     
     local servers=()
@@ -2986,11 +2994,80 @@ remove_server_registration() {
         list_options+=("$name - $path")
     done < "$REGISTRY_FILE"
     
-    list_options+=("Cancel and Exit")
-    local selection
-    selection=$(prompt_selection "Choose server to delete:" "${list_options[@]}")
+    if [ "$LANG_PREF" = "tr" ]; then
+        list_options+=("TÜM SUNUCULARI SİL")
+        list_options+=("İptal Et ve Çık")
+    else
+        list_options+=("DELETE ALL SERVERS")
+        list_options+=("Cancel and Exit")
+    fi
     
-    if [ "$selection" = "Cancel and Exit" ]; then
+    local selection
+    if [ "$LANG_PREF" = "tr" ]; then
+        selection=$(prompt_selection "Silmek istediğiniz sunucuyu seçin:" "${list_options[@]}")
+    else
+        selection=$(prompt_selection "Choose server to delete:" "${list_options[@]}")
+    fi
+    
+    if [ "$selection" = "Cancel and Exit" ] || [ "$selection" = "İptal Et ve Çık" ]; then
+        return 0
+    fi
+    
+    if [ "$selection" = "DELETE ALL SERVERS" ] || [ "$selection" = "TÜM SUNUCULARI SİL" ]; then
+        local running_servers=()
+        for k in "${!paths[@]}"; do
+            local path="${paths[$k]}"
+            local sess_name; sess_name=$(get_session_name "$path")
+            if is_server_running "$sess_name"; then
+                running_servers+=("${servers[$k]}")
+            fi
+        done
+        
+        if [ ${#running_servers[@]} -gt 0 ]; then
+            if [ "$LANG_PREF" = "tr" ]; then
+                log_error "Şu sunucular hala çalışıyor: ${running_servers[*]}. Lütfen önce onları durdurun!"
+            else
+                log_error "Following servers are still running: ${running_servers[*]}. Please stop them first!"
+            fi
+            sleep 3
+            return 1
+        fi
+        
+        local delete_files="false"
+        if [ "$LANG_PREF" = "tr" ]; then
+            prompt_yes_no "Tüm sunucuların dosyalarını tamamen silmek istiyor musunuz?" "n"
+        else
+            prompt_yes_no "Do you want to completely erase files for all servers?" "n"
+        fi
+        [ $? -eq 0 ] && delete_files="true"
+        
+        for k in "${!paths[@]}"; do
+            local path="${paths[$k]}"
+            if [ "$delete_files" = "true" ]; then
+                if [ "$LANG_PREF" = "tr" ]; then
+                    run_with_spinner "Siliniyor: ${servers[$k]}" rm -rf "$path"
+                else
+                    run_with_spinner "Deleting: ${servers[$k]}" rm -rf "$path"
+                fi
+            fi
+        done
+        
+        echo -n "" > "$REGISTRY_FILE"
+        
+        if [ "$LANG_PREF" = "tr" ]; then
+            if [ "$delete_files" = "true" ]; then
+                log_success "Tüm sunucular ve dosyaları başarıyla silindi."
+            else
+                log_success "Tüm sunucu kayıtları kaldırıldı, ancak dosyalar korundu."
+            fi
+        else
+            if [ "$delete_files" = "true" ]; then
+                log_success "All servers and files deleted successfully."
+            else
+                log_success "All server registrations removed, but files were kept."
+            fi
+        fi
+        sleep 2
         return 0
     fi
     
@@ -3009,13 +3086,21 @@ remove_server_registration() {
     local sess_name; sess_name=$(get_session_name "$sel_path")
     
     if is_server_running "$sess_name"; then
-        log_error "The server is currently running. Please stop it first!"
+        if [ "$LANG_PREF" = "tr" ]; then
+            log_error "Sunucu şu anda çalışıyor. Lütfen önce durdurun!"
+        else
+            log_error "The server is currently running. Please stop it first!"
+        fi
         sleep 2
         return 1
     fi
     
     local delete_files="false"
-    prompt_yes_no "Do you want to completely erase the files at ${sel_path}?" "n"
+    if [ "$LANG_PREF" = "tr" ]; then
+        prompt_yes_no "${sel_path} dizinindeki tüm dosyaları tamamen silmek istiyor musunuz?" "n"
+    else
+        prompt_yes_no "Do you want to completely erase the files at ${sel_path}?" "n"
+    fi
     [ $? -eq 0 ] && delete_files="true"
     
     # Remove from registry
@@ -3027,10 +3112,19 @@ remove_server_registration() {
     sed -i '/^[[:space:]]*$/d' "$REGISTRY_FILE"
     
     if [ "$delete_files" = "true" ]; then
-        run_with_spinner "Deleting server files" rm -rf "$sel_path"
-        log_success "Server and files deleted successfully."
+        if [ "$LANG_PREF" = "tr" ]; then
+            run_with_spinner "Sunucu dosyaları siliniyor" rm -rf "$sel_path"
+            log_success "Sunucu ve dosyaları başarıyla silindi."
+        else
+            run_with_spinner "Deleting server files" rm -rf "$sel_path"
+            log_success "Server and files deleted successfully."
+        fi
     else
-        log_success "Server registration removed from CLI, but files were kept."
+        if [ "$LANG_PREF" = "tr" ]; then
+            log_success "Sunucu kaydı CLI'dan kaldırıldı ancak dosyalar korundu."
+        else
+            log_success "Server registration removed from CLI, but files were kept."
+        fi
     fi
     
     sleep 2
