@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.40
+# Version: 1.41
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.40"
+APP_VERSION="1.41"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -4272,6 +4272,38 @@ launch_web_dashboard() {
     local script_dir
     script_dir=$(cd "$(dirname "$0")" && pwd)
     local dashboard_dir="${script_dir}/dashboard"
+
+    # Auto-download dashboard files if missing (handles standalone script installations)
+    if [ ! -f "${dashboard_dir}/package.json" ] || [ ! -f "${dashboard_dir}/server.js" ] || [ ! -f "${dashboard_dir}/public/index.html" ]; then
+        if [ "$LANG_PREF" = "tr" ]; then
+            log_info "Web paneli dosyaları eksik. GitHub'dan indiriliyor..."
+        else
+            log_info "Web dashboard files are missing. Downloading from GitHub..."
+        fi
+
+        mkdir -p "${dashboard_dir}/public"
+        local base_url="https://raw.githubusercontent.com/devRaikou/mcserver-installer/main/dashboard"
+
+        if [ "$LANG_PREF" = "tr" ]; then
+            run_with_spinner "package.json indiriliyor" curl -s -L -o "${dashboard_dir}/package.json" "${base_url}/package.json"
+            run_with_spinner "server.js indiriliyor" curl -s -L -o "${dashboard_dir}/server.js" "${base_url}/server.js"
+            run_with_spinner "index.html indiriliyor" curl -s -L -o "${dashboard_dir}/public/index.html" "${base_url}/public/index.html"
+        else
+            run_with_spinner "Downloading package.json" curl -s -L -o "${dashboard_dir}/package.json" "${base_url}/package.json"
+            run_with_spinner "Downloading server.js" curl -s -L -o "${dashboard_dir}/server.js" "${base_url}/server.js"
+            run_with_spinner "Downloading index.html" curl -s -L -o "${dashboard_dir}/public/index.html" "${base_url}/public/index.html"
+        fi
+
+        if [ ! -f "${dashboard_dir}/package.json" ] || [ ! -f "${dashboard_dir}/server.js" ] || [ ! -f "${dashboard_dir}/public/index.html" ]; then
+            if [ "$LANG_PREF" = "tr" ]; then
+                log_error "Dosyalar indirilemedi! Lütfen ağ bağlantısını kontrol edin."
+            else
+                log_error "Failed to download dashboard files! Please check your network connection."
+            fi
+            sleep 3
+            return 1
+        fi
+    fi
 
     # 2. Check if node_modules is installed
     if [ ! -d "${dashboard_dir}/node_modules" ]; then
