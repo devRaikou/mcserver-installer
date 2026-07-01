@@ -1,97 +1,91 @@
 # mcserver-installer
 
-English | [Türkçe](README_TR.md)
+![Version](https://img.shields.io/badge/version-1.30-2ea44f)
+![Shell](https://img.shields.io/badge/shell-bash-4eaa25)
+![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu-blue)
+![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-A professional command-line interface (CLI) tool for automating Minecraft server installation, configuration, and management on Linux systems (optimized for Debian/Ubuntu). 
-
-Designed for administrators who require visual clarity, operational safety, and full control over their server lifecycles.
-
----
-
-## Developer
-
-Developed by **devRaikou** and released under the MIT License.
+[English](#english) | [Turkce](#turkce)
 
 ---
 
-## Features
+## English
 
-- **Automated Java JRE Manager:** Scans the host system for isolated runtime installations (Java 8, 17, 21, 25), identifies requirements based on the chosen Minecraft version, and downloads/configures JREs.
-- **Multiple Server Platforms:** Automatically fetches builds and updates for:
-  - Production Softwares: Vanilla, Paper, Folia, Purpur, Fabric, Forge, NeoForge
-  - Proxy Softwares: Velocity, Waterfall, BungeeCord
-- **Real-time Resource Monitor:** Dynamic dashboard showcasing live CPU, RAM (with visual progress bar gauges based on start configuration), and storage footprints.
-- **systemd Integration:** Installs and registers systemd unit files to enable automated server boots on host restarts, executing securely under current user sessions.
-- **Automated Backup Scheduler:** Integrated cron-scheduler for daily/weekly automated server backups, featuring absolute path validations and headless arguments execution.
-- **Discord Webhook Alerts:** Asynchronous, non-blocking notification dispatcher sending detailed embed logs (Server Name, JRE Version, Public/Local IPs, Connection Ports, and GitHub references) to Discord webhooks upon starting, stopping, or backing up servers.
-- **Live Properties Editor:** Read, modify, and save configurations inside `server.properties` dynamically from an interactive CLI menu.
-- **Background Daemon Execution:** Runs servers detached in independent background GNU `screen` sessions to prevent termination when SSH sessions end.
-- **Crash & Stop Guard:** Auto-restart loop with dynamic `.stop_restart` locking checks, allowing servers to restart on crashes but stop cleanly on manual closures.
-- **Optimized JVM Flags:** Automatically configures JVM runtime allocations and offers to set Aikar's optimized Garbage Collection flags.
+`mcserver-installer` is a Bash-based CLI tool for installing, configuring, and managing Minecraft servers on Linux systems, with the smoothest path on Debian and Ubuntu.
 
----
+It is designed for server owners and administrators who want one terminal interface for installation, updates, backups, runtime control, plugin management, and operational checks.
 
-## Requirements
+### What It Does
 
-The installer runs natively on Debian and Ubuntu distributions. It automatically checks for and installs:
-- `curl` (network transfers)
-- `jq` (JSON configuration parsing)
-- `screen` (background session detachment)
-- `tar` & `gzip` (backups creation and extraction)
-- Appropriate Java JDK version (automatically chosen and installed if missing)
+| Area | Details |
+| --- | --- |
+| Server installation | Installs Vanilla, Paper, Folia, Purpur, Fabric, Forge, NeoForge, Velocity, Waterfall, and BungeeCord. |
+| Java management | Detects the required Java version for the selected Minecraft version and installs OpenJDK when needed. |
+| Runtime control | Starts servers in detached GNU `screen` sessions and supports graceful stop/restart flows. |
+| Backups | Creates manual backups and schedules daily or weekly automated backups through `cron`. |
+| Configuration | Provides an interactive `server.properties` editor and RAM allocation controls. |
+| Monitoring | Shows live CPU, RAM, and disk usage for running servers. |
+| Notifications | Sends asynchronous Discord webhook alerts for server start, stop, force-stop, backups, and plugin changes. |
+| Boot startup | Generates `systemd` services so registered servers can start after host reboot. |
+| Plugins | Searches and installs compatible Modrinth plugins, removes plugin jars, and can install Geyser/Floodgate. |
+| Proxy networks | Can deploy backend Paper servers behind supported proxy software. |
 
-*A compatibility warning is provided on non-Debian or macOS environments.*
+### Supported Software
 
----
+Production server software:
 
-## Installation
+- Vanilla
+- Paper
+- Folia
+- Purpur
+- Fabric
+- Forge
+- NeoForge
 
-To download the script and make it executable, execute the following commands on your system:
+Proxy software:
+
+- Velocity
+- Waterfall
+- BungeeCord
+
+### Requirements
+
+The script automatically checks for the required tools and can install missing packages on Debian/Ubuntu:
+
+- `bash`
+- `curl`
+- `jq`
+- `screen`
+- `tar`
+- `gzip`
+- Java/OpenJDK version required by the selected Minecraft version
+
+Non-Debian Linux distributions and macOS may work in compatibility mode, but Debian/Ubuntu is the intended production target.
+
+### Quick Start
 
 ```bash
-# Clone the repository
 git clone https://github.com/devRaikou/mcserver-installer.git
 cd mcserver-installer
-
-# Make the script executable
 chmod +x mcserver-installer
-
-# Run the installer
 ./mcserver-installer
 ```
 
----
+### Headless Commands
 
-## Command Line Arguments
-
-For headless automation, such as crontabs or external automation dashboards, the script supports running operations without interactive prompts:
+Create a backup for a registered server without opening the interactive UI:
 
 ```bash
-# Force backup creation for a specific server headlessly
 ./mcserver-installer --backup <server_name>
 ```
 
----
+This is useful for `cron`, remote automation, and external dashboards.
 
-## Usage
-
-When launched, the script presents an interactive dashboard:
+### Main Menu
 
 ```text
-  __  __  _____  _____                                 
- |  \/  |/ ____|/ ____|                                
- | \  / | |    | (___   ___ _ ____   _____ _ __        
- | |\/| | |     \___ \ / _ \ '__\ \ / / _ \ '__|       
- | |  | | |____ ____) |  __/ |   \ V /  __/ |          
- |_|  |_|\_____|_____/ \___|_|    \_/ \___|_|          
-  _           _        _   _                           
- (_)         | |      | | | |                          
-  _ _ __  ___| |_ __ _| | | | ___ _ __                 
- | | '_ \/ __| __/ _` | | | |/ _ \ '__|                
- | | | | \__ \ || (_| | | | |  __/ |                   
- |_|_| |_|___/\__\__,_|_| |_|\___|_|                   
-
-  Developer: devRaikou | Project: mcserver-installer | Version: 1.30
+  Developer: devRaikou | Version: 1.30
+  GitHub:    https://github.com/devRaikou/mcserver-installer
   ================================================================
 
   MAIN DIRECTORY MENU
@@ -110,20 +104,235 @@ When launched, the script presents an interactive dashboard:
   Select option (1-9):
 ```
 
-### Server Management Menu
+### Server Management
 
-Once you select **Manage Existing Server**, you can access a dedicated operations console:
+After a server is installed and registered, the management menu can:
 
-- **Start Server:** Runs the server in a GNU `screen` session named `mc-[name]-[hash]`.
-- **Stop Server:** Gracefully communicates the `stop` command to the screen console and terminates the restart loops.
-- **Connect to Console:** Attaches interactive terminal to standard input/output. (Press `Ctrl+A` then `D` to detach safely).
-- **Edit server.properties:** Change Port, MOTD, Max Players, GameMode, online mode, etc. in real-time.
-- **Change RAM Allocation:** Modifies memory boundaries in the server's `start.sh` configuration.
-- **Real-time Resource Monitor:** Live system tracking of resources.
-- **Enable/Disable Boot Auto-start:** Toggles systemd auto-reboot configs.
+- Start, stop, and restart the server.
+- Open a managed console overlay or attach directly to GNU `screen`.
+- View `logs/latest.log`.
+- Edit `server.properties`.
+- Create and restore backups.
+- Configure automated backup schedules.
+- Change RAM allocation in `start.sh`.
+- Optimize common Paper/Spigot configuration values.
+- Monitor live resource usage.
+- Install or remove plugins.
+- Enable or disable boot auto-start with `systemd`.
+
+### Runtime Model
+
+Each server is launched through a generated `start.sh` file. The script starts that file inside a detached `screen` session named with the pattern:
+
+```text
+mc-<server-name>-<path-hash>
+```
+
+The generated launcher includes a crash restart loop. Manual stops create a `.stop_restart` lock file so intentional shutdowns do not immediately restart.
+
+### Backups
+
+Manual and scheduled backups are stored in each server directory:
+
+```text
+<server>/backups/backup_YYYYMMDD_HHMMSS.tar.gz
+```
+
+Backups exclude the `backups` and `logs` directories to avoid recursive archives and unnecessary log growth.
+
+### Settings
+
+The installer stores its local settings and registry under:
+
+```text
+~/.mcserver-installer/
+```
+
+Important files:
+
+- `registry.txt`: registered server name, path, software type, and version.
+- `settings.conf`: language and Discord webhook settings.
+- `.public_ip`: cached public IP used in UI and notifications.
+
+### Verification
+
+Run the verification script before publishing or after editing:
+
+```bash
+./verify.sh
+```
+
+It checks Bash syntax, executable permissions, and Mojang version manifest parsing through `curl` and `jq`.
+
+### Developer
+
+Developed by **devRaikou** and released under the MIT License.
+
+### License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
-## License
+## Turkce
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+`mcserver-installer`, Linux sistemlerinde Minecraft sunucusu kurmak, yapılandırmak ve yönetmek için hazırlanmış Bash tabanlı bir CLI aracıdır. En sorunsuz kullanım hedefi Debian ve Ubuntu sistemleridir.
+
+Sunucu sahipleri ve yöneticileri için kurulum, güncelleme, yedekleme, çalışma kontrolü, eklenti yönetimi ve sistem kontrollerini tek terminal arayüzünde toplar.
+
+### Ne Ise Yarar?
+
+| Alan | Detay |
+| --- | --- |
+| Sunucu kurulumu | Vanilla, Paper, Folia, Purpur, Fabric, Forge, NeoForge, Velocity, Waterfall ve BungeeCord kurabilir. |
+| Java yonetimi | Secilen Minecraft surumu icin gereken Java surumunu algilar ve gerekirse OpenJDK kurar. |
+| Calisma kontrolu | Sunuculari bagimsiz GNU `screen` oturumlarinda baslatir; guvenli durdurma ve yeniden baslatma akislari sunar. |
+| Yedekleme | Manuel yedek olusturur, `cron` ile gunluk veya haftalik otomatik yedek planlar. |
+| Yapilandirma | Etkilesimli `server.properties` editoru ve RAM ayarlari sunar. |
+| Izleme | Calisan sunucular icin canli CPU, RAM ve disk kullanimini gosterir. |
+| Bildirimler | Baslatma, durdurma, zorla kapatma, yedekleme ve eklenti islemleri icin Discord webhook bildirimi gonderir. |
+| Sistem acilisi | Kayitli sunucularin makine acilisinda baslamasi icin `systemd` servisi olusturur. |
+| Eklentiler | Modrinth uzerinden uyumlu eklenti arar, kurar, siler ve Geyser/Floodgate kurulumu yapabilir. |
+| Proxy aglari | Desteklenen proxy yazilimlarinin arkasina Paper backend sunuculari kurabilir. |
+
+### Desteklenen Yazilimlar
+
+Sunucu yazilimlari:
+
+- Vanilla
+- Paper
+- Folia
+- Purpur
+- Fabric
+- Forge
+- NeoForge
+
+Proxy yazilimlari:
+
+- Velocity
+- Waterfall
+- BungeeCord
+
+### Gereksinimler
+
+Script gerekli araclari otomatik kontrol eder ve Debian/Ubuntu uzerinde eksik paketleri kurabilir:
+
+- `bash`
+- `curl`
+- `jq`
+- `screen`
+- `tar`
+- `gzip`
+- Secilen Minecraft surumunun gerektirdigi Java/OpenJDK surumu
+
+Debian disi Linux dagitimlari ve macOS uyumluluk modunda calisabilir, ancak asil hedef uretim ortami Debian/Ubuntu sistemleridir.
+
+### Hizli Baslangic
+
+```bash
+git clone https://github.com/devRaikou/mcserver-installer.git
+cd mcserver-installer
+chmod +x mcserver-installer
+./mcserver-installer
+```
+
+### Etkilesimsiz Komutlar
+
+Kayitli bir sunucunun yedegini arayuzu acmadan almak icin:
+
+```bash
+./mcserver-installer --backup <sunucu_adi>
+```
+
+Bu ozellik `cron`, uzak otomasyonlar ve harici paneller icin kullanislidir.
+
+### Ana Menu
+
+```text
+  Geliştirici: devRaikou | Sürüm: 1.30
+  GitHub:      https://github.com/devRaikou/mcserver-installer
+  ================================================================
+
+  ANA MENÜ
+  ================================================================
+
+    1. Minecraft Sunucusu Kur
+    2. Mevcut Sunucuyu Yönet
+    3. Sunucu Jar Dosyasını Güncelle
+    4. Sunucuyu Yedekle
+    5. Yedeği Geri Yükle
+    6. Sunucuyu Kaldır / Kaydı Sil
+    7. Ayarlar ve Sistem Kontrolleri
+    8. Hakkında
+    9. Çıkış
+  ================================================================
+  Seçim yapın (1-9):
+```
+
+### Sunucu Yonetimi
+
+Bir sunucu kurulduktan ve kaydedildikten sonra yonetim menusu ile sunlari yapabilirsiniz:
+
+- Sunucuyu baslatma, durdurma ve yeniden baslatma.
+- Yonetimli konsol arayuzu acma veya dogrudan GNU `screen` oturumuna baglanma.
+- `logs/latest.log` dosyasini goruntuleme.
+- `server.properties` dosyasini duzenleme.
+- Yedek olusturma ve yedekten geri yukleme.
+- Otomatik yedekleme zamanlamasi ayarlama.
+- `start.sh` icindeki RAM miktarlarini degistirme.
+- Yaygin Paper/Spigot performans ayarlarini optimize etme.
+- Canli kaynak kullanimini izleme.
+- Eklenti kurma veya silme.
+- `systemd` ile sistem acilisinda otomatik baslatmayi acma veya kapatma.
+
+### Calisma Modeli
+
+Her sunucu, kurulum sirasinda olusturulan `start.sh` dosyasi ile baslatilir. Bu dosya su formattaki bagimsiz bir `screen` oturumunda calisir:
+
+```text
+mc-<sunucu-adi>-<dizin-hash>
+```
+
+Olusturulan baslatici dosyada cokme sonrasi otomatik yeniden baslatma dongusu bulunur. Manuel durdurmalarda `.stop_restart` kilit dosyasi olusturularak sunucunun hemen yeniden baslamasi engellenir.
+
+### Yedekler
+
+Manuel ve otomatik yedekler her sunucunun kendi dizininde tutulur:
+
+```text
+<sunucu>/backups/backup_YYYYMMDD_HHMMSS.tar.gz
+```
+
+Yedekler olusturulurken `backups` ve `logs` dizinleri haric tutulur. Boylece tekrar eden arsivler ve gereksiz log buyumesi engellenir.
+
+### Ayarlar
+
+Installer yerel ayarlarini ve sunucu kayitlarini su dizinde tutar:
+
+```text
+~/.mcserver-installer/
+```
+
+Onemli dosyalar:
+
+- `registry.txt`: kayitli sunucu adi, dizini, yazilim tipi ve surumu.
+- `settings.conf`: dil ve Discord webhook ayarlari.
+- `.public_ip`: arayuz ve bildirimlerde kullanilan onbellege alinmis genel IP.
+
+### Dogrulama
+
+Duzenleme yaptiktan veya yayinlamadan once dogrulama scriptini calistirin:
+
+```bash
+./verify.sh
+```
+
+Bu script Bash soz dizimini, calistirma iznini ve `curl`/`jq` ile Mojang surum manifestinin okunabildigini kontrol eder.
+
+### Gelistirici
+
+**devRaikou** tarafindan gelistirilmis olup MIT Lisansi ile yayinlanmistir.
+
+### Lisans
+
+Bu proje MIT Lisansi altinda yayinlanmistir. Detaylar icin [LICENSE](LICENSE) dosyasina bakin.
