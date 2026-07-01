@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.43
+# Version: 1.44
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.43"
+APP_VERSION="1.44"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -4301,13 +4301,13 @@ launch_web_dashboard() {
         local base_url="https://raw.githubusercontent.com/devRaikou/mcserver-installer/main/dashboard"
 
         if [ "$LANG_PREF" = "tr" ]; then
-            run_with_spinner "package.json indiriliyor" curl -s -L -o "${dashboard_dir}/package.json" "${base_url}/package.json"
-            run_with_spinner "server.js indiriliyor" curl -s -L -o "${dashboard_dir}/server.js" "${base_url}/server.js"
-            run_with_spinner "index.html indiriliyor" curl -s -L -o "${dashboard_dir}/public/index.html" "${base_url}/public/index.html"
+            run_with_spinner "package.json indiriliyor" curl -s -L -H "Cache-Control: no-cache" -o "${dashboard_dir}/package.json" "${base_url}/package.json?t=$(date +%s)"
+            run_with_spinner "server.js indiriliyor" curl -s -L -H "Cache-Control: no-cache" -o "${dashboard_dir}/server.js" "${base_url}/server.js?t=$(date +%s)"
+            run_with_spinner "index.html indiriliyor" curl -s -L -H "Cache-Control: no-cache" -o "${dashboard_dir}/public/index.html" "${base_url}/public/index.html?t=$(date +%s)"
         else
-            run_with_spinner "Downloading package.json" curl -s -L -o "${dashboard_dir}/package.json" "${base_url}/package.json"
-            run_with_spinner "Downloading server.js" curl -s -L -o "${dashboard_dir}/server.js" "${base_url}/server.js"
-            run_with_spinner "Downloading index.html" curl -s -L -o "${dashboard_dir}/public/index.html" "${base_url}/public/index.html"
+            run_with_spinner "Downloading package.json" curl -s -L -H "Cache-Control: no-cache" -o "${dashboard_dir}/package.json" "${base_url}/package.json?t=$(date +%s)"
+            run_with_spinner "Downloading server.js" curl -s -L -H "Cache-Control: no-cache" -o "${dashboard_dir}/server.js" "${base_url}/server.js?t=$(date +%s)"
+            run_with_spinner "Downloading index.html" curl -s -L -H "Cache-Control: no-cache" -o "${dashboard_dir}/public/index.html" "${base_url}/public/index.html?t=$(date +%s)"
         fi
 
         if [ ! -f "${dashboard_dir}/package.json" ] || [ ! -f "${dashboard_dir}/server.js" ] || [ ! -f "${dashboard_dir}/public/index.html" ]; then
@@ -4463,7 +4463,7 @@ check_for_updates() {
 
     # Fallback: parse APP_VERSION from raw script if API failed
     if [ -z "$latest" ]; then
-        latest=$(curl -s -m 5 "${raw_script_url}" | grep -m 1 "^APP_VERSION=" | cut -d'"' -f2 | tr -d '[:space:]')
+        latest=$(curl -s -m 5 -H "Cache-Control: no-cache" "${raw_script_url}?t=$(date +%s)" | grep -m 1 "^APP_VERSION=" | cut -d'"' -f2 | tr -d '[:space:]')
     fi
 
     # Only prompt if remote version is strictly greater than local
@@ -4485,9 +4485,9 @@ check_for_updates() {
         if [ $? -eq 0 ]; then
             local temp_file="${SCRIPT_PATH}.tmp"
             if [ "$LANG_PREF" = "tr" ]; then
-                run_with_spinner "Yeni sürüm indiriliyor" curl -s -L -o "$temp_file" "${raw_script_url}"
+                run_with_spinner "Yeni sürüm indiriliyor" curl -s -L -H "Cache-Control: no-cache" -o "$temp_file" "${raw_script_url}?t=$(date +%s)"
             else
-                run_with_spinner "Downloading new version" curl -s -L -o "$temp_file" "${raw_script_url}"
+                run_with_spinner "Downloading new version" curl -s -L -H "Cache-Control: no-cache" -o "$temp_file" "${raw_script_url}?t=$(date +%s)"
             fi
 
             # Check shebang to ensure the downloaded file is a valid bash script
