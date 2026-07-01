@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.21
+# Version: 1.22
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.21"
+APP_VERSION="1.22"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.21 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.22 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -77,6 +77,7 @@ t() {
             "srv_plugins") echo "Eklenti Yöneticisi" ;;
             "srv_geyser") echo "Geyser & Floodgate Kur (Cross-play)" ;;
             "srv_systemd") echo "Sistem Açılışında Başlatmayı Etkinleştir/Kaldır (systemd)" ;;
+            "srv_optimize") echo "Performans Ayarlarını Optimize Et" ;;
             "srv_back") echo "Ana Menüye Dön" ;;
             "invalid_sel") echo "Geçersiz seçim." ;;
             "press_enter") echo "Devam etmek için [Enter] tuşuna basın: " ;;
@@ -101,6 +102,7 @@ t() {
             "hdr_update_software") echo "SUNUCU YAZILIMINI GÜNCELLE" ;;
             "hdr_discord_webhook") echo "DISCORD WEBHOOK YAPILANDIR" ;;
             "hdr_java_manager") echo "JAVA JRE YÖNETİCİSİ" ;;
+            "hdr_optimize") echo "SUNUCU PERFORMANS OPTİMİZASYONU" ;;
             
             # prompt_selection internal UI keys
             "page_word") echo "Sayfa" ;;
@@ -2784,6 +2786,127 @@ install_geyser_floodgate() {
     read -r _
 }
 
+optimize_server_performance() {
+    local s_path="$1"
+    local s_type="$2"
+    
+    clear_screen
+    draw_header
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_optimize" "SERVER OPTIMIZATION ENGINE")${COLOR_RESET}"
+    echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
+    
+    if [ "$LANG_PREF" = "tr" ]; then
+        log_info "Sunucu performans dosyaları optimize ediliyor..."
+    else
+        log_info "Optimizing server performance configuration files..."
+    fi
+    sleep 1
+    
+    # 1. Optimize server.properties (if exists)
+    local prop_file="${s_path}/server.properties"
+    if [ -f "$prop_file" ]; then
+        set_property_val "$prop_file" "view-distance" "6"
+        set_property_val "$prop_file" "simulation-distance" "5"
+        set_property_val "$prop_file" "network-compression-threshold" "256"
+        if [ "$LANG_PREF" = "tr" ]; then
+            log_success "server.properties optimize edildi (Görüş mesafesi: 6, Simülasyon: 5)."
+        else
+            log_success "server.properties optimized (View distance: 6, Simulation: 5)."
+        fi
+    fi
+    
+    # 2. Optimize spigot.yml (if exists)
+    local spigot_file="${s_path}/spigot.yml"
+    if [ -f "$spigot_file" ]; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' 's/save-user-cache-on-stop-only:.*/save-user-cache-on-stop-only: true/' "$spigot_file"
+            sed -i '' 's/animals:.*/animals: 16/' "$spigot_file"
+            sed -i '' 's/monsters:.*/monsters: 24/' "$spigot_file"
+        else
+            sed -i 's/save-user-cache-on-stop-only:.*/save-user-cache-on-stop-only: true/' "$spigot_file"
+            sed -i 's/animals:.*/animals: 16/' "$spigot_file"
+            sed -i 's/monsters:.*/monsters: 24/' "$spigot_file"
+        fi
+        if [ "$LANG_PREF" = "tr" ]; then
+            log_success "spigot.yml optimize edildi (Varlık aktivasyon alanları azaltıldı)."
+        else
+            log_success "spigot.yml optimized (Entity activation ranges reduced)."
+        fi
+    fi
+    
+    # 3. Optimize paper configurations (paper.yml or config/paper-global.yml)
+    local paper_global="${s_path}/config/paper-global.yml"
+    local legacy_paper="${s_path}/paper.yml"
+    if [ -f "$paper_global" ]; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' 's/max-auto-save-chunks-per-tick:.*/max-auto-save-chunks-per-tick: 6/' "$paper_global"
+        else
+            sed -i 's/max-auto-save-chunks-per-tick:.*/max-auto-save-chunks-per-tick: 6/' "$paper_global"
+        fi
+        if [ "$LANG_PREF" = "tr" ]; then
+            log_success "paper-global.yml optimize edildi (Otomatik kaydetme limiti ayarlandı)."
+        else
+            log_success "paper-global.yml optimized (Auto-save limits tuned)."
+        fi
+    elif [ -f "$legacy_paper" ]; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' 's/max-auto-save-chunks-per-tick:.*/max-auto-save-chunks-per-tick: 6/' "$legacy_paper"
+        else
+            sed -i 's/max-auto-save-chunks-per-tick:.*/max-auto-save-chunks-per-tick: 6/' "$legacy_paper"
+        fi
+        if [ "$LANG_PREF" = "tr" ]; then
+            log_success "paper.yml optimize edildi."
+        else
+            log_success "paper.yml optimized."
+        fi
+    fi
+    
+    # 4. Inject Aikar's JVM performance flags to start.sh or user_jvm_args.txt
+    local aikars_flags="-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8m -XX:G1ReservePercent=15 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1"
+    
+    # If user_jvm_args.txt exists (Forge/NeoForge standard)
+    local jvm_args_file="${s_path}/user_jvm_args.txt"
+    if [ -f "$jvm_args_file" ]; then
+        # Check if already optimized
+        if ! grep -q "UseG1GC" "$jvm_args_file"; then
+            echo "$aikars_flags" >> "$jvm_args_file"
+        fi
+        if [ "$LANG_PREF" = "tr" ]; then
+            log_success "user_jvm_args.txt dosyasına Aikar garbage collection parametreleri eklendi."
+        else
+            log_success "Aikar's Garbage Collection JVM flags added to user_jvm_args.txt."
+        fi
+    fi
+    
+    # If start.sh exists, inject into the java command line
+    local start_script="${s_path}/start.sh"
+    if [ -f "$start_script" ]; then
+        # Replace the java execution line to include Aikar's flags
+        if ! grep -q "UseG1GC" "$start_script"; then
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                sed -i '' "s|exec java |exec java ${aikars_flags} |" "$start_script"
+                sed -i '' "s|java -X|java ${aikars_flags} -X|" "$start_script"
+            else
+                sed -i "s|exec java |exec java ${aikars_flags} |" "$start_script"
+                sed -i "s|java -X|java ${aikars_flags} -X|" "$start_script"
+            fi
+        fi
+        if [ "$LANG_PREF" = "tr" ]; then
+            log_success "start.sh başlatıcı komutuna Aikar garbage collection parametreleri eklendi."
+        else
+            log_success "Aikar's Garbage Collection JVM flags injected into start.sh."
+        fi
+    fi
+    
+    echo ""
+    if [ "$LANG_PREF" = "tr" ]; then
+        log_success "Optimizasyon başarıyla tamamlandı! Lütfen değişikliklerin etkinleşmesi için sunucuyu yeniden başlatın."
+    else
+        log_success "Optimization completed successfully! Please restart the server to apply the changes."
+    fi
+    sleep 3
+}
+
 # --- Management Menu for a Specific Server ---
 run_server_management_menu() {
     local s_name="$1"
@@ -2843,14 +2966,15 @@ run_server_management_menu() {
         echo -e "    ${COLOR_YELLOW}9.${COLOR_RESET} $(t "srv_auto_backup" "Setup Automated Backup Schedule")"
         echo -e "   ${COLOR_YELLOW}10.${COLOR_RESET} $(t "srv_restore" "Restore Backup")"
         echo -e "   ${COLOR_YELLOW}11.${COLOR_RESET} $(t "srv_memory" "Change Server Memory Allocation (RAM)")"
-        echo -e "   ${COLOR_YELLOW}12.${COLOR_RESET} $(t "srv_monitor" "Real-time Resource Monitor")"
-        echo -e "   ${COLOR_YELLOW}13.${COLOR_RESET} $(t "srv_plugins" "Plugin Manager")"
-        echo -e "   ${COLOR_YELLOW}14.${COLOR_RESET} $(t "srv_geyser" "Setup Geyser & Floodgate (Cross-play)")"
-        echo -e "   ${COLOR_YELLOW}15.${COLOR_RESET} $(t "srv_systemd" "Enable/Disable Boot Auto-start (systemd)")"
-        echo -e "   ${COLOR_YELLOW}16.${COLOR_RESET} $(t "srv_back" "Return to Main Menu")"
+        echo -e "   ${COLOR_YELLOW}12.${COLOR_RESET} $(t "srv_optimize" "Optimize Performance Settings")"
+        echo -e "   ${COLOR_YELLOW}13.${COLOR_RESET} $(t "srv_monitor" "Real-time Resource Monitor")"
+        echo -e "   ${COLOR_YELLOW}14.${COLOR_RESET} $(t "srv_plugins" "Plugin Manager")"
+        echo -e "   ${COLOR_YELLOW}15.${COLOR_RESET} $(t "srv_geyser" "Setup Geyser & Floodgate (Cross-play)")"
+        echo -e "   ${COLOR_YELLOW}16.${COLOR_RESET} $(t "srv_systemd" "Enable/Disable Boot Auto-start (systemd)")"
+        echo -e "   ${COLOR_YELLOW}17.${COLOR_RESET} $(t "srv_back" "Return to Main Menu")"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
         
-        echo -n "  $(t "srv_select" "Select option (1-16):") "
+        echo -n "  $(t "srv_select" "Select option (1-17):") "
         read -r choice
         choice=$(echo "$choice" | tr -d '\r')
         
@@ -2951,18 +3075,21 @@ run_server_management_menu() {
                 fi
                 ;;
             12)
-                monitor_server_resources "$s_name" "$s_path"
+                optimize_server_performance "$s_path" "$s_type"
                 ;;
             13)
-                manage_server_plugins "$s_name" "$s_path" "$s_type" "$s_ver"
+                monitor_server_resources "$s_name" "$s_path"
                 ;;
             14)
-                install_geyser_floodgate "$s_name" "$s_path" "$s_type" "$s_ver"
+                manage_server_plugins "$s_name" "$s_path" "$s_type" "$s_ver"
                 ;;
             15)
-                toggle_systemd_service "$s_name" "$s_path"
+                install_geyser_floodgate "$s_name" "$s_path" "$s_type" "$s_ver"
                 ;;
             16)
+                toggle_systemd_service "$s_name" "$s_path"
+                ;;
+            17)
                 break
                 ;;
             *)
