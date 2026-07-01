@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.24
+# Version: 1.25
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.24"
+APP_VERSION="1.25"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.24 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.25 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -148,6 +148,23 @@ t() {
             "sched_remove_success") echo "Otomatik yedekleme zamanlaması kaldırıldı." ;;
             "sched_daily_desc") echo "Günlük (Saat 04:00'te)" ;;
             "sched_weekly_desc") echo "Haftalık (Pazar Günleri Saat 04:00'te)" ;;
+            
+            # Plugin manager UI translations
+            "plugin_search_install") echo "Eklenti Ara ve Kur" ;;
+            "plugin_list_remove") echo "Eklentileri Listele ve Kaldır" ;;
+            "plugin_search_prompt") echo "Aramak istediğiniz eklentinin adını girin" ;;
+            "plugin_search_empty") echo "Arama sorgusu boş olamaz." ;;
+            "plugin_searching") echo "Modrinth API aranıyor..." ;;
+            "plugin_not_found") echo "Aranan kelime için hiçbir eklenti bulunamadı." ;;
+            "plugin_fetching_versions") echo "Eklenti için uygun sürümler çekiliyor..." ;;
+            "plugin_no_compat") echo "Minecraft sürümünüze uygun sürüm bulunamadı." ;;
+            "plugin_ask_all") echo "Uyumlu olmayan diğer tüm sürümleri listelemek ister misiniz?" ;;
+            "plugin_downloading") echo "Eklenti indiriliyor" ;;
+            "plugin_success") echo "başarıyla kuruldu!" ;;
+            "plugin_fail_url") echo "İndirme bağlantısı çözülemedi." ;;
+            "plugin_none_dir") echo "Eklenti dizininde hiçbir eklenti bulunamadı." ;;
+            "plugin_none_jar") echo "Hiçbir eklenti jar dosyası bulunamadı." ;;
+            
             
             # Orchestrator
             "orch_title") echo "PROXY ARKA PLAN ORKESTRASYONU" ;;
@@ -2472,13 +2489,13 @@ manage_server_plugins() {
         echo -e "  Minecraft Version: $s_ver | Software: $s_type"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
         
-        echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} Search and Install Plugins"
-        echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} List and Remove Plugins"
+        echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} $(t "plugin_search_install" "Search and Install Plugins")"
+        echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} $(t "plugin_list_remove" "List and Remove Plugins")"
         echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} $(t "return_mgmt_menu" "Return to Management Menu")"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
         
         local choice
-        choice=$(prompt_input "Select option" "3")
+        choice=$(prompt_input "$(t "main_select" "Select option")" "3")
         
         case "$choice" in
             1)
@@ -2491,7 +2508,7 @@ manage_server_plugins() {
                 break
                 ;;
             *)
-                log_warn "Invalid selection."
+                log_warn "$(t "invalid_sel" "Invalid selection.")"
                 sleep 1.5
                 ;;
         esac
@@ -2510,9 +2527,9 @@ search_and_install_plugin() {
     echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_search_plugins" "SEARCH AND INSTALL PLUGINS")${COLOR_RESET}\n"
     
     local query
-    query=$(prompt_input "Enter plugin name to search" "")
+    query=$(prompt_input "$(t "plugin_search_prompt" "Enter plugin name to search")" "")
     if [ -z "$query" ]; then
-        log_warn "Search query cannot be empty."
+        log_warn "$(t "plugin_search_empty" "Search query cannot be empty.")"
         sleep 1.5
         return 1
     fi
@@ -2520,14 +2537,14 @@ search_and_install_plugin() {
     local url_query
     url_query=$(echo -n "$query" | jq -sRr @uri)
     
-    log_info "Searching Modrinth API..."
+    log_info "$(t "plugin_searching" "Searching Modrinth API...")"
     local res
     res=$(curl -s "https://api.modrinth.com/v2/search?query=${url_query}&facets=%5B%5B%22project_type:plugin%22%5D%5D")
     
     local count
     count=$(echo "$res" | jq '.hits | length' 2>/dev/null || echo 0)
     if [ -z "$count" ] || [ "$count" -eq 0 ]; then
-        log_warn "No plugins found for search term."
+        log_warn "$(t "plugin_not_found" "No plugins found for search term.")"
         sleep 2
         return 1
     fi
@@ -2568,7 +2585,7 @@ search_and_install_plugin() {
     local project_id="${ids[$idx]}"
     local project_slug="${slugs[$idx]}"
     
-    log_info "Fetching available versions for ${project_slug}..."
+    log_info "$(t "plugin_fetching_versions" "Fetching available versions for") ${project_slug}..."
     local res_ver
     res_ver=$(curl -s "https://api.modrinth.com/v2/project/${project_id}/version")
     
@@ -2616,8 +2633,8 @@ search_and_install_plugin() {
         fi
     else
         echo -e ""
-        log_warn "No exact compatible versions found for Minecraft ${s_ver} on ${s_type}."
-        prompt_yes_no "Would you like to list all available versions instead?" "y"
+        log_warn "$(t "plugin_no_compat" "No exact compatible versions found for Minecraft") ${s_ver} on ${s_type}."
+        prompt_yes_no "$(t "plugin_ask_all" "Would you like to list all available versions instead?")" "y"
         if [ "$choice" = "y" ]; then
             local all_names=()
             local all_ids=()
@@ -2658,12 +2675,12 @@ search_and_install_plugin() {
             local plugins_dir="${server_path}/plugins"
             mkdir -p "$plugins_dir"
             
-            run_with_spinner "Downloading plugin ${dl_name}..." curl -s -L -o "${plugins_dir}/${dl_name}" "$dl_url"
-            log_success "Plugin ${dl_name} installed successfully!"
+            run_with_spinner "$(t "plugin_downloading" "Downloading plugin") ${dl_name}..." curl -s -L -o "${plugins_dir}/${dl_name}" "$dl_url"
+            log_success "Plugin ${dl_name} $(t "plugin_success" "installed successfully!")"
             send_discord_notification "🔌 Installed plugin **${dl_name}** successfully!" 3066993 "$server_path"
             sleep 2
         else
-            log_error "Failed to resolve download URL for selected version."
+            log_error "$(t "plugin_fail_url" "Failed to resolve download URL for selected version.")"
             sleep 2
         fi
     fi
@@ -2677,7 +2694,7 @@ list_and_remove_plugins() {
         clear_screen
         draw_header
         echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_remove_plugins" "LIST AND REMOVE PLUGINS")${COLOR_RESET}\n"
-        log_warn "No plugins found in plugins directory."
+        log_warn "$(t "plugin_none_dir" "No plugins found in plugins directory.")"
         sleep 2
         return 1
     fi
@@ -2688,18 +2705,38 @@ list_and_remove_plugins() {
     done
     
     if [ ${#files[@]} -eq 0 ]; then
-        log_warn "No plugin jar files found."
+        log_warn "$(t "plugin_none_jar" "No plugin jar files found.")"
         sleep 2
         return 1
     fi
     
+    files+=("$(t "settings_back" "Return to Main Menu")")
+    
     local chosen
     chosen=$(prompt_selection "$(t "prompt_remove_plugin" "Select a plugin jar to remove:")" "${files[@]}")
     
-    prompt_yes_no "Are you sure you want to delete ${chosen}?" "n"
+    if [ "$chosen" = "$(t "settings_back" "Return to Main Menu")" ]; then
+        return 0
+    fi
+    
+    local confirm_msg
+    if [ "$LANG_PREF" = "tr" ]; then
+        confirm_msg="${chosen} eklentisini silmek istediğinizden emin misiniz?"
+    else
+        confirm_msg="Are you sure you want to delete ${chosen}?"
+    fi
+    
+    prompt_yes_no "$confirm_msg" "n"
     if [ "$choice" = "y" ]; then
         rm -f "${plugins_dir}/${chosen}"
-        log_success "Plugin ${chosen} removed successfully!"
+        
+        local success_msg
+        if [ "$LANG_PREF" = "tr" ]; then
+            success_msg="${chosen} eklentisi başarıyla kaldırıldı!"
+        else
+            success_msg="Plugin ${chosen} removed successfully!"
+        fi
+        log_success "$success_msg"
         send_discord_notification "🗑️ Removed plugin **${chosen}** successfully!" 15158332 "$server_path"
         sleep 2
     fi
