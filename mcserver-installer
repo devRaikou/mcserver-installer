@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.33
+# Version: 1.34
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.33"
+APP_VERSION="1.34"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -3885,7 +3885,7 @@ update_server_software() {
     local selection
     selection=$(prompt_selection "$(t "prompt_update_server" "Choose server to update:")" "${list_options[@]}")
 
-    if [ "$selection" = "Cancel and Exit" ]; then
+    if [ "$selection" = "Cancel and Exit" ] || [ -z "$selection" ]; then
         return 0
     fi
 
@@ -3902,6 +3902,7 @@ update_server_software() {
     local s_path="${paths[$idx]}"
     local s_type="${types[$idx]}"
     local s_ver="${versions[$idx]}"
+    local s_name="${servers[$idx]}"
     local sess_name; sess_name=$(get_session_name "$s_path")
 
     if is_server_running "$sess_name"; then
@@ -3910,31 +3911,136 @@ update_server_software() {
         return 1
     fi
 
-    log_info "Fetching update options for $s_type..."
+    local update_choice
+    if [ "$LANG_PREF" = "tr" ]; then
+        update_choice=$(prompt_selection "Lütfen güncelleme türünü seçin (Mevcut sürüm: $s_ver):" \
+            "Mevcut Sürümü Güncelle (Aynı sürümün en son kararlı derlemesini indir)" \
+            "Sürümü Değiştir/Yükselt (Farklı bir Minecraft sürümüne geçiş yap)" \
+            "İptal Et")
+    else
+        update_choice=$(prompt_selection "Please choose update type (Current version: $s_ver):" \
+            "Update Current Version (Download latest stable build/release for same version)" \
+            "Change/Upgrade Version (Switch to a different Minecraft version)" \
+            "Cancel")
+    fi
+
+    if [ "$update_choice" = "Cancel" ] || [ "$update_choice" = "İptal Et" ] || [ -z "$update_choice" ]; then
+        return 0
+    fi
+
     local download_url=""
+    local new_version="$s_ver"
 
-    case "$s_type" in
-        vanilla)
-            download_url=$(fetch_vanilla_download_url "$s_ver")
-            ;;
-        paper|folia|velocity|waterfall)
-            local latest_build
-            latest_build=$(fetch_papermc_builds "$s_type" "$s_ver" | sort -nr | head -n 1)
-            log_info "Latest build resolved for $s_type $s_ver: Build $latest_build"
-            download_url=$(fetch_papermc_download_url "$s_type" "$s_ver" "$latest_build")
-            ;;
-        purpur)
-            download_url="https://api.purpurmc.org/v2/purpur/$s_ver/latest/download"
-            ;;
-        *)
-            log_warn "Automatic in-place upgrades are not fully supported for modded configurations ($s_type)."
-            log_warn "Please manually download the installer and update the jar files."
-            sleep 3
-            return 0
-            ;;
-    esac
+    if [ "$update_choice" = "Update Current Version" ] || [ "$update_choice" = "Mevcut Sürümü Güncelle" ]; then
+        log_info "Fetching update options for $s_type..."
+        case "$s_type" in
+            vanilla)
+                download_url=$(fetch_vanilla_download_url "$s_ver")
+                ;;
+            paper|folia|velocity|waterfall)
+                local latest_build
+                latest_build=$(fetch_papermc_builds "$s_type" "$s_ver" | sort -nr | head -n 1)
+                log_info "Latest build resolved for $s_type $s_ver: Build $latest_build"
+                download_url=$(fetch_papermc_download_url "$s_type" "$s_ver" "$latest_build")
+                ;;
+            purpur)
+                download_url="https://api.purpurmc.org/v2/purpur/$s_ver/latest/download"
+                ;;
+            *)
+                log_warn "Automatic in-place upgrades are not fully supported for modded configurations ($s_type)."
+                log_warn "Please manually download the installer and update the jar files."
+                sleep 3
+                return 0
+                ;;
+        esac
+    else
+        # Change/Upgrade Version
+        local back_opt
+        back_opt=$(t "settings_back" "Return to Main Menu")
+        case "$s_type" in
+            vanilla)
+                log_info "Fetching Minecraft Vanilla versions..."
+                local releases
+                releases=$(fetch_vanilla_releases)
+                local list_options=()
+                for r in $releases; do list_options+=("$r"); done
+                list_options+=("$back_opt")
+                new_version=$(prompt_selection "Select Minecraft version:" "${list_options[@]}")
+                if [ "$new_version" = "$back_opt" ] || [ -z "$new_version" ]; then return 0; fi
+                download_url=$(fetch_vanilla_download_url "$new_version")
+                ;;
+            paper|folia|velocity|waterfall)
+                log_info "Fetching $s_type versions..."
+                local versions
+                versions=$(fetch_papermc_versions "$s_type")
+                local list_options=()
+                for v in $versions; do list_options+=("$v"); done
+                list_options+=("$back_opt")
+                new_version=$(prompt_selection "Select Minecraft version:" "${list_options[@]}")
+                if [ "$new_version" = "$back_opt" ] || [ -z "$new_version" ]; then return 0; fi
 
-    if [ -z "$download_url" ]; then
+                log_info "Fetching builds for $s_type $new_version..."
+                local builds
+                builds=$(fetch_papermc_builds "$s_type" "$new_version" | sort -nr)
+                if [ -z "$builds" ]; then
+                    log_error "No builds found for $s_type version $new_version."
+                    sleep 2
+                    return 1
+                fi
+                local build_choices=()
+                for b in $builds; do build_choices+=("$b"); done
+                build_choices+=("Latest Stable" "$back_opt")
+                local chosen_build
+                chosen_build=$(prompt_selection "Select build number:" "${build_choices[@]}")
+                if [ "$chosen_build" = "$back_opt" ] || [ -z "$chosen_build" ]; then return 0; fi
+                if [ "$chosen_build" = "Latest Stable" ]; then
+                    local build_num=$(echo "${build_choices[0]}")
+                else
+                    local build_num="$chosen_build"
+                fi
+                download_url=$(fetch_papermc_download_url "$s_type" "$new_version" "$build_num")
+                ;;
+            purpur)
+                log_info "Fetching Purpur versions..."
+                local versions
+                versions=$(fetch_purpur_versions)
+                local list_options=()
+                for v in $versions; do list_options+=("$v"); done
+                list_options+=("$back_opt")
+                new_version=$(prompt_selection "Select Minecraft version:" "${list_options[@]}")
+                if [ "$new_version" = "$back_opt" ] || [ -z "$new_version" ]; then return 0; fi
+
+                log_info "Fetching builds for Purpur $new_version..."
+                local builds
+                builds=$(fetch_purpur_builds "$new_version" | sort -nr)
+                if [ -z "$builds" ]; then
+                    log_error "No builds found for Purpur version $new_version."
+                    sleep 2
+                    return 1
+                fi
+                local build_choices=()
+                for b in $builds; do build_choices+=("$b"); done
+                build_choices+=("Latest Stable" "$back_opt")
+                local chosen_build
+                chosen_build=$(prompt_selection "Select build number:" "${build_choices[@]}")
+                if [ "$chosen_build" = "$back_opt" ] || [ -z "$chosen_build" ]; then return 0; fi
+                if [ "$chosen_build" = "Latest Stable" ]; then
+                    local build_num="latest"
+                else
+                    local build_num="$chosen_build"
+                fi
+                download_url="https://api.purpurmc.org/v2/purpur/$new_version/$build_num/download"
+                ;;
+            *)
+                log_warn "Automatic in-place upgrades are not fully supported for modded configurations ($s_type)."
+                log_warn "Please manually download the installer and update the jar files."
+                sleep 3
+                return 0
+                ;;
+        esac
+    fi
+
+    if [ -z "$download_url" ] || [ "$download_url" = "null" ]; then
         log_error "Failed to resolve download URL."
         sleep 2
         return 1
@@ -3944,15 +4050,35 @@ update_server_software() {
     [ "$s_type" = "velocity" ] && jar_name="velocity.jar"
     [ "$s_type" = "waterfall" ] && jar_name="waterfall.jar"
     [ "$s_type" = "purpur" ] && jar_name="purpur.jar"
-    # Find matching jar or default to server.jar
+    
     local dest_path="${s_path}/${jar_name}"
 
     download_file_with_progress "$download_url" "$dest_path" "updated $s_type jar"
     if [ $? -eq 0 ]; then
         log_success "Software updated successfully!"
+        
+        # If we upgraded to a new version, update registry config and start script java path
+        if [ "$new_version" != "$s_ver" ]; then
+            local escaped_path
+            escaped_path=$(escape_sed_replacement "$s_path")
+            local new_reg_entry="${s_name}:${s_path}:${s_type}:${new_version}"
+            local escaped_entry
+            escaped_entry=$(escape_sed_replacement "$new_reg_entry")
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                sed -i '' "s|^.*:${escaped_path}:${s_type}:.*$|${escaped_entry}|" "$REGISTRY_FILE"
+            else
+                sed -i "s|^.*:${escaped_path}:${s_type}:.*$|${escaped_entry}|" "$REGISTRY_FILE"
+            fi
+            sed_delete_blank_lines "$REGISTRY_FILE"
+            log_success "Updated version registry to ${new_version}."
+            
+            # Dynamically update Java requirements in start.sh
+            update_start_script_java_path "$s_path" "$s_type" "$new_version"
+        fi
     else
         log_error "Update failed."
     fi
+
     sleep 2
 }
 
