@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.30"
+APP_VERSION="1.31"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"

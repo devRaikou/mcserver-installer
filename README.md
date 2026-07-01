@@ -1,6 +1,6 @@
 # mcserver-installer
 
-![Version](https://img.shields.io/badge/version-1.30-2ea44f)
+![Version](https://img.shields.io/badge/version-1.31-2ea44f)
 ![Shell](https://img.shields.io/badge/shell-bash-4eaa25)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu-blue)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
@@ -84,7 +84,7 @@ This is useful for `cron`, remote automation, and external dashboards.
 ### Main Menu
 
 ```text
-  Developer: devRaikou | Version: 1.30
+  Developer: devRaikou | Version: 1.31
   GitHub:    https://github.com/devRaikou/mcserver-installer
   ================================================================
 
@@ -249,7 +249,7 @@ Bu ozellik `cron`, uzak otomasyonlar ve harici paneller icin kullanislidir.
 ### Ana Menu
 
 ```text
-  Geliştirici: devRaikou | Sürüm: 1.30
+  Geliştirici: devRaikou | Sürüm: 1.31
   GitHub:      https://github.com/devRaikou/mcserver-installer
   ================================================================
 
