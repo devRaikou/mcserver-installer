@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.34
+# Version: 1.35
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.34"
+APP_VERSION="1.35"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -3676,19 +3676,35 @@ show_about() {
     draw_header
     echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_about_project" "ABOUT THE PROJECT")${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-    echo -e "  ${COLOR_BOLD}mcserver-installer${COLOR_RESET} is a premium Command Line Interface (CLI) tool"
-    echo -e "  engineered to automate the installation and lifecycle management of"
-    echo -e "  Minecraft servers on Linux distributions (Ubuntu and Debian)."
-    echo -e ""
-    echo -e "  Features include:"
-    echo -e "    * Automatic Java OpenJDK dependency management"
-    echo -e "    * Dynamic API mappings for major software types (Mojang, Paper, Fabric, etc.)"
-    echo -e "    * Interactive server.properties editor"
-    echo -e "    * Integrated backup systems & easy recovery tools"
-    echo -e "    * Background background execution using GNU screen"
-    echo -e ""
-    echo -e "  Developer: ${COLOR_CYAN}${DEVELOPER}${COLOR_RESET}"
-    echo -e "  License: MIT License"
+    if [ "$LANG_PREF" = "tr" ]; then
+        echo -e "  ${COLOR_BOLD}mcserver-installer${COLOR_RESET}, Linux dağıtımlarında (Ubuntu ve Debian)"
+        echo -e "  Minecraft sunucularının kurulumunu ve yaşam döngüsü yönetimini otomatikleştirmek"
+        echo -e "  için tasarlanmış gelişmiş bir Komut Satırı Arayüzü (CLI) aracıdır."
+        echo -e ""
+        echo -e "  Özellikler şunları içerir:"
+        echo -e "    * Otomatik Java OpenJDK bağımlılık yönetimi"
+        echo -e "    * Büyük yazılım türleri için dinamik API eşlemeleri (Mojang, Paper, Fabric, vb.)"
+        echo -e "    * Etkileşimli server.properties editörü"
+        echo -e "    * Entegre yedekleme sistemleri ve kolay kurtarma araçları"
+        echo -e "    * GNU screen kullanarak arka planda çalıştırma yönetimi"
+        echo -e ""
+        echo -e "  Geliştirici: ${COLOR_CYAN}${DEVELOPER}${COLOR_RESET}"
+        echo -e "  Lisans: MIT Lisansı"
+    else
+        echo -e "  ${COLOR_BOLD}mcserver-installer${COLOR_RESET} is a premium Command Line Interface (CLI) tool"
+        echo -e "  engineered to automate the installation and lifecycle management of"
+        echo -e "  Minecraft servers on Linux distributions (Ubuntu and Debian)."
+        echo -e ""
+        echo -e "  Features include:"
+        echo -e "    * Automatic Java OpenJDK dependency management"
+        echo -e "    * Dynamic API mappings for major software types (Mojang, Paper, Fabric, etc.)"
+        echo -e "    * Interactive server.properties editor"
+        echo -e "    * Integrated backup systems & easy recovery tools"
+        echo -e "    * Background execution using GNU screen"
+        echo -e ""
+        echo -e "  Developer: ${COLOR_CYAN}${DEVELOPER}${COLOR_RESET}"
+        echo -e "  License: MIT License"
+    fi
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
     echo -e -n "\n  $(t "press_enter_main" "Press [Enter] to return to the main menu: ")"
     read -r _
