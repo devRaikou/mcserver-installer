@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.27
+# Version: 1.28
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.27"
+APP_VERSION="1.28"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.27 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.28 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -1993,7 +1993,7 @@ run_server_restore() {
     
     # We remove worlds and configs but keep logs and backup folder safe
     log_info "$(t "restore_clearing" "Clearing directory for restore...")"
-    find "$server_path" -maxdepth 1 -not -name "backups" -not -name "logs" -not -name "." -not -name ".." -exec rm -rf {} +
+    find "$server_path" -mindepth 1 -maxdepth 1 -not -name "backups" -not -name "logs" -exec rm -rf {} +
     
     log_info "$(t "restore_extracting" "Extracting backup content...")"
     tar -xzf "$full_backup_path" -C "$server_path"
