@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.41
+# Version: 1.42
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.41"
+APP_VERSION="1.42"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -29,6 +29,25 @@ if ! touch "$REGISTRY_FILE" 2>/dev/null; then
 fi
 
 SETTINGS_FILE="${CONFIG_DIR}/settings.conf"
+
+# --- Resolve Script Absolute Path ---
+get_script_absolute_path() {
+    if [[ "$0" == /* ]]; then
+        echo "$0"
+    elif [[ "$0" == */* ]]; then
+        echo "$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+    else
+        local path_res; path_res=$(which "$0" 2>/dev/null)
+        if [ -n "$path_res" ]; then
+            echo "$path_res"
+        else
+            echo "$(pwd)/$0"
+        fi
+    fi
+}
+SCRIPT_PATH=$(get_script_absolute_path)
+SCRIPT_DIR=$(dirname "$SCRIPT_PATH")
+
 
 if [ ! -f "$SETTINGS_FILE" ]; then
     echo 'LANG="en"' > "$SETTINGS_FILE"
@@ -2225,8 +2244,7 @@ manage_backup_scheduler() {
         local choice
         choice=$(prompt_input "$(t "main_select" "Select option")" "4")
 
-        local script_path
-        script_path=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+        local script_path="$SCRIPT_PATH"
 
         case "$choice" in
             1)
@@ -4269,9 +4287,7 @@ launch_web_dashboard() {
         return 1
     fi
 
-    local script_dir
-    script_dir=$(cd "$(dirname "$0")" && pwd)
-    local dashboard_dir="${script_dir}/dashboard"
+    local dashboard_dir="${SCRIPT_DIR}/dashboard"
 
     # Auto-download dashboard files if missing (handles standalone script installations)
     if [ ! -f "${dashboard_dir}/package.json" ] || [ ! -f "${dashboard_dir}/server.js" ] || [ ! -f "${dashboard_dir}/public/index.html" ]; then
@@ -4453,7 +4469,7 @@ check_for_updates() {
         fi
 
         if [ $? -eq 0 ]; then
-            local temp_file="$0.tmp"
+            local temp_file="${SCRIPT_PATH}.tmp"
             if [ "$LANG_PREF" = "tr" ]; then
                 run_with_spinner "Yeni sürüm indiriliyor" curl -s -L -o "$temp_file" "${raw_script_url}"
             else
@@ -4462,7 +4478,7 @@ check_for_updates() {
 
             # Check shebang to ensure the downloaded file is a valid bash script
             if [ -f "$temp_file" ] && grep -q "#!/usr/bin/env bash" "$temp_file"; then
-                if mv "$temp_file" "$0" 2>/dev/null && chmod +x "$0" 2>/dev/null; then
+                if mv "$temp_file" "$SCRIPT_PATH" 2>/dev/null && chmod +x "$SCRIPT_PATH" 2>/dev/null; then
                     if [ "$LANG_PREF" = "tr" ]; then
                         log_success "mcserver-installer başarıyla güncellendi! Lütfen betiği yeniden başlatın."
                     else
