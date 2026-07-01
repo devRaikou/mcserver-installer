@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.44
+# Version: 1.45
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.44"
+APP_VERSION="1.45"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -4397,6 +4397,18 @@ launch_web_dashboard() {
         active_port=$(cat "${CONFIG_DIR}/.dashboard_port" | tr -d '[:space:]')
     fi
 
+    # Open port in UFW if active
+    if command -v ufw &>/dev/null; then
+        if sudo ufw status 2>/dev/null | grep -q "Status: active"; then
+            if [ "$LANG_PREF" = "tr" ]; then
+                log_info "UFW güvenlik duvarı aktif. Kontrol paneli portuna (${active_port}) izin veriliyor..."
+            else
+                log_info "UFW firewall is active. Allowing dashboard port ${active_port}..."
+            fi
+            sudo ufw allow "${active_port}/tcp" &>/dev/null
+        fi
+    fi
+
     if screen -list | grep -q "\.mc-dashboard"; then
         local local_ip="127.0.0.1"
         if command -v hostname &>/dev/null; then
@@ -4415,12 +4427,16 @@ launch_web_dashboard() {
             echo -e "\n  Paneli tarayıcınızdan açmak için aşağıdaki bağlantıları kullanın:"
             echo -e "  - Yerel Erişim:  ${COLOR_CYAN}http://localhost:${active_port}${COLOR_RESET}"
             echo -e "  - Ağ Üzerinden:  ${COLOR_CYAN}http://${local_ip}:${active_port}${COLOR_RESET}\n"
+            echo -e "  ${COLOR_YELLOW}Not:${COLOR_RESET} Eğer AWS, Hetzner veya Google Cloud gibi bir bulut sağlayıcı kullanıyorsanız,"
+            echo -e "  bulut panelinizden ${COLOR_GREEN}${active_port}${COLOR_RESET} TCP portuna gelen bağlantılara (Inbound Rules) izin vermeyi unutmayın.\n"
             echo -e "  Paneli durdurmak veya durumunu görmek için bu menüyü tekrar kullanabilirsiniz."
         else
             log_success "Web Dashboard successfully launched!"
             echo -e "\n  Open the dashboard in your browser using the links below:"
             echo -e "  - Local Link:    ${COLOR_CYAN}http://localhost:${active_port}${COLOR_RESET}"
             echo -e "  - Network Link:  ${COLOR_CYAN}http://${local_ip}:${active_port}${COLOR_RESET}\n"
+            echo -e "  ${COLOR_YELLOW}Note:${COLOR_RESET} If you are using a cloud provider (e.g. AWS, GCP, Hetzner, DigitalOcean),"
+            echo -e "  please ensure that TCP port ${COLOR_GREEN}${active_port}${COLOR_RESET} is opened in your cloud firewall/security group.\n"
             echo -e "  You can return to this menu item at any time to stop or restart the dashboard."
         fi
     else
