@@ -322,7 +322,7 @@ send_discord_notification() {
             (
                 curl -s -H "Content-Type: application/json" \
                      -X POST \
-                     -d "{\"embeds\": [{\"title\": \"🖥️ mcserver-installer Notification\", \"description\": \"${clean_msg}\", \"color\": ${color} ${fields_json}, \"footer\": {\"text\": \"devRaikou mcserver-installer | GitHub: https://github.com/devRaikou/mcserver-installer\"}, \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}]}" \
+                     -d "{\"embeds\": [{\"title\": \"mcserver-installer\", \"description\": \"${clean_msg}\", \"color\": ${color} ${fields_json}, \"footer\": {\"text\": \"mcserver-installer\"}, \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}]}" \
                      "$webhook" >/dev/null 2>&1
             ) &
         fi
@@ -1853,10 +1853,10 @@ create_server_backup() {
         local size_mb=$((size_bytes / 1024 / 1024))
         log_success "$(t "backup_success" "Backup completed successfully!")"
         log_success "$(t "backup_saved" "Saved as:") backups/${tar_name} (${size_mb} MB)"
-        send_discord_notification "💾 Backup created successfully!" 3066993 "$server_path" "Backup Archive" "${tar_name} (${size_mb} MB)"
+        send_discord_notification "Backup created successfully." 3066993 "$server_path" "Backup Archive" "${tar_name} (${size_mb} MB)"
     else
         log_error "$(t "backup_failed" "Backup compression failed.")"
-        send_discord_notification "⚠️ Backup compression failed!" 15158332 "$server_path"
+        send_discord_notification "Backup compression failed." 15158332 "$server_path"
     fi
     
     if [ "${HEADLESS_MODE:-false}" = "false" ]; then
@@ -2085,7 +2085,7 @@ start_minecraft_server() {
     if is_server_running "$session_name"; then
         log_success "$(t "start_success" "Server started successfully in background!")"
         log_info "$(t "start_screen_session" "Screen session:") $session_name"
-        send_discord_notification "🟢 Server has started successfully!" 3066993 "$server_path"
+        send_discord_notification "Server started." 3066993 "$server_path"
     else
         log_error "$(t "start_failed" "Server failed to start. Check your logs/latest.log or start.sh.")"
     fi
@@ -2121,10 +2121,10 @@ stop_minecraft_server() {
         log_warn "$(t "stop_force_termination" "Server did not stop gracefully. Forcing termination...")"
         screen -S "$session_name" -p 0 -X quit
         pkill -f "java.*${session_name}"
-        send_discord_notification "🔴 Server did not stop gracefully. Forced termination applied." 15158332 "$server_path"
+        send_discord_notification "Server force-stopped." 15158332 "$server_path"
     else
         log_success "$(t "stop_success" "Server stopped gracefully.")"
-        send_discord_notification "🔴 Server has stopped gracefully." 15158332 "$server_path"
+        send_discord_notification "Server stopped." 15158332 "$server_path"
     fi
     rm -f "${server_path}/.stop_restart"
     sleep 2
@@ -2732,7 +2732,7 @@ search_and_install_plugin() {
             
             run_with_spinner "$(t "plugin_downloading" "Downloading plugin") ${dl_name}..." curl -s -L -o "${plugins_dir}/${dl_name}" "$dl_url"
             log_success "Plugin ${dl_name} $(t "plugin_success" "installed successfully!")"
-            send_discord_notification "🔌 Installed plugin **${dl_name}** successfully!" 3066993 "$server_path"
+            send_discord_notification "Plugin installed: ${dl_name}" 3066993 "$server_path"
             sleep 2
         else
             log_error "$(t "plugin_fail_url" "Failed to resolve download URL for selected version.")"
@@ -2792,7 +2792,7 @@ list_and_remove_plugins() {
             success_msg="Plugin ${chosen} removed successfully!"
         fi
         log_success "$success_msg"
-        send_discord_notification "🗑️ Removed plugin **${chosen}** successfully!" 15158332 "$server_path"
+        send_discord_notification "Plugin removed: ${chosen}" 15158332 "$server_path"
         sleep 2
     fi
 }
@@ -2904,7 +2904,7 @@ install_geyser_floodgate() {
         fi
     fi
     
-    send_discord_notification "🎮 GeyserMC and Floodgate (Cross-play) have been successfully installed on server **${s_name}**!" 3066993 "$server_path"
+    send_discord_notification "GeyserMC and Floodgate installed on ${s_name}." 3066993 "$server_path"
     
     echo -e "\n  Please restart your Minecraft server for GeyserMC & Floodgate to load."
     echo -n "  Press [Enter] to return: "
