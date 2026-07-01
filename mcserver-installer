@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.23
+# Version: 1.24
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.23"
+APP_VERSION="1.24"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.23 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.24 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -146,6 +146,8 @@ t() {
             "sched_daily_success") echo "Günlük yedekleme başarıyla zamanlandı!" ;;
             "sched_weekly_success") echo "Haftalık yedekleme başarıyla zamanlandı!" ;;
             "sched_remove_success") echo "Otomatik yedekleme zamanlaması kaldırıldı." ;;
+            "sched_daily_desc") echo "Günlük (Saat 04:00'te)" ;;
+            "sched_weekly_desc") echo "Haftalık (Pazar Günleri Saat 04:00'te)" ;;
             
             # Orchestrator
             "orch_title") echo "PROXY ARKA PLAN ORKESTRASYONU" ;;
@@ -188,11 +190,9 @@ ICON_ARROW="➔"
 
 # --- Error Handling Trap ---
 cleanup() {
-    # Suppress output during cleanup
-    exec 2>/dev/null
     # Clean up temporary folders if any
     if [ -n "${TMP_WIZARD_DIR:-}" ] && [ -d "$TMP_WIZARD_DIR" ]; then
-        rm -rf "$TMP_WIZARD_DIR"
+        rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
     fi
 }
 trap cleanup EXIT SIGINT SIGTERM
@@ -1822,7 +1822,15 @@ manage_backup_scheduler() {
         current_cron=$(crontab -l 2>/dev/null | grep "mcserver-installer" | grep "\-\-backup" | grep "${s_name}" || true)
         
         if [ -n "$current_cron" ]; then
-            echo -e "  $(t "sched_active" "Active Schedule: ") ${COLOR_GREEN}${current_cron}${COLOR_RESET}"
+            local schedule_desc=""
+            if echo "$current_cron" | grep -q "0 4 \* \* 0"; then
+                schedule_desc=$(t "sched_weekly_desc" "Weekly (Sundays at 04:00 AM)")
+            elif echo "$current_cron" | grep -q "0 4 \* \* \*"; then
+                schedule_desc=$(t "sched_daily_desc" "Daily (at 04:00 AM)")
+            else
+                schedule_desc="$current_cron"
+            fi
+            echo -e "  $(t "sched_active" "Active Schedule: ") ${COLOR_GREEN}${schedule_desc}${COLOR_RESET}"
         else
             echo -e "  $(t "sched_active" "Active Schedule: ") ${COLOR_YELLOW}$(t "sched_none" "None (Disabled)")${COLOR_RESET}"
         fi
@@ -2084,8 +2092,15 @@ view_server_logs() {
         return 1
     fi
     
+    # Temporarily trap SIGINT to exit tail cleanly, clear the screen, and restore main trap
+    trap 'clear_screen; trap cleanup EXIT SIGINT SIGTERM; return 0' SIGINT
+    
     # Tail logs
     tail -n 100 -f "$log_file"
+    
+    # Restore default trap if we exited naturally
+    trap cleanup EXIT SIGINT SIGTERM
+    clear_screen
 }
 
 connect_server_console() {
@@ -2330,6 +2345,9 @@ monitor_server_resources() {
         max_ram=$(grep "^MEM_MAX=" "${s_path}/start.sh" | cut -d= -f2- | tr -d '"\r ')
     fi
     
+    # Temporarily trap SIGINT to exit monitoring loop cleanly, clear screen, and restore main trap
+    trap 'clear_screen; trap cleanup EXIT SIGINT SIGTERM; return 0' SIGINT
+    
     clear_screen
     while true; do
         local pid
@@ -2401,6 +2419,10 @@ monitor_server_resources() {
             break
         fi
     done
+    
+    # Restore default trap
+    trap cleanup EXIT SIGINT SIGTERM
+    clear_screen
 }
 
 manage_server_plugins() {
