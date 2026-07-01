@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.29
+# Version: 1.32
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.31"
+APP_VERSION="1.32"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -44,7 +44,7 @@ fi
 t() {
     local key="$1"
     local default_msg="$2"
-    
+
     if [ "$LANG_PREF" = "tr" ]; then
         case "$key" in
             "settings_title") echo "AYARLAR VE SİSTEM KONTROLLERİ" ;;
@@ -53,7 +53,7 @@ t() {
             "settings_webhook") echo "Discord Webhook Bildirimini Yapılandır" ;;
             "settings_lang") echo "Dili Değiştir (Change Language)" ;;
             "settings_back") echo "Ana Menüye Dön" ;;
-            
+
             "main_title") echo "ANA MENÜ" ;;
             "main_install") echo "Minecraft Sunucusu Kur" ;;
             "main_manage") echo "Mevcut Sunucuyu Yönet" ;;
@@ -65,7 +65,7 @@ t() {
             "main_about") echo "Hakkında" ;;
             "main_exit") echo "Çıkış" ;;
             "main_select") echo "Seçim yapın" ;;
-            
+
             "stopped") echo "Durduruldu" ;;
             "running") echo "Çalışıyor" ;;
             "srv_manage_title") echo "SUNUCU YÖNETİMİ" ;;
@@ -88,7 +88,7 @@ t() {
             "srv_back") echo "Ana Menüye Dön" ;;
             "invalid_sel") echo "Geçersiz seçim." ;;
             "press_enter") echo "Devam etmek için [Enter] tuşuna basın: " ;;
-            
+
             # Menu Headers
             "hdr_install_wizard") echo "KURULUM SİHİRBAZI" ;;
             "hdr_properties_editor") echo "SUNUCU ÖZELLİKLERİ EDİTÖRÜ" ;;
@@ -110,7 +110,7 @@ t() {
             "hdr_discord_webhook") echo "DISCORD WEBHOOK YAPILANDIR" ;;
             "hdr_java_manager") echo "JAVA JRE YÖNETİCİSİ" ;;
             "hdr_optimize") echo "SUNUCU PERFORMANS OPTİMİZASYONU" ;;
-            
+
             # prompt_selection internal UI keys
             "page_word") echo "Sayfa" ;;
             "of_word") echo "/" ;;
@@ -118,7 +118,7 @@ t() {
             "next_page_btn") echo "[Sonraki Sayfa ->]" ;;
             "prev_page_btn") echo "[<- Önceki Sayfa]" ;;
             "invalid_select_try") echo "Geçersiz seçim. Lütfen tekrar deneyin." ;;
-            
+
             # Sub-menu prompt selection prompt headers
             "prompt_software_type") echo "Kurulacak Minecraft sunucu yazılımı türünü seçin:" ;;
             "prompt_mc_version") echo "Minecraft sürümünü seçin:" ;;
@@ -136,13 +136,13 @@ t() {
             "prompt_manage_server") echo "Yönetilecek sunucuyu seçin:" ;;
             "prompt_delete_server") echo "Silinecek sunucuyu seçin:" ;;
             "prompt_update_server") echo "Güncellenecek sunucuyu seçin:" ;;
-            
+
             # General Return Prompts
             "press_enter_main") echo "Ana menüye dönmek için [Enter] tuşuna basın: " ;;
             "return_mgmt_menu") echo "Yönetim Menüsüne Dön" ;;
             "press_q_mgmt") echo "Yönetim menüsüne dönmek için 'q' yazıp enter tuşuna basın." ;;
             "return_settings") echo "Ayarlara Dön" ;;
-            
+
             # Backup scheduler UI translations
             "sched_active") echo "Aktif Zamanlama:" ;;
             "sched_none") echo "Yok (Devre Dışı)" ;;
@@ -155,7 +155,7 @@ t() {
             "sched_remove_success") echo "Otomatik yedekleme zamanlaması kaldırıldı." ;;
             "sched_daily_desc") echo "Günlük (Saat 04:00'te)" ;;
             "sched_weekly_desc") echo "Haftalık (Pazar Günleri Saat 04:00'te)" ;;
-            
+
             # Plugin manager UI translations
             "plugin_search_install") echo "Eklenti Ara ve Kur" ;;
             "plugin_list_remove") echo "Eklentileri Listele ve Kaldır" ;;
@@ -171,7 +171,7 @@ t() {
             "plugin_fail_url") echo "İndirme bağlantısı çözülemedi." ;;
             "plugin_none_dir") echo "Eklenti dizininde hiçbir eklenti bulunamadı." ;;
             "plugin_none_jar") echo "Hiçbir eklenti jar dosyası bulunamadı." ;;
-            
+
             # systemd Boot auto-start translations
             "systemd_disabled") echo "Devre Dışı" ;;
             "systemd_enabled") echo "Etkin" ;;
@@ -181,13 +181,13 @@ t() {
             "prompt_systemd_enable") echo "Bu sunucu için sistem açılışında otomatik başlatmayı etkinleştirmek istiyor musunuz?" ;;
             "systemd_enabling") echo "Sistem servisleri etkinleştiriliyor" ;;
             "systemd_enabled_success") echo "Sistem açılışında otomatik başlatma başarıyla etkinleştirildi!" ;;
-            
+
             # Backup creation translations
             "backup_in_progress") echo "Yedek arşivleme işlemi sürüyor..." ;;
             "backup_success") echo "Yedekleme başarıyla tamamlandı!" ;;
             "backup_saved") echo "Şu konuma kaydedildi:" ;;
             "backup_failed") echo "Yedekleme sıkıştırması başarısız oldu." ;;
-            
+
             # Server startup / shutdown translations
             "start_already_running") echo "Sunucu şu ekran oturumunda zaten çalışıyor:" ;;
             "start_in_progress") echo "Sunucu başlatılıyor..." ;;
@@ -199,7 +199,7 @@ t() {
             "stop_waiting_graceful") echo "Sunucunun güvenli bir şekilde durması bekleniyor " ;;
             "stop_force_termination") echo "Sunucu güvenli bir şekilde durmadı. Kapatmaya zorlanıyor..." ;;
             "stop_success") echo "Sunucu başarıyla durduruldu." ;;
-            
+
             # Backup restore translations
             "restore_none_found") echo "Bu sunucu için yedek bulunamadı." ;;
             "restore_invalid") echo "Geçerli bir yedek dosyası bulunamadı." ;;
@@ -211,9 +211,9 @@ t() {
             "restore_success") echo "Yedek başarıyla geri yüklendi!" ;;
             "restore_verify") echo "Lütfen sunucuyu başlatmadan önce start.sh ve java ayarlarını kontrol edin." ;;
             "restore_failed") echo "Yedek dosyası çıkartılırken bir hata oluştu." ;;
-            
-            
-            
+
+
+
             # Orchestrator
             "orch_title") echo "PROXY ARKA PLAN ORKESTRASYONU" ;;
             "orch_prompt") echo "Bu proxy arkasına otomatik arka plan sunucuları (Lobby, Survival vb.) kurmak ister misiniz?" ;;
@@ -334,7 +334,7 @@ send_discord_notification() {
     local server_path="${3:-}"
     local extra_field_name="${4:-}"
     local extra_field_val="${5:-}"
-    
+
     local settings_file="${SETTINGS_FILE}"
     if [ -f "$settings_file" ]; then
         local webhook
@@ -346,11 +346,11 @@ send_discord_notification() {
             local local_ip="Unknown"
             local public_ip="Unknown"
             local port="Unknown"
-            
+
             if [ -n "$server_path" ] && [ -f "$REGISTRY_FILE" ]; then
                 local abs_target
                 abs_target=$(cd "$server_path" 2>/dev/null && pwd -P || echo "$server_path")
-                
+
                 while IFS=":" read -r r_name r_path r_type r_ver || [ -n "$r_name" ]; do
                     [ -z "$r_name" ] && continue
                     local abs_reg
@@ -367,7 +367,7 @@ send_discord_notification() {
                     fi
                 done < "$REGISTRY_FILE"
             fi
-            
+
             local timestamp
             timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
             local connection_address
@@ -411,7 +411,7 @@ send_discord_notification() {
                         ))
                     ]
                 }')
-            
+
             (
                 curl -s -H "Content-Type: application/json" \
                      -X POST \
@@ -497,16 +497,16 @@ draw_box_close() {
 run_with_spinner() {
     local msg="$1"
     shift
-    
+
     local tmp_out
     local tmp_err
     tmp_out=$(mktemp)
     tmp_err=$(mktemp)
-    
+
     # Run the command in the background
     "$@" >"$tmp_out" 2>"$tmp_err" &
     local pid=$!
-    
+
     local delay=0.1
     local spin_frames=('|' '/' '-' '\\')
     local spin_idx=0
@@ -517,11 +517,11 @@ run_with_spinner() {
         sleep $delay
         printf "\b"
     done
-    
+
     wait "$pid"
     local status=$?
     printf "\b \b\r" # Clear the spinner char
-    
+
     if [ $status -eq 0 ]; then
         echo -e "  ${COLOR_GREEN}${ICON_SUCCESS} ${msg} - Done!${COLOR_RESET}"
         cat "$tmp_out"
@@ -542,24 +542,24 @@ download_file_with_progress() {
     local url="$1"
     local dest="$2"
     local label="$3"
-    
+
     # Get Content-Length size of download in bytes
     local total_bytes
     total_bytes=$(curl -sIL "$url" | grep -i "^content-length" | awk '{print $2}' | tr -d '\r\n')
-    
+
     if [ -z "$total_bytes" ] || [ "$total_bytes" -le 0 ]; then
         # Fallback to spinner download if we cannot fetch size
         run_with_spinner "Downloading $label" curl -s -L -o "$dest" "$url"
         return $?
     fi
-    
+
     # Start download backgrounded
     curl -s -L -o "$dest" "$url" &
     local pid=$!
-    
+
     local width=35
     echo -e "  ${COLOR_CYAN}Downloading: ${COLOR_WHITE}$label${COLOR_RESET}"
-    
+
     # Progress loop
     while kill -0 "$pid" 2>/dev/null; do
         local current_bytes=0
@@ -570,37 +570,37 @@ download_file_with_progress() {
                 current_bytes=$(stat -c %s "$dest" 2>/dev/null || echo 0)
             fi
         fi
-        
+
         local pct=$(( current_bytes * 100 / total_bytes ))
         if [ $pct -gt 100 ]; then pct=100; fi
-        
+
         local filled=$(( pct * width / 100 ))
         local empty=$(( width - filled ))
-        
+
         local bar_filled=""
         if [ $filled -gt 0 ]; then
             bar_filled=$(printf '█%.0s' $(seq 1 $filled))
         fi
-        
+
         local bar_empty=""
         if [ $empty -gt 0 ]; then
             bar_empty=$(printf '░%.0s' $(seq 1 $empty))
         fi
-        
+
         local current_mb=$((current_bytes / 1048576))
         local total_mb=$((total_bytes / 1048576))
-        
+
         printf "\r  ${COLOR_MAGENTA}[%s%s]${COLOR_RESET} %d%% (%d/%d MB)" "$bar_filled" "$bar_empty" "$pct" "$current_mb" "$total_mb"
         sleep 0.1
     done
-    
+
     wait "$pid"
     local status=$?
-    
+
     local bar_full
     bar_full=$(printf '█%.0s' $(seq 1 $width))
     local final_mb=$((total_bytes / 1048576))
-    
+
     if [ $status -eq 0 ]; then
         printf "\r  ${COLOR_GREEN}[%s] 100%% (%d/%d MB) - Complete!${COLOR_RESET}\n" "$bar_full" "$final_mb" "$final_mb"
         return 0
@@ -614,7 +614,7 @@ download_file_with_progress() {
 # --- System Validation Checks ---
 verify_system_requirements() {
     draw_box_open "System Verification"
-    
+
     # 1. OS check
     if [ -f /etc/os-release ]; then
         local os_name
@@ -629,7 +629,7 @@ verify_system_requirements() {
     else
         log_warn "Unknown OS detected. Proceeding with caution."
     fi
-    
+
     # 2. Check essential packages
     local missing_deps=()
     for dep in curl jq screen tar gzip; do
@@ -637,7 +637,7 @@ verify_system_requirements() {
             missing_deps+=("$dep")
         fi
     done
-    
+
     if [ ${#missing_deps[@]} -gt 0 ]; then
         log_warn "Missing required packages: ${missing_deps[*]}"
         if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -645,14 +645,14 @@ verify_system_requirements() {
             draw_box_close
             exit 1
         fi
-        
+
         # Check permissions to install
         if [ "$EUID" -ne 0 ] && ! command -v sudo &>/dev/null; then
             log_error "Root permissions or sudo required to install dependencies: ${missing_deps[*]}"
             draw_box_close
             exit 1
         fi
-        
+
         echo -n "  Would you like to install the missing dependencies automatically? [Y/n]: "
         read -r choice
         if [[ "$choice" =~ ^[Nn] ]]; then
@@ -660,14 +660,14 @@ verify_system_requirements() {
             draw_box_close
             exit 1
         fi
-        
+
         local pkg_mgr_cmd="apt-get update && apt-get install -y ${missing_deps[*]}"
         if [ "$EUID" -eq 0 ]; then
             run_with_spinner "Installing dependencies" bash -c "$pkg_mgr_cmd"
         else
             run_with_spinner "Installing dependencies (via sudo)" sudo bash -c "$pkg_mgr_cmd"
         fi
-        
+
         if [ $? -ne 0 ]; then
             log_error "Dependency installation failed."
             draw_box_close
@@ -676,7 +676,7 @@ verify_system_requirements() {
     else
         log_success "All CLI dependencies are present (curl, jq, screen, tar, gzip)"
     fi
-    
+
     # 3. Disk space validation
     local df_path="."
     local avail_kb
@@ -691,7 +691,7 @@ verify_system_requirements() {
     else
         log_success "Available disk space: ${avail_gb}GB (Recommended >= 5GB)"
     fi
-    
+
     # 4. RAM validation
     local total_ram_mb=0
     if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -701,13 +701,13 @@ verify_system_requirements() {
     else
         total_ram_mb=$(free -m | awk '/^Mem:/{print $2}' 2>/dev/null || grep MemTotal /proc/meminfo | awk '{print int($2/1024)}' || echo 0)
     fi
-    
+
     if [ "$total_ram_mb" -lt 2048 ]; then
         log_warn "Low system memory: $((total_ram_mb / 1024))GB RAM detected. Recommended >= 2GB."
     else
         log_success "System memory: $((total_ram_mb / 1024))GB RAM (Recommended >= 2GB)"
     fi
-    
+
     # 5. Internet Connection
     run_with_spinner "Checking internet connection" curl -fsS --connect-timeout 5 -o /dev/null "https://launchermeta.mojang.com/mc/game/version_manifest_v2.json"
     if [ $? -ne 0 ]; then
@@ -715,7 +715,7 @@ verify_system_requirements() {
         draw_box_close
         exit 1
     fi
-    
+
     draw_box_close
 }
 
@@ -737,17 +737,22 @@ get_java_installed_version() {
 get_required_java_version() {
     local mc_ver="$1"
     local s_type="${2:-standard}"
-    
-    if [ "$s_type" = "velocity" ] || [ "$s_type" = "waterfall" ] || [ "$s_type" = "bungeecord" ]; then
+
+    if [ "$s_type" = "velocity" ]; then
+        echo 21
+        return
+    fi
+
+    if [ "$s_type" = "waterfall" ] || [ "$s_type" = "bungeecord" ]; then
         echo 17
         return
     fi
-    
+
     if [ "$mc_ver" = "latest" ]; then
         echo 21
         return
     fi
-    
+
     local pkg_url
     pkg_url=$(curl -s "https://launchermeta.mojang.com/mc/game/version_manifest_v2.json" | jq -r --arg ver "$mc_ver" '.versions[] | select(.id == $ver) | .url' 2>/dev/null)
     if [ -n "$pkg_url" ] && [ "$pkg_url" != "null" ]; then
@@ -758,7 +763,7 @@ get_required_java_version() {
             return
         fi
     fi
-    
+
     if [[ "$mc_ver" =~ ^2[56789]\. ]]; then
         echo 25
     elif [[ "$mc_ver" =~ ^1\.20\.[5-9] || "$mc_ver" =~ ^1\.21 ]]; then
@@ -772,7 +777,7 @@ get_required_java_version() {
 
 find_java_binary_path() {
     local version="$1"
-    
+
     local paths
     paths=$(ls -d /usr/lib/jvm/java-${version}-openjdk* 2>/dev/null)
     for p in $paths; do
@@ -781,40 +786,92 @@ find_java_binary_path() {
             return
         fi
     done
-    
+
     local alt_path
     alt_path=$(update-alternatives --display java 2>/dev/null | grep -E "priority|link" | grep -oE "/usr/lib/jvm/[^ ]+/bin/java" | grep "java-${version}" | head -n 1)
     if [ -n "$alt_path" ] && [ -x "$alt_path" ]; then
         echo "$alt_path"
         return
     fi
-    
+
     local current_ver
     current_ver=$(get_java_installed_version)
     if [ "$current_ver" -eq "$version" ]; then
         echo "java"
         return
     fi
-    
+
     echo "java"
+}
+
+update_start_script_java_path() {
+    local s_path="$1"
+    local s_type="$2"
+    local mc_ver="${3:-latest}"
+    local start_script="${s_path}/start.sh"
+
+    [ -f "$start_script" ] || return 0
+
+    local required_java
+    required_java=$(get_required_java_version "$mc_ver" "$s_type")
+
+    verify_or_install_java "$required_java"
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+
+    local java_path
+    java_path=$(find_java_binary_path "$required_java")
+    local java_dir
+    java_dir=$(dirname "$java_path")
+
+    if [ "$java_dir" = "." ] || [ "$java_dir" = "/usr/bin" ] || [ "$java_dir" = "/bin" ]; then
+        if grep -q '^export PATH=".*:\$PATH"$' "$start_script"; then
+            sed_in_place '/^export PATH=".*:\$PATH"$/d' "$start_script"
+        fi
+        return 0
+    fi
+
+    local export_line
+    export_line="export PATH=\"${java_dir}:\$PATH\""
+    local escaped_export
+    escaped_export=$(escape_sed_replacement "$export_line")
+
+    if grep -q '^export PATH=".*:\$PATH"$' "$start_script"; then
+        sed_in_place "s|^export PATH=.*|${escaped_export}|" "$start_script"
+    else
+        local tmp_script
+        tmp_script=$(mktemp)
+        awk -v line="$export_line" '
+            NR == 1 {
+                print
+                print line
+                next
+            }
+            { print }
+        ' "$start_script" > "$tmp_script" && mv "$tmp_script" "$start_script"
+        chmod +x "$start_script"
+    fi
+
+    return 0
 }
 
 install_java_package() {
     local version="$1"
     local pkg_name="openjdk-${version}-jdk"
-    
+
     log_info "Installing Java $version ($pkg_name)..."
-    
+
     if [ "$EUID" -ne 0 ] && ! command -v sudo &>/dev/null; then
         log_error "Root permissions or sudo required to install Java."
         return 1
     fi
-    
+
     local pkg_avail=false
     if apt-cache show "$pkg_name" &>/dev/null; then
         pkg_avail=true
     fi
-    
+
     if [ "$pkg_avail" = "false" ]; then
         log_warn "Package $pkg_name not found in default repositories."
         if [ -f /etc/os-release ] && grep -q -i "ubuntu" /etc/os-release; then
@@ -827,7 +884,7 @@ install_java_package() {
             fi
         fi
     fi
-    
+
     local install_cmd="apt-get update && apt-get install -y $pkg_name"
     if [ "$EUID" -eq 0 ]; then
         run_with_spinner "Installing OpenJDK $version" bash -c "$install_cmd"
@@ -841,25 +898,25 @@ verify_or_install_java() {
     local required_ver="$1"
     local installed_ver
     installed_ver=$(get_java_installed_version)
-    
+
     if [ "$installed_ver" -ge "$required_ver" ]; then
         log_success "Java check passed: Java $installed_ver is installed (Requires >= $required_ver)"
         return 0
     fi
-    
+
     log_warn "Required Java version >= $required_ver, but found Java $installed_ver (or missing)."
     if [[ "$OSTYPE" == "darwin"* ]]; then
         log_error "Please download and install Java $required_ver manually on macOS."
         return 1
     fi
-    
+
     echo -n "  Would you like to install OpenJDK $required_ver automatically? [Y/n]: "
     read -r choice
     if [[ "$choice" =~ ^[Nn] ]]; then
         log_error "Cannot proceed without appropriate Java installation."
         return 1
     fi
-    
+
     install_java_package "$required_ver"
     return $?
 }
@@ -929,7 +986,7 @@ fetch_neoforge_versions() {
     major_minor=$(echo "$mc_ver" | sed -E 's/^1\.([0-9]+)\.?([0-9]+)?/\1.\2/')
     # Remove tailing dot if minor version was empty
     major_minor="${major_minor%.}"
-    
+
     local neoforge_xml
     neoforge_xml=$(curl -s "https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml")
     echo "$neoforge_xml" | sed -nE 's/.*<version>([0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?).*/\1/p' | grep "^${major_minor}\."
@@ -940,14 +997,14 @@ prompt_selection() {
     local msg="$1"
     shift
     local options=("$@")
-    
+
     local max_visible=10
     local total=${#options[@]}
     if [ "$total" -eq 0 ]; then
         log_error "No options available for selection."
         return 1
     fi
-    
+
     # If options are few, display them normally without pagination
     if [ "$total" -le "$((max_visible + 2))" ]; then
         echo -e "  ${COLOR_CYAN}${COLOR_BOLD}${msg}${COLOR_RESET}" >&2
@@ -958,7 +1015,7 @@ prompt_selection() {
             i=$((i + 1))
         done
         ui_divider
-        
+
         local choice=0
         while true; do
             echo -n -e "  ${COLOR_CYAN}$(t "select_option_prompt" "Select option")${COLOR_RESET} ${COLOR_GRAY}(1-${total})${COLOR_RESET}: " >&2
@@ -974,46 +1031,46 @@ prompt_selection() {
             log_warn "$(t "invalid_select_try" "Invalid selection. Please try again.")"
         done
     fi
-    
+
     # Otherwise, paginate!
     local current_page=0
     local pages_count=$(( (total + max_visible - 1) / max_visible ))
-    
+
     while true; do
         clear_screen
         draw_header
         echo -e "  ${COLOR_CYAN}${COLOR_BOLD}${msg}${COLOR_RESET}" >&2
         echo -e "  ${COLOR_GRAY}$(t "page_word" "Page") $((current_page + 1)) $(t "of_word" "of") ${pages_count}${COLOR_RESET}" >&2
         ui_divider
-        
+
         local start_idx=$((current_page * max_visible))
         local end_idx=$((start_idx + max_visible))
         [ "$end_idx" -gt "$total" ] && end_idx=$total
-        
+
         local displayed_options=()
         local map_idx=()
         local item_num=1
-        
+
         for ((i=start_idx; i<end_idx; i++)); do
             ui_menu_item "$item_num" "${options[$i]}"
             displayed_options+=("${options[$i]}")
             map_idx+=($i)
             item_num=$((item_num + 1))
         done
-        
+
         local next_num=$item_num
         local prev_num=$((item_num + 1))
         local max_choice=$item_num
-        
+
         local has_next=false
         local has_prev=false
-        
+
         if [ "$current_page" -lt "$((pages_count - 1))" ]; then
             ui_menu_item "$next_num" "${COLOR_BLUE}$(t "next_page_btn" "[Next Page ->]")${COLOR_RESET}"
             has_next=true
             max_choice=$next_num
         fi
-        
+
         if [ "$current_page" -gt 0 ]; then
             if [ "$has_next" = "true" ]; then
                 prev_num=$((next_num + 1))
@@ -1024,7 +1081,7 @@ prompt_selection() {
             has_prev=true
             max_choice=$prev_num
         fi
-        
+
         local choice=0
         ui_divider
         echo -n -e "  ${COLOR_CYAN}$(t "select_option_prompt" "Select option")${COLOR_RESET} ${COLOR_GRAY}(1-${max_choice})${COLOR_RESET}: " >&2
@@ -1033,7 +1090,7 @@ prompt_selection() {
             return 1
         fi
         choice=$(echo "$choice" | tr -d '\r')
-        
+
         if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "$max_choice" ]; then
             if [ "$has_next" = "true" ] && [ "$choice" -eq "$next_num" ]; then
                 current_page=$((current_page + 1))
@@ -1043,7 +1100,7 @@ prompt_selection() {
                 current_page=$((current_page - 1))
                 continue
             fi
-            
+
             local selected_mapped_idx=${map_idx[$((choice - 1))]}
             echo "${options[$selected_mapped_idx]}" | tr -d '\r'
             return 0
@@ -1075,7 +1132,7 @@ prompt_yes_no() {
     local default="$2" # "y" or "n"
     local prompt_str="[Y/n]"
     [ "$default" = "n" ] && prompt_str="[y/N]"
-    
+
     while true; do
         echo -n -e "  ${COLOR_CYAN}${msg}${COLOR_RESET} ${prompt_str}: " >&2
         local choice
@@ -1086,7 +1143,7 @@ prompt_yes_no() {
         if [ -z "$choice" ]; then
             choice="$default"
         fi
-        
+
         if [[ "$choice" =~ ^[Yy] ]]; then
             return 0
         elif [[ "$choice" =~ ^[Nn] ]]; then
@@ -1103,21 +1160,21 @@ orchestrate_proxy_network() {
     local proxy_name="$2"
     local proxy_type="$3"
     local proxy_port="$4"
-    
+
     clear_screen
     draw_header
     echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "orch_title" "PROXY BACKEND ORCHESTRATION")${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-    
+
     prompt_yes_no "$(t "orch_prompt" "Would you like to automatically deploy backend servers (Lobby, Survival, etc.) behind this proxy?")" "y"
     if [ $? -ne 0 ]; then
         return 0
     fi
-    
+
     local default_names="hub-1,survival-1"
     local backend_names_str
     backend_names_str=$(prompt_input "$(t "orch_names_prompt" "Enter names of backend servers to deploy (comma-separated)")" "$default_names")
-    
+
     local backend_names=()
     IFS=',' read -ra ADDR <<< "$backend_names_str"
     for i in "${ADDR[@]}"; do
@@ -1132,19 +1189,19 @@ orchestrate_proxy_network() {
         fi
         backend_names+=("$name")
     done
-    
+
     if [ ${#backend_names[@]} -eq 0 ]; then
         log_error "No backend server names entered."
         sleep 2
         return 1
     fi
-    
+
     # 2. Select backend version
     local releases
     releases=$(fetch_vanilla_releases)
     local mc_version
     mc_version=$(prompt_selection "$(t "orch_version_prompt" "Select Minecraft version for backend servers:")" $releases)
-    
+
     # 3. Find latest build of Paper for this version
     log_info "$(t "orch_fetching" "Fetching latest Paper build for version ${mc_version}...")"
     local builds
@@ -1157,7 +1214,7 @@ orchestrate_proxy_network() {
         sleep 2
         return 1
     fi
-    
+
     local paper_url
     paper_url=$(fetch_papermc_download_url "paper" "$mc_version" "$build_num")
     if [ -z "$paper_url" ]; then
@@ -1165,7 +1222,7 @@ orchestrate_proxy_network() {
         sleep 2
         return 1
     fi
-    
+
     # Allocate ports for each backend
     local backend_ports=()
     local starting_port=25566
@@ -1197,14 +1254,14 @@ orchestrate_proxy_network() {
         backend_ports+=("$starting_port")
         starting_port=$((starting_port + 1))
     done
-    
+
     local parent_dir; parent_dir=$(dirname "$proxy_dir")
-    
+
     local tmp_paper_jar="${parent_dir}/.paper_${mc_version}_${build_num}.jar"
     if [ ! -f "$tmp_paper_jar" ]; then
         download_file_with_progress "$paper_url" "$tmp_paper_jar" "Paper jar"
     fi
-    
+
     local required_java; required_java=$(get_required_java_version "$mc_version" "paper")
     verify_or_install_java "$required_java"
     local java_path; java_path=$(find_java_binary_path "$required_java")
@@ -1213,21 +1270,21 @@ orchestrate_proxy_network() {
     if [ "$java_dir" != "." ] && [ "$java_dir" != "/usr/bin" ] && [ "$java_dir" != "/bin" ]; then
         path_inject="export PATH=\"${java_dir}:\$PATH\""
     fi
-    
+
     for i in "${!backend_names[@]}"; do
         local name="${backend_names[$i]}"
         local port="${backend_ports[$i]}"
         local b_dir="${parent_dir}/${name}"
-        
+
         log_info "$(t "orch_installing" "Installing backend server"): ${name} on port ${port}..."
         mkdir -p "$b_dir"
         cp "$tmp_paper_jar" "${b_dir}/server.jar"
         echo "eula=true" > "${b_dir}/eula.txt"
-        
+
         echo "# Generated by mcserver-installer proxy orchestrator" > "${b_dir}/server.properties"
         echo "server-port=$port" >> "${b_dir}/server.properties"
         echo "online-mode=false" >> "${b_dir}/server.properties"
-        
+
         cat > "${b_dir}/start.sh" <<EOF
 #!/usr/bin/env bash
 # Generated by mcserver-installer (${DEVELOPER})
@@ -1251,7 +1308,7 @@ done
 rm -f .stop_restart
 EOF
         chmod +x "${b_dir}/start.sh"
-        
+
         if [ -f "$REGISTRY_FILE" ]; then
             if [[ "$OSTYPE" == "darwin"* ]]; then
                 sed -i '' "s|^.*:${b_dir}:.*$||" "$REGISTRY_FILE"
@@ -1262,15 +1319,15 @@ EOF
         fi
         echo "${name}:${b_dir}:paper:${mc_version}" >> "$REGISTRY_FILE"
     done
-    
+
     rm -f "$tmp_paper_jar"
-    
+
     if [ "$proxy_type" = "velocity" ]; then
         local secret; secret=$(LC_ALL=C tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 12 | head -n 1)
         echo "$secret" > "${proxy_dir}/forwarding.secret"
-        
+
         local toml_path="${proxy_dir}/velocity.toml"
-        
+
         cat > "$toml_path" <<EOF
 # Generated by mcserver-installer proxy orchestrator
 config-version = "2.7"
@@ -1287,16 +1344,16 @@ EOF
         for i in "${!backend_names[@]}"; do
             echo "${backend_names[$i]} = \"127.0.0.1:${backend_ports[$i]}\"" >> "$toml_path"
         done
-        
+
         echo "try = [" >> "$toml_path"
         echo "  \"${backend_names[0]}\"" >> "$toml_path"
         echo "]" >> "$toml_path"
-        
+
         cat >> "$toml_path" <<EOF
 
 [forced-hosts]
 EOF
-        
+
         for name in "${backend_names[@]}"; do
             local b_dir="${parent_dir}/${name}"
             mkdir -p "${b_dir}/config"
@@ -1309,10 +1366,10 @@ proxies:
     secret: "${secret}"
 EOF
         done
-        
+
     elif [ "$proxy_type" = "bungeecord" ] || [ "$proxy_type" = "waterfall" ]; then
         local bungee_config="${proxy_dir}/config.yml"
-        
+
         cat > "$bungee_config" <<EOF
 # Generated by mcserver-installer proxy orchestrator
 listeners:
@@ -1343,20 +1400,20 @@ EOF
     restricted: false
 EOF
         done
-        
+
         for name in "${backend_names[@]}"; do
             local b_dir="${parent_dir}/${name}"
             echo "settings:" > "${b_dir}/spigot.yml"
             echo "  bungeecord: true" >> "${b_dir}/spigot.yml"
         done
     fi
-    
+
     for name in "${backend_names[@]}"; do
         local b_dir="${parent_dir}/${name}"
         log_info "Auto-starting backend server: ${name}..."
         start_minecraft_server "$b_dir"
     done
-    
+
     log_success "$(t "orch_success" "Backend servers successfully orchestrated and connected to proxy!")"
     sleep 3
 }
@@ -1368,28 +1425,28 @@ run_installation_wizard() {
     draw_header
     echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_install_wizard" "INSTALLATION WIZARD")${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-    
+
     # 1. Server Type
     local types=(Vanilla Paper Folia Purpur Fabric Forge NeoForge Velocity Waterfall BungeeCord)
     local s_type
     s_type=$(prompt_selection "$(t "prompt_software_type" "Choose Minecraft server software type:")" "${types[@]}")
     s_type=$(echo "$s_type" | tr '[:upper:]' '[:lower:]')
-    
+
     # 2. Minecraft Version & Software fetch
     local mc_version=""
     local download_url=""
     local build_num=""
     local loader_version=""
-    
+
     TMP_WIZARD_DIR=$(mktemp -d)
-    
+
     case "$s_type" in
         vanilla)
             log_info "Fetching Minecraft Vanilla versions..."
             local releases
             releases=$(fetch_vanilla_releases)
             mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" $releases)
-            
+
             log_info "Resolving download URL for Vanilla $mc_version..."
             download_url=$(fetch_vanilla_download_url "$mc_version")
             ;;
@@ -1398,20 +1455,20 @@ run_installation_wizard() {
             local versions
             versions=$(fetch_papermc_versions "$s_type")
             mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" $versions)
-            
+
             log_info "Fetching builds for $s_type $mc_version..."
             local builds
             builds=$(fetch_papermc_builds "$s_type" "$mc_version" | sort -nr)
-            
+
             if [ -z "$builds" ]; then
                 log_error "No builds found for $s_type version $mc_version."
                 exit 1
             fi
-            
+
             local build_choices=()
             for b in $builds; do build_choices+=("$b"); done
             build_choices+=("Latest Stable")
-            
+
             local chosen_build
             chosen_build=$(prompt_selection "$(t "prompt_build_num" "Select build number:")" "${build_choices[@]}")
             if [ "$chosen_build" = "Latest Stable" ]; then
@@ -1419,7 +1476,7 @@ run_installation_wizard() {
             else
                 build_num="$chosen_build"
             fi
-            
+
             log_info "Resolving download URL for $s_type $mc_version Build $build_num..."
             download_url=$(fetch_papermc_download_url "$s_type" "$mc_version" "$build_num")
             ;;
@@ -1428,20 +1485,20 @@ run_installation_wizard() {
             local versions
             versions=$(fetch_purpur_versions)
             mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" $versions)
-            
+
             log_info "Fetching builds for Purpur $mc_version..."
             local builds
             builds=$(fetch_purpur_builds "$mc_version" | sort -nr)
-            
+
             if [ -z "$builds" ]; then
                 log_error "No builds found for Purpur version $mc_version."
                 exit 1
             fi
-            
+
             local build_choices=()
             for b in $builds; do build_choices+=("$b"); done
             build_choices+=("Latest Stable")
-            
+
             local chosen_build
             chosen_build=$(prompt_selection "$(t "prompt_build_num" "Select build number:")" "${build_choices[@]}")
             if [ "$chosen_build" = "Latest Stable" ]; then
@@ -1449,7 +1506,7 @@ run_installation_wizard() {
             else
                 build_num="$chosen_build"
             fi
-            
+
             download_url="https://api.purpurmc.org/v2/purpur/$mc_version/$build_num/download"
             ;;
         fabric)
@@ -1457,12 +1514,12 @@ run_installation_wizard() {
             local releases
             releases=$(fetch_vanilla_releases)
             mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" $releases)
-            
+
             log_info "Fetching Fabric Loader versions..."
             local loaders
             loaders=$(fetch_fabric_loaders)
             loader_version=$(prompt_selection "$(t "prompt_fabric_loader" "Select Fabric Loader version:")" $loaders)
-            
+
             log_info "Resolving Fabric Installer URL..."
             download_url=$(fetch_fabric_installer_url)
             ;;
@@ -1471,16 +1528,16 @@ run_installation_wizard() {
             local releases
             releases=(1.21.4 1.21.1 1.21 1.20.6 1.20.4 1.20.2 1.20.1 1.20 1.19.4 1.19.2 1.18.2 1.17.1 1.16.5 1.12.2 1.8.8 1.7.10)
             mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" "${releases[@]}")
-            
+
             log_info "Fetching Forge builds for $mc_version..."
             local builds
             builds=$(fetch_forge_versions "$mc_version")
-            
+
             if [ -z "$builds" ]; then
                 log_error "No Forge builds found for Minecraft $mc_version."
                 exit 1
             fi
-            
+
             local chosen_build
             chosen_build=$(prompt_selection "$(t "prompt_forge_build" "Select Forge build:")" $builds)
             download_url="https://maven.minecraftforge.net/net/minecraftforge/forge/${chosen_build}/forge-${chosen_build}-installer.jar"
@@ -1489,16 +1546,16 @@ run_installation_wizard() {
             log_info "Fetching supported Minecraft versions for NeoForge..."
             local releases=(1.21.4 1.21.3 1.21.1 1.21 1.20.6 1.20.4 1.20.2 1.20.1)
             mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" "${releases[@]}")
-            
+
             log_info "Fetching NeoForge builds for $mc_version..."
             local builds
             builds=$(fetch_neoforge_versions "$mc_version")
-            
+
             if [ -z "$builds" ]; then
                 log_error "No NeoForge builds found for Minecraft $mc_version."
                 exit 1
             fi
-            
+
             local chosen_build
             chosen_build=$(prompt_selection "$(t "prompt_neoforge_build" "Select NeoForge build:")" $builds)
             download_url="https://maven.neoforged.net/releases/net/neoforged/neoforge/${chosen_build}/neoforge-${chosen_build}-installer.jar"
@@ -1508,12 +1565,12 @@ run_installation_wizard() {
             download_url="https://ci.md-5.net/job/BungeeCord/lastSuccessfulBuild/artifact/bootstrap/target/BungeeCord.jar"
             ;;
     esac
-    
+
     if [ -z "$download_url" ]; then
         log_error "Could not resolve download URL for the selected configurations."
         exit 1
     fi
-    
+
     # 4. Installation Directory
     local default_dir="${HOME}/MinecraftServer"
     local inst_dir
@@ -1540,7 +1597,7 @@ run_installation_wizard() {
         fi
         break
     done
-    
+
     if [ -d "$inst_dir" ] && [ "$(ls -A "$inst_dir" 2>/dev/null)" ]; then
         log_warn "Directory $inst_dir exists and is NOT empty."
         prompt_yes_no "Do you want to overwrite files in this directory?" "n"
@@ -1549,33 +1606,33 @@ run_installation_wizard() {
             exit 1
         fi
     fi
-    
+
     # 5. RAM Selection
     local min_ram
     local max_ram
     min_ram=$(prompt_ram_input "Enter Minimum RAM allocation (e.g., 1024M, 2G)" "1024M")
     max_ram=$(prompt_ram_input "Enter Maximum RAM allocation (e.g., 4096M, 4G)" "4096M")
-    
+
     # 6. Java Detection & Required Java configuration
     local required_java
     required_java=$(get_required_java_version "$mc_version" "$s_type")
-    
+
     verify_or_install_java "$required_java"
     if [ $? -ne 0 ]; then
         log_error "Java setup failed. Cannot continue."
         exit 1
     fi
-    
+
     local java_path
     java_path=$(find_java_binary_path "$required_java")
 
-    
+
     # 7. Port check
     local default_port="25565"
     if [ "$s_type" = "velocity" ] || [ "$s_type" = "waterfall" ] || [ "$s_type" = "bungeecord" ]; then
         default_port="25577"
     fi
-    
+
     local port
     while true; do
         if [ "$LANG_PREF" = "tr" ]; then
@@ -1583,7 +1640,7 @@ run_installation_wizard() {
         else
             port=$(prompt_port_input "Enter server port" "$default_port")
         fi
-        
+
         # Check active port binding
         if command -v ss &>/dev/null; then
             if ss -tuln | grep -q ":${port} "; then
@@ -1595,7 +1652,7 @@ run_installation_wizard() {
                 continue
             fi
         fi
-        
+
         # Check registered servers' ports
         if is_port_taken_by_registered_servers "$port"; then
             if [ "$LANG_PREF" = "tr" ]; then
@@ -1607,7 +1664,7 @@ run_installation_wizard() {
         fi
         break
     done
-    
+
     # Check if proxy type to skip gameplay questions
     local online_mode="true"
     local motd="A Minecraft Server"
@@ -1615,52 +1672,52 @@ run_installation_wizard() {
     local difficulty="normal"
     local gamemode="survival"
     local world_name="world"
-    
+
     if [ "$s_type" != "velocity" ] && [ "$s_type" != "waterfall" ] && [ "$s_type" != "bungeecord" ]; then
         # 8. Online Mode
         online_mode="true"
         prompt_yes_no "Enable Online Mode (authenticate accounts via Mojang)?" "y"
         [ $? -ne 0 ] && online_mode="false"
-        
+
         # 9. MOTD
         motd=$(prompt_input "Enter Server MOTD" "Welcome to our devRaikou Server!")
-        
+
         # 10. Max Players
         max_players=$(prompt_input "Enter Max Players" "20")
-        
+
         # 11. Difficulty
         difficulty=$(prompt_selection "$(t "prompt_difficulty" "Select Difficulty:")" peaceful easy normal hard)
-        
+
         # 12. GameMode
         gamemode=$(prompt_selection "$(t "prompt_gamemode" "Select Default GameMode:")" survival creative adventure spectator)
-        
+
         # 13. World Name
         world_name=$(prompt_input "Enter World Name" "world")
     fi
-    
+
     # 14. EULA acceptance check
     prompt_yes_no "Do you agree to Mojang's EULA (https://account.mojang.com/documents/minecraft_eula)?" "y"
     if [ $? -ne 0 ]; then
         log_error "You must agree to the EULA to install the server."
         exit 1
     fi
-    
+
     # --- Perform Installation Actions ---
     mkdir -p "$inst_dir"
     cd "$inst_dir" || { log_error "Failed to enter installation folder."; exit 1; }
-    
+
     # Download the main jar/installer file
     local jar_dest="server.jar"
     if [ "$s_type" = "fabric" ] || [ "$s_type" = "forge" ] || [ "$s_type" = "neoforge" ]; then
         jar_dest="installer.jar"
     fi
-    
+
     download_file_with_progress "$download_url" "$jar_dest" "$s_type jar"
     if [ $? -ne 0 ]; then
         log_error "Failed to download server file."
         exit 1
     fi
-    
+
     # If Modded installer, run installServer
     local final_jar="server.jar"
     if [ "$s_type" = "fabric" ]; then
@@ -1701,10 +1758,10 @@ run_installation_wizard() {
         final_jar="waterfall.jar"
         mv server.jar waterfall.jar
     fi
-    
+
     # Save EULA
     echo "eula=true" > eula.txt
-    
+
     # Save properties (if not proxy)
     if [ "$s_type" != "velocity" ] && [ "$s_type" != "waterfall" ] && [ "$s_type" != "bungeecord" ]; then
         echo "# Generated by mcserver-installer" > server.properties
@@ -1716,17 +1773,17 @@ run_installation_wizard() {
         echo "gamemode=$gamemode" >> server.properties
         echo "level-name=$world_name" >> server.properties
     fi
-    
+
     # Ask for Aikar Flags
     local include_aikar="false"
     prompt_yes_no "Enable Aikar's optimized Garbage Collection Flags for JVM?" "y"
     [ $? -eq 0 ] && include_aikar="true"
-    
+
     local jvm_args=""
     if [ "$include_aikar" = "true" ]; then
         jvm_args="-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1MixedGCCountTarget=4 -XX:G1HeapWastePercent=5 -XX:SurvivorRatio=32 -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true"
     fi
-    
+
     # Create start.sh script
     local java_dir
     java_dir=$(dirname "$java_path")
@@ -1765,7 +1822,7 @@ EOF
     else
         echo "    java -Xms\"\${MEM_MIN}\" -Xmx\"\${MEM_MAX}\" ${jvm_args} -jar ${final_jar} nogui" >> start.sh
     fi
-    
+
     cat >> start.sh <<EOF
     if [ -f .stop_restart ]; then
         break
@@ -1777,7 +1834,7 @@ rm -f .stop_restart
 EOF
 
     chmod +x start.sh
-    
+
     # Save details into local registry file
     local server_name
     server_name=$(basename "$inst_dir")
@@ -1792,16 +1849,16 @@ EOF
         sed_delete_blank_lines "$REGISTRY_FILE"
     fi
     echo "${server_name}:${inst_dir}:${s_type}:${mc_version}" >> "$REGISTRY_FILE"
-    
+
     # Run backend orchestrator if proxy server software was installed
     if [ "$s_type" = "velocity" ] || [ "$s_type" = "waterfall" ] || [ "$s_type" = "bungeecord" ]; then
         orchestrate_proxy_network "$inst_dir" "$server_name" "$s_type" "$port"
     fi
-    
+
     # Auto-start server
     log_info "Auto-starting server..."
     start_minecraft_server "$inst_dir"
-    
+
     local session_name; session_name=$(get_session_name "$inst_dir")
     local start_status="false"
     if is_server_running "$session_name"; then
@@ -1847,7 +1904,7 @@ EOF
         log_info "You can now start and manage this server from the main menu!"
         draw_box_close
     fi
-    
+
     echo -e -n "\n  $(t "press_enter_main" "Press [Enter] to return to the main menu: ")"
     read -r _
 }
@@ -1879,21 +1936,21 @@ set_property_val() {
 run_properties_editor() {
     local server_path="$1"
     local prop_file="${server_path}/server.properties"
-    
+
     if [ ! -f "$prop_file" ]; then
         log_error "No server.properties file found at $server_path"
         echo -n "  Press [Enter] to return: "
         read -r _
         return 1
     fi
-    
+
     while true; do
         clear_screen
         draw_header
         echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_properties_editor" "SERVER PROPERTIES EDITOR")${COLOR_RESET}"
         echo -e "  Location: $prop_file"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-        
+
         # Read current configurations
         local port; port=$(get_property_val "$prop_file" "server-port")
         local motd; motd=$(get_property_val "$prop_file" "motd")
@@ -1905,7 +1962,7 @@ run_properties_editor() {
         local players; players=$(get_property_val "$prop_file" "max-players")
         local flight; flight=$(get_property_val "$prop_file" "allow-flight")
         local spawn_prot; spawn_prot=$(get_property_val "$prop_file" "spawn-protection")
-        
+
         # Defaults if empty
         [ -z "$port" ] && port="25565"
         [ -z "$online" ] && online="true"
@@ -1913,7 +1970,7 @@ run_properties_editor() {
         [ -z "$whitelist" ] && whitelist="false"
         [ -z "$flight" ] && flight="false"
         [ -z "$spawn_prot" ] && spawn_prot="16"
-        
+
         echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} Server Port       [${COLOR_GREEN}${port}${COLOR_RESET}]"
         echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} Online Mode       [${COLOR_GREEN}${online}${COLOR_RESET}]"
         echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} MOTD              [${COLOR_GREEN}${motd}${COLOR_RESET}]"
@@ -1926,10 +1983,10 @@ run_properties_editor() {
         echo -e "   ${COLOR_YELLOW}10.${COLOR_RESET} Spawn Protection  [${COLOR_GREEN}${spawn_prot}${COLOR_RESET}]"
         echo -e "   ${COLOR_YELLOW}11.${COLOR_RESET} $(t "return_mgmt_menu" "Return to Management Menu")"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
-        
+
         echo -n "  Choose option (1-11): "
         read -r choice
-        
+
         case "$choice" in
             1)
                 local val; val=$(prompt_input "Enter server port" "$port")
@@ -1995,24 +2052,24 @@ create_server_backup() {
     local server_path="$1"
     local backup_dir="${server_path}/backups"
     mkdir -p "$backup_dir"
-    
+
     if [ "${HEADLESS_MODE:-false}" = "false" ]; then
         clear_screen
         draw_header
         echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_backup_creation" "BACKUP CREATION")${COLOR_RESET}"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
     fi
-    
+
     local timestamp
     timestamp=$(date +"%Y%m%d_%H%M%S")
     local tar_name="backup_${timestamp}.tar.gz"
     local tar_path="${backup_dir}/${tar_name}"
-    
+
     log_info "$(t "backup_in_progress" "Creating backup archive in progress...")"
-    
+
     (cd "$server_path" && tar --exclude='./backups' --exclude='./logs' -czf "$tar_path" .)
     local status=$?
-    
+
     if [ $status -eq 0 ]; then
         local size_bytes
         if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -2028,7 +2085,7 @@ create_server_backup() {
         log_error "$(t "backup_failed" "Backup compression failed.")"
         send_discord_notification "Backup compression failed." 15158332 "$server_path"
     fi
-    
+
     if [ "${HEADLESS_MODE:-false}" = "false" ]; then
         echo -e -n "\n  Press [Enter] to return: "
         read -r _
@@ -2038,17 +2095,17 @@ create_server_backup() {
 manage_backup_scheduler() {
     local s_name="$1"
     local s_path="$2"
-    
+
     while true; do
         clear_screen
         draw_header
         echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_backup_scheduler" "AUTOMATED BACKUP SCHEDULER")${COLOR_RESET}"
         echo -e "  Server: $s_name"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-        
+
         local current_cron
         current_cron=$(crontab -l 2>/dev/null | grep -F "mcserver-installer" | grep -F -- "--backup" | grep -F -- "\"${s_name}\"" || true)
-        
+
         if [ -n "$current_cron" ]; then
             local schedule_desc=""
             if echo "$current_cron" | grep -q "0 4 \* \* 0"; then
@@ -2062,20 +2119,20 @@ manage_backup_scheduler() {
         else
             echo -e "  $(t "sched_active" "Active Schedule: ") ${COLOR_YELLOW}$(t "sched_none" "None (Disabled)")${COLOR_RESET}"
         fi
-        
+
         echo -e "\n  $(t "sched_options" "Options:")"
         echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} $(t "sched_daily" "Schedule Daily Backup (at 04:00 AM)")"
         echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} $(t "sched_weekly" "Schedule Weekly Backup (Sundays at 04:00 AM)")"
         echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} $(t "sched_remove" "Remove Automated Backup Schedule")"
         echo -e "    ${COLOR_YELLOW}4.${COLOR_RESET} $(t "return_mgmt_menu" "Return to Management Menu")"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
-        
+
         local choice
         choice=$(prompt_input "$(t "main_select" "Select option")" "4")
-        
+
         local script_path
         script_path=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
-        
+
         case "$choice" in
             1)
                 local schedule_line="0 4 * * * \"${script_path}\" --backup \"${s_name}\" >/dev/null 2>&1"
@@ -2108,51 +2165,51 @@ manage_backup_scheduler() {
 run_server_restore() {
     local server_path="$1"
     local backup_dir="${server_path}/backups"
-    
+
     clear_screen
     draw_header
     echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_restore_backup" "RESTORE BACKUP")${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-    
+
     if [ ! -d "$backup_dir" ] || [ -z "$(ls -A "$backup_dir" 2>/dev/null)" ]; then
         log_warn "$(t "restore_none_found" "No backups found for this server.")"
         echo -e -n "\n  $(t "press_enter" "Press [Enter] to return: ")"
         read -r _
         return 1
     fi
-    
+
     local backups_list=()
     for f in "$backup_dir"/backup_*.tar.gz; do
         if [ -f "$f" ]; then
             backups_list+=("$(basename "$f")")
         fi
     done
-    
+
     if [ ${#backups_list[@]} -eq 0 ]; then
         log_warn "$(t "restore_invalid" "No valid backups found.")"
         echo -e -n "\n  $(t "press_enter" "Press [Enter] to return: ")"
         read -r _
         return 1
     fi
-    
+
     # Sort backups in descending order (newest first)
     IFS=$'\n' sorted_backups=($(sort -r <<<"${backups_list[*]}"))
     unset IFS
-    
+
     local chosen_backup
     chosen_backup=$(prompt_selection "$(t "prompt_restore_backup" "Select backup to restore:")" "${sorted_backups[@]}")
     local full_backup_path="${backup_dir}/${chosen_backup}"
-    
+
     log_warn "$(t "restore_destructive" "RESTORE ACTION IS DESTRUCTIVE!")"
     log_warn "$(t "restore_warning" "This will overwrite your existing world files, properties, and configurations.")"
-    
+
     local confirm_msg
     if [ "$LANG_PREF" = "tr" ]; then
         confirm_msg="${chosen_backup} yedeğini geri yüklemek istediğinizden kesinlikle emin misiniz?"
     else
         confirm_msg="Are you absolutely sure you want to restore ${chosen_backup}?"
     fi
-    
+
     prompt_yes_no "$confirm_msg" "n"
     if [ $? -ne 0 ]; then
         log_info "$(t "restore_canceled" "Restore canceled.")"
@@ -2160,22 +2217,22 @@ run_server_restore() {
         read -r _
         return 0
     fi
-    
+
     # We remove worlds and configs but keep logs and backup folder safe
     log_info "$(t "restore_clearing" "Clearing directory for restore...")"
     find "$server_path" -mindepth 1 -maxdepth 1 -not -name "backups" -not -name "logs" -exec rm -rf {} +
-    
+
     log_info "$(t "restore_extracting" "Extracting backup content...")"
     tar -xzf "$full_backup_path" -C "$server_path"
     local status=$?
-    
+
     if [ $status -eq 0 ]; then
         log_success "$(t "restore_success" "Backup restored successfully!")"
         log_info "$(t "restore_verify" "Please verify the start script and java configurations before starting.")"
     else
         log_error "$(t "restore_failed" "Failed to extract backup file correctly.")"
     fi
-    
+
     echo -e -n "\n  $(t "press_enter" "Press [Enter] to return: ")"
     read -r _
 }
@@ -2230,27 +2287,51 @@ start_minecraft_server() {
     local server_path="$1"
     local session_name
     session_name=$(get_session_name "$server_path")
-    
+
     if is_server_running "$session_name"; then
         log_warn "$(t "start_already_running" "Server is already running in screen session:") $session_name"
         sleep 2
         return 1
     fi
-    
+
     local s_type="standard"
-    if [ -f "${server_path}/velocity.toml" ]; then
+    local s_ver="latest"
+    if [ -f "$REGISTRY_FILE" ]; then
+        local abs_target
+        abs_target=$(cd "$server_path" 2>/dev/null && pwd -P || echo "$server_path")
+        while IFS=":" read -r r_name r_path r_type r_ver || [ -n "$r_name" ]; do
+            [ -z "$r_name" ] && continue
+            local abs_reg
+            abs_reg=$(cd "$r_path" 2>/dev/null && pwd -P || echo "$r_path")
+            if [ "$abs_target" = "$abs_reg" ]; then
+                s_type="$r_type"
+                s_ver="$r_ver"
+                break
+            fi
+        done < "$REGISTRY_FILE"
+    fi
+
+    if [ "$s_type" = "standard" ] && [ -f "${server_path}/velocity.toml" ]; then
         s_type="velocity"
-    elif [ -f "${server_path}/config.yml" ]; then
+    elif [ "$s_type" = "standard" ] && [ -f "${server_path}/config.yml" ]; then
         s_type="bungeecord"
     fi
+
+    update_start_script_java_path "$server_path" "$s_type" "$s_ver"
+    if [ $? -ne 0 ]; then
+        log_error "Java runtime setup failed. Cannot start server."
+        sleep 2
+        return 1
+    fi
+
     local port; port=$(get_server_port "$server_path" "$s_type")
     check_firewall_rules "$port"
-    
+
     log_info "$(t "start_in_progress" "Starting server...")"
     rm -f "${server_path}/.stop_restart"
-    
+
     (cd "$server_path" && screen -dmS "$session_name" ./start.sh)
-    
+
     sleep 2
     if is_server_running "$session_name"; then
         log_success "$(t "start_success" "Server started successfully in background!")"
@@ -2266,18 +2347,18 @@ stop_minecraft_server() {
     local server_path="$1"
     local session_name
     session_name=$(get_session_name "$server_path")
-    
+
     if ! is_server_running "$session_name"; then
         log_warn "$(t "stop_not_running" "Server is not running.")"
         sleep 2
         return 1
     fi
-    
+
     log_info "$(t "stop_sending_command" "Sending stop command to server...")"
     touch "${server_path}/.stop_restart"
-    
+
     screen -S "$session_name" -p 0 -X stuff "stop$(printf \\r)"
-    
+
     local count=0
     printf "  $(t "stop_waiting_graceful" "Waiting for server to stop gracefully ")"
     while is_server_running "$session_name" && [ $count -lt 30 ]; do
@@ -2286,7 +2367,7 @@ stop_minecraft_server() {
         count=$((count + 1))
     done
     printf "\n"
-    
+
     if is_server_running "$session_name"; then
         log_warn "$(t "stop_force_termination" "Server did not stop gracefully. Forcing termination...")"
         screen -S "$session_name" -p 0 -X quit
@@ -2304,7 +2385,7 @@ restart_minecraft_server() {
     local server_path="$1"
     local session_name
     session_name=$(get_session_name "$server_path")
-    
+
     if is_server_running "$session_name"; then
         stop_minecraft_server "$server_path"
     fi
@@ -2314,26 +2395,26 @@ restart_minecraft_server() {
 view_server_logs() {
     local server_path="$1"
     local log_file="${server_path}/logs/latest.log"
-    
+
     clear_screen
     draw_header
     echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_log_viewer" "SERVER LOG VIEWER")${COLOR_RESET} (Press Ctrl+C to exit)"
     echo -e "  File: $log_file"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-    
+
     if [ ! -f "$log_file" ]; then
         log_error "Log file not found yet. Has the server run at least once?"
         echo -e -n "\n  Press [Enter] to return: "
         read -r _
         return 1
     fi
-    
+
     # Temporarily trap SIGINT to exit tail cleanly, clear the screen, and restore main trap
     trap 'clear_screen; trap cleanup EXIT SIGINT SIGTERM; return 0' SIGINT
-    
+
     # Tail logs
     tail -n 100 -f "$log_file"
-    
+
     # Restore default trap if we exited naturally
     trap cleanup EXIT SIGINT SIGTERM
     clear_screen
@@ -2344,13 +2425,13 @@ connect_server_console() {
     local session_name
     session_name=$(get_session_name "$server_path")
     local log_file="${server_path}/logs/latest.log"
-    
+
     if ! is_server_running "$session_name"; then
         log_error "Server is not running. Start the server first!"
         sleep 2
         return 1
     fi
-    
+
     local port; port=$(get_server_port "$server_path" "standard")
     local local_ip; local_ip=$(get_local_ip)
     local public_ip="Unknown"
@@ -2358,34 +2439,34 @@ connect_server_console() {
         public_ip=$(cat "${CONFIG_DIR}/.public_ip" 2>/dev/null)
     fi
     [ -z "$public_ip" ] && public_ip="Unknown"
-    
+
     while true; do
         clear_screen
         draw_header
         echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_interactive_console" "INTERACTIVE CONSOLE")${COLOR_RESET} (Type 'exit' to quit console)"
         echo -e "  Address:  ${COLOR_GREEN}${local_ip}:${port}${COLOR_RESET} (Local) | ${COLOR_GREEN}${public_ip}:${port}${COLOR_RESET} (Public)"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
-        
+
         if [ -f "$log_file" ]; then
             tail -n 18 "$log_file"
         else
             echo "  No log file found at $log_file"
         fi
         echo -e "${COLOR_CYAN}────────────────────────────────────────────────────────────────${COLOR_RESET}"
-        
+
         local cmd=""
         echo -n -e "${COLOR_YELLOW}[Console Input]${COLOR_RESET} > " >&2
         read -t 1.5 -r cmd
-        
+
         local status=$?
         if [ $status -gt 128 ]; then
             continue
         fi
-        
+
         if [ "$cmd" = "exit" ] || [ "$cmd" = "quit" ] || [ "$cmd" = "quit_console" ]; then
             break
         fi
-        
+
         if [ -n "$cmd" ]; then
             screen -S "$session_name" -p 0 -X stuff "${cmd}$(printf \\r)"
             sleep 0.15
@@ -2397,23 +2478,23 @@ connect_server_console_raw() {
     local server_path="$1"
     local session_name
     session_name=$(get_session_name "$server_path")
-    
+
     if ! is_server_running "$session_name"; then
         log_error "Server is not running. Start the server first!"
         sleep 2
         return 1
     fi
-    
+
     clear_screen
     draw_header
     echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_raw_console" "CONNECTING TO RAW CONSOLE")${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}IMPORTANT: To detach from the console without stopping the server,${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}Press: Ctrl+A, then D${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-    
+
     echo -e "  Connecting in 2 seconds..."
     sleep 2
-    
+
     screen -r "$session_name"
 }
 
@@ -2443,7 +2524,7 @@ get_server_port() {
     elif [ -f "${s_path}/config.yml" ]; then
         port=$(grep -A 5 "listeners:" "${s_path}/config.yml" 2>/dev/null | grep "host:" | head -n 1 | cut -d: -f3 | tr -d '\r ')
     fi
-    
+
     # Default fallbacks
     if [ -z "$port" ]; then
         if [ "$s_type" = "velocity" ] || [ "$s_type" = "waterfall" ] || [ "$s_type" = "bungeecord" ]; then
@@ -2471,7 +2552,7 @@ toggle_systemd_service() {
     local s_path="$2"
     local session_name
     session_name=$(get_session_name "$s_path")
-    
+
     local service_file="/etc/systemd/system/mc-${session_name}.service"
     local active_raw="Disabled"
     local active_str="$(t "systemd_disabled" "Disabled")"
@@ -2479,7 +2560,7 @@ toggle_systemd_service() {
         active_raw="Enabled"
         active_str="$(t "systemd_enabled" "Enabled")"
     fi
-    
+
     clear_screen
     draw_header
     echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_systemd_controller" "SYSTEMD BOOT AUTO-START CONTROLLER")${COLOR_RESET}"
@@ -2489,7 +2570,7 @@ toggle_systemd_service() {
         echo -e "  Server: $s_name | Auto-start status: ${COLOR_YELLOW}${active_str}${COLOR_RESET}"
     fi
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-    
+
     if [ "$active_raw" = "Enabled" ]; then
         prompt_yes_no "$(t "prompt_systemd_disable" "Do you want to disable boot auto-start for this server?")" "n"
         if [ $? -eq 0 ]; then
@@ -2523,7 +2604,7 @@ Restart=on-failure
 [Install]
 WantedBy=multi-user.target
 EOF
-            
+
             local enable_cmd="cp $tmp_service $service_file && chown root:root $service_file && chmod 644 $service_file && systemctl daemon-reload && systemctl enable mc-${session_name}"
             if [ "$EUID" -eq 0 ]; then
                 run_with_spinner "$(t "systemd_enabling" "Enabling systemd service")" bash -c "$enable_cmd"
@@ -2539,19 +2620,19 @@ EOF
 
 get_java_pid_for_session() {
     local session_name="$1"
-    
+
     local screen_pid
     screen_pid=$(screen -ls | grep "\.${session_name}" | head -n 1 | awk '{print $1}' | cut -d. -f1 | tr -d '\r\n')
     if [ -z "$screen_pid" ]; then
         return 1
     fi
-    
+
     local java_pids
     java_pids=$(pgrep -x java || pgrep -f java || true)
     if [ -z "$java_pids" ]; then
         return 1
     fi
-    
+
     for pid in $java_pids; do
         local curr=$pid
         while [ "$curr" -gt 1 ]; do
@@ -2575,21 +2656,21 @@ monitor_server_resources() {
     local s_path="$2"
     local session_name
     session_name=$(get_session_name "$s_path")
-    
+
     if ! is_server_running "$session_name"; then
         log_error "Server is not running. Start it first to monitor resources!"
         sleep 2
         return 1
     fi
-    
+
     local max_ram="Unknown"
     if [ -f "${s_path}/start.sh" ]; then
         max_ram=$(grep "^MEM_MAX=" "${s_path}/start.sh" | cut -d= -f2- | tr -d '"\r ')
     fi
-    
+
     # Temporarily trap SIGINT to exit monitoring loop cleanly, clear screen, and restore main trap
     trap 'clear_screen; trap cleanup EXIT SIGINT SIGTERM; return 0' SIGINT
-    
+
     clear_screen
     while true; do
         local pid
@@ -2599,26 +2680,26 @@ monitor_server_resources() {
             sleep 2
             break
         fi
-        
+
         local cpu
         cpu=$(ps -p "$pid" -o %cpu= 2>/dev/null | tr -d ' ' | tr -d '\r\n')
         local rss
         rss=$(ps -p "$pid" -o rss= 2>/dev/null | tr -d ' ' | tr -d '\r\n')
         local disk
         disk=$(du -sh "$s_path" 2>/dev/null | awk '{print $1}' | tr -d '\r\n')
-        
+
         clear_screen
         draw_header
         echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_resource_monitor" "REAL-TIME RESOURCE MONITOR")${COLOR_RESET}"
         echo -e "  Server: $s_name | Session: $session_name | PID: $pid"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-        
+
         if [ -n "$cpu" ]; then
             echo -e "  CPU Usage:      ${COLOR_YELLOW}${cpu}%${COLOR_RESET}"
         else
             echo -e "  CPU Usage:      Unknown"
         fi
-        
+
         if [ -n "$rss" ] && [[ "$rss" =~ ^[0-9]+$ ]]; then
             local rss_mb=$((rss / 1024))
             local max_mb=0
@@ -2633,7 +2714,7 @@ monitor_server_resources() {
                     max_mb=$num
                 fi
             fi
-            
+
             if [ "$max_mb" -gt 0 ]; then
                 local pct=$((rss_mb * 100 / max_mb))
                 [ "$pct" -gt 100 ] && pct=100
@@ -2649,11 +2730,11 @@ monitor_server_resources() {
         else
             echo -e "  RAM Usage:      Unknown"
         fi
-        
+
         echo -e "  Disk Footprint: ${COLOR_BLUE}${disk}${COLOR_RESET}"
         echo -e "\n  $(t "press_q_mgmt" "Press 'q' and enter to return to the management menu.")"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
-        
+
         local input_char=""
         read -t 2 -r input_char
         input_char=$(echo "$input_char" | tr -d '\r')
@@ -2661,7 +2742,7 @@ monitor_server_resources() {
             break
         fi
     done
-    
+
     # Restore default trap
     trap cleanup EXIT SIGINT SIGTERM
     clear_screen
@@ -2672,7 +2753,7 @@ manage_server_plugins() {
     local server_path="$2"
     local s_type="$3"
     local s_ver="$4"
-    
+
     local loaders=()
     case "$s_type" in
         paper)
@@ -2706,22 +2787,22 @@ manage_server_plugins() {
             loaders=("$s_type")
             ;;
     esac
-    
+
     while true; do
         clear_screen
         draw_header
         echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_plugin_manager" "SERVER PLUGIN MANAGER"): $s_name${COLOR_RESET}"
         echo -e "  Minecraft Version: $s_ver | Software: $s_type"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-        
+
         echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} $(t "plugin_search_install" "Search and Install Plugins")"
         echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} $(t "plugin_list_remove" "List and Remove Plugins")"
         echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} $(t "return_mgmt_menu" "Return to Management Menu")"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
-        
+
         local choice
         choice=$(prompt_input "$(t "main_select" "Select option")" "3")
-        
+
         case "$choice" in
             1)
                 search_and_install_plugin "$server_path" "$s_ver" "$s_type" "${loaders[@]}"
@@ -2746,11 +2827,11 @@ search_and_install_plugin() {
     local s_type="$3"
     shift 3
     local loaders=("$@")
-    
+
     clear_screen
     draw_header
     echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_search_plugins" "SEARCH AND INSTALL PLUGINS")${COLOR_RESET}\n"
-    
+
     local query
     query=$(prompt_input "$(t "plugin_search_prompt" "Enter plugin name to search")" "")
     if [ -z "$query" ]; then
@@ -2758,14 +2839,14 @@ search_and_install_plugin() {
         sleep 1.5
         return 1
     fi
-    
+
     local url_query
     url_query=$(echo -n "$query" | jq -sRr @uri)
-    
+
     log_info "$(t "plugin_searching" "Searching Modrinth API...")"
     local res
     res=$(curl -s "https://api.modrinth.com/v2/search?query=${url_query}&facets=%5B%5B%22project_type:plugin%22%5D%5D")
-    
+
     local count
     count=$(echo "$res" | jq '.hits | length' 2>/dev/null || echo 0)
     if [ -z "$count" ] || [ "$count" -eq 0 ]; then
@@ -2773,14 +2854,14 @@ search_and_install_plugin() {
         sleep 2
         return 1
     fi
-    
+
     local hits
     hits=$(echo "$res" | jq -c '.hits[]')
-    
+
     local titles=()
     local ids=()
     local slugs=()
-    
+
     while IFS= read -r hit || [ -n "$hit" ]; do
         [ -z "$hit" ] && continue
         local title; title=$(echo "$hit" | jq -r '.title')
@@ -2791,10 +2872,10 @@ search_and_install_plugin() {
         ids+=("$id")
         slugs+=("$slug")
     done <<< "$hits"
-    
+
     local chosen
     chosen=$(prompt_selection "$(t "prompt_install_plugin" "Select plugin to install:")" "${titles[@]}")
-    
+
     local idx=-1
     for i in "${!titles[@]}"; do
         if [ "${titles[$i]}" = "$chosen" ]; then
@@ -2802,37 +2883,37 @@ search_and_install_plugin() {
             break
         fi
     done
-    
+
     if [ "$idx" -eq -1 ]; then
         return 1
     fi
-    
+
     local project_id="${ids[$idx]}"
     local project_slug="${slugs[$idx]}"
-    
+
     log_info "$(t "plugin_fetching_versions" "Fetching available versions for") ${project_slug}..."
     local res_ver
     res_ver=$(curl -s "https://api.modrinth.com/v2/project/${project_id}/version")
-    
+
     local loader_json
     loader_json=$(printf '%s\n' "${loaders[@]}" | jq -R . | jq -s -c .)
-    
+
     local matched_versions
     matched_versions=$(echo "$res_ver" | jq --arg ver "$s_ver" --argjson lds "$loader_json" -c '
         map(select(
-            (.game_versions | contains([$ver])) and 
+            (.game_versions | contains([$ver])) and
             (.loaders | unique | . - ($unique = . | . - $lds) | length > 0)
         ))
     ' 2>/dev/null || echo "[]")
-    
+
     local matched_count
     matched_count=$(echo "$matched_versions" | jq 'length' 2>/dev/null || echo 0)
-    
+
     local chosen_ver_obj=""
     if [ "$matched_count" -gt 0 ]; then
         local v_names=()
         local v_ids=()
-        
+
         while IFS= read -r row || [ -n "$row" ]; do
             [ -z "$row" ] && continue
             local name; name=$(echo "$row" | jq -r '.name')
@@ -2841,10 +2922,10 @@ search_and_install_plugin() {
             v_names+=("${name} [Ver: ${num}] (Recommended)")
             v_ids+=("$id")
         done <<< "$(echo "$matched_versions" | jq -c '.[]')"
-        
+
         local chosen_name
         chosen_name=$(prompt_selection "$(t "prompt_plugin_compat" "Select compatible version to install:")" "${v_names[@]}")
-        
+
         local v_idx=-1
         for i in "${!v_names[@]}"; do
             if [ "${v_names[$i]}" = "$chosen_name" ]; then
@@ -2852,7 +2933,7 @@ search_and_install_plugin() {
                 break
             fi
         done
-        
+
         if [ "$v_idx" -ne -1 ]; then
             chosen_ver_obj=$(echo "$matched_versions" | jq -c ".[${v_idx}]")
         fi
@@ -2863,7 +2944,7 @@ search_and_install_plugin() {
         if [ $? -eq 0 ]; then
             local all_names=()
             local all_ids=()
-            
+
             while IFS= read -r row || [ -n "$row" ]; do
                 [ -z "$row" ] && continue
                 local name; name=$(echo "$row" | jq -r '.name')
@@ -2872,10 +2953,10 @@ search_and_install_plugin() {
                 all_names+=("${name} [Ver: ${num}]")
                 all_ids+=("$id")
             done <<< "$(echo "$res_ver" | jq -c '.[]' | head -n 10)"
-            
+
             local chosen_name
             chosen_name=$(prompt_selection "$(t "prompt_plugin_risk" "Select version to install (at your own risk):")" "${all_names[@]}")
-            
+
             local v_idx=-1
             for i in "${!all_names[@]}"; do
                 if [ "${all_names[$i]}" = "$chosen_name" ]; then
@@ -2883,23 +2964,23 @@ search_and_install_plugin() {
                     break
                 fi
             done
-            
+
             if [ "$v_idx" -ne -1 ]; then
                 chosen_ver_obj=$(echo "$res_ver" | jq -c ".[${v_idx}]")
             fi
         fi
     fi
-    
+
     if [ -n "$chosen_ver_obj" ]; then
         local dl_url
         dl_url=$(echo "$chosen_ver_obj" | jq -r '.files[0].url')
         local dl_name
         dl_name=$(echo "$chosen_ver_obj" | jq -r '.files[0].filename')
-        
+
         if [ -n "$dl_url" ] && [ "$dl_url" != "null" ]; then
             local plugins_dir="${server_path}/plugins"
             mkdir -p "$plugins_dir"
-            
+
             run_with_spinner "$(t "plugin_downloading" "Downloading plugin") ${dl_name}..." curl -s -L -o "${plugins_dir}/${dl_name}" "$dl_url"
             log_success "Plugin ${dl_name} $(t "plugin_success" "installed successfully!")"
             send_discord_notification "Plugin installed: ${dl_name}" 3066993 "$server_path"
@@ -2914,7 +2995,7 @@ search_and_install_plugin() {
 list_and_remove_plugins() {
     local server_path="$1"
     local plugins_dir="${server_path}/plugins"
-    
+
     if [ ! -d "$plugins_dir" ] || [ -z "$(ls -A "$plugins_dir" 2>/dev/null | grep '\.jar$')" ]; then
         clear_screen
         draw_header
@@ -2923,38 +3004,38 @@ list_and_remove_plugins() {
         sleep 2
         return 1
     fi
-    
+
     local files=()
     for f in "$plugins_dir"/*.jar; do
         [ -f "$f" ] && files+=("$(basename "$f")")
     done
-    
+
     if [ ${#files[@]} -eq 0 ]; then
         log_warn "$(t "plugin_none_jar" "No plugin jar files found.")"
         sleep 2
         return 1
     fi
-    
+
     files+=("$(t "settings_back" "Return to Main Menu")")
-    
+
     local chosen
     chosen=$(prompt_selection "$(t "prompt_remove_plugin" "Select a plugin jar to remove:")" "${files[@]}")
-    
+
     if [ "$chosen" = "$(t "settings_back" "Return to Main Menu")" ]; then
         return 0
     fi
-    
+
     local confirm_msg
     if [ "$LANG_PREF" = "tr" ]; then
         confirm_msg="${chosen} eklentisini silmek istediğinizden emin misiniz?"
     else
         confirm_msg="Are you sure you want to delete ${chosen}?"
     fi
-    
+
     prompt_yes_no "$confirm_msg" "n"
     if [ $? -eq 0 ]; then
         rm -f "${plugins_dir}/${chosen}"
-        
+
         local success_msg
         if [ "$LANG_PREF" = "tr" ]; then
             success_msg="${chosen} eklentisi başarıyla kaldırıldı!"
@@ -2971,7 +3052,7 @@ download_modrinth_plugin_by_slug() {
     local slug="$1"
     local dest_dir="$2"
     local mc_ver="$3"
-    
+
     log_info "Fetching latest release for ${slug}..."
     local res_ver
     res_ver=$(curl -s -H "${UA_HEADER}" "https://api.modrinth.com/v2/project/${slug}/version")
@@ -2979,21 +3060,21 @@ download_modrinth_plugin_by_slug() {
         log_error "Failed to fetch versions for ${slug}."
         return 1
     fi
-    
+
     local dl_url
     dl_url=$(echo "$res_ver" | jq -r --arg ver "$mc_ver" '
         map(select(.game_versions | contains([$ver]))) | .[0].files[0].url
     ' 2>/dev/null)
-    
+
     if [ -z "$dl_url" ] || [ "$dl_url" = "null" ]; then
         dl_url=$(echo "$res_ver" | jq -r '.[0].files[0].url' 2>/dev/null)
     fi
-    
+
     if [ -z "$dl_url" ] || [ "$dl_url" = "null" ]; then
         log_error "No valid download URL found for ${slug}."
         return 1
     fi
-    
+
     local filename; filename=$(basename "$dl_url")
     run_with_spinner "Downloading ${filename}..." curl -s -L -o "${dest_dir}/${filename}" "$dl_url"
     log_success "Downloaded ${filename} successfully."
@@ -3004,7 +3085,7 @@ install_geyser_floodgate() {
     local server_path="$2"
     local s_type="$3"
     local s_ver="${4:-latest}"
-    
+
     local platform=""
     case "$s_type" in
         paper|purpur|spigot|folia)
@@ -3022,24 +3103,24 @@ install_geyser_floodgate() {
             return 1
             ;;
     esac
-    
+
     clear_screen
     draw_header
     echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_install_geyser" "INSTALL GEYSERMC & FLOODGATE (CROSS-PLAY)")${COLOR_RESET}"
     echo -e "  Server: $s_name | Platform: $platform"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-    
+
     local plugins_dir="${server_path}/plugins"
     mkdir -p "$plugins_dir"
-    
+
     local geyser_url="https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/${platform}"
     local floodgate_url="https://download.geysermc.org/v2/projects/floodgate/versions/latest/builds/latest/downloads/${platform}"
-    
+
     run_with_spinner "Downloading GeyserMC (${platform})..." curl -s -L -o "${plugins_dir}/Geyser.jar" "$geyser_url"
     run_with_spinner "Downloading Floodgate (${platform})..." curl -s -L -o "${plugins_dir}/Floodgate.jar" "$floodgate_url"
-    
+
     log_success "GeyserMC and Floodgate downloaded successfully into plugins folder!"
-    
+
     echo -e ""
     local install_via="n"
     if [ "$LANG_PREF" = "tr" ]; then
@@ -3049,12 +3130,12 @@ install_geyser_floodgate() {
         prompt_yes_no "Would you like to install ViaVersion and ViaBackwards to support different client versions (including newer Bedrock clients)?" "y"
         [ $? -eq 0 ] && install_via="y"
     fi
-    
+
     if [ "$install_via" = "y" ]; then
         download_modrinth_plugin_by_slug "viaversion" "$plugins_dir" "$s_ver"
         download_modrinth_plugin_by_slug "viabackwards" "$plugins_dir" "$s_ver"
     fi
-    
+
     if command -v ufw &>/dev/null; then
         local ufw_status
         ufw_status=$(sudo ufw status 2>/dev/null || ufw status 2>/dev/null || echo "inactive")
@@ -3073,9 +3154,9 @@ install_geyser_floodgate() {
             fi
         fi
     fi
-    
+
     send_discord_notification "GeyserMC and Floodgate installed on ${s_name}." 3066993 "$server_path"
-    
+
     echo -e "\n  Please restart your Minecraft server for GeyserMC & Floodgate to load."
     echo -n "  Press [Enter] to return: "
     read -r _
@@ -3084,19 +3165,19 @@ install_geyser_floodgate() {
 optimize_server_performance() {
     local s_path="$1"
     local s_type="$2"
-    
+
     clear_screen
     draw_header
     echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_optimize" "SERVER OPTIMIZATION ENGINE")${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-    
+
     if [ "$LANG_PREF" = "tr" ]; then
         log_info "Sunucu performans dosyaları optimize ediliyor..."
     else
         log_info "Optimizing server performance configuration files..."
     fi
     sleep 1
-    
+
     # 1. Optimize server.properties (if exists)
     local prop_file="${s_path}/server.properties"
     if [ -f "$prop_file" ]; then
@@ -3109,7 +3190,7 @@ optimize_server_performance() {
             log_success "server.properties optimized (View distance: 6, Simulation: 5)."
         fi
     fi
-    
+
     # 2. Optimize spigot.yml (if exists)
     local spigot_file="${s_path}/spigot.yml"
     if [ -f "$spigot_file" ]; then
@@ -3128,7 +3209,7 @@ optimize_server_performance() {
             log_success "spigot.yml optimized (Entity activation ranges reduced)."
         fi
     fi
-    
+
     # 3. Optimize paper configurations (paper.yml or config/paper-global.yml)
     local paper_global="${s_path}/config/paper-global.yml"
     local legacy_paper="${s_path}/paper.yml"
@@ -3155,10 +3236,10 @@ optimize_server_performance() {
             log_success "paper.yml optimized."
         fi
     fi
-    
+
     # 4. Inject Aikar's JVM performance flags to start.sh or user_jvm_args.txt
     local aikars_flags="-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8m -XX:G1ReservePercent=15 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1"
-    
+
     # If user_jvm_args.txt exists (Forge/NeoForge standard)
     local jvm_args_file="${s_path}/user_jvm_args.txt"
     if [ -f "$jvm_args_file" ]; then
@@ -3172,7 +3253,7 @@ optimize_server_performance() {
             log_success "Aikar's Garbage Collection JVM flags added to user_jvm_args.txt."
         fi
     fi
-    
+
     # If start.sh exists, inject into the java command line
     local start_script="${s_path}/start.sh"
     if [ -f "$start_script" ]; then
@@ -3192,7 +3273,7 @@ optimize_server_performance() {
             log_success "Aikar's Garbage Collection JVM flags injected into start.sh."
         fi
     fi
-    
+
     echo ""
     if [ "$LANG_PREF" = "tr" ]; then
         log_success "Optimizasyon başarıyla tamamlandı! Lütfen değişikliklerin etkinleşmesi için sunucuyu yeniden başlatın."
@@ -3208,7 +3289,7 @@ run_server_management_menu() {
     local s_path="$2"
     local s_type="$3"
     local s_ver="$4"
-    
+
     while true; do
         local session_name
         session_name=$(get_session_name "$s_path")
@@ -3216,7 +3297,7 @@ run_server_management_menu() {
         if is_server_running "$session_name"; then
             status_str="${COLOR_GREEN}$(t "running" "Running")${COLOR_RESET}"
         fi
-        
+
         local port; port=$(get_server_port "$s_path" "$s_type")
         local local_ip; local_ip=$(get_local_ip)
         local public_ip="Unknown"
@@ -3270,14 +3351,14 @@ run_server_management_menu() {
         ui_menu_item 16 "$(t "srv_systemd" "Enable/Disable Boot Auto-start (systemd)")"
         ui_menu_item 17 "$(t "srv_back" "Return to Main Menu")"
         ui_divider
-        
+
         echo -n -e "  ${COLOR_CYAN}$(t "select_option_prompt" "Select option")${COLOR_RESET} ${COLOR_GRAY}(1-17)${COLOR_RESET}: "
         if ! read -r choice; then
             log_warn "Input stream closed. Returning to the main menu."
             break
         fi
         choice=$(echo "$choice" | tr -d '\r')
-        
+
         case "$choice" in
             1)
                 start_minecraft_server "$s_path"
@@ -3347,7 +3428,7 @@ run_server_management_menu() {
                         local min_ram; min_ram=$(prompt_ram_input "Enter new Minimum RAM allocation" "1024M")
                         local max_ram; max_ram=$(prompt_ram_input "Enter new Maximum RAM allocation" "4096M")
                     fi
-                    
+
                     if [[ "$OSTYPE" == "darwin"* ]]; then
                         sed -i '' "s|^MEM_MIN=.*|MEM_MIN=\"${min_ram}\"|" "${s_path}/start.sh"
                         sed -i '' "s|^MEM_MAX=.*|MEM_MAX=\"${max_ram}\"|" "${s_path}/start.sh"
@@ -3355,7 +3436,7 @@ run_server_management_menu() {
                         sed -i "s|^MEM_MIN=.*|MEM_MIN=\"${min_ram}\"|" "${s_path}/start.sh"
                         sed -i "s|^MEM_MAX=.*|MEM_MAX=\"${max_ram}\"|" "${s_path}/start.sh"
                     fi
-                    
+
                     if [ -f "${s_path}/user_jvm_args.txt" ]; then
                         if [[ "$OSTYPE" == "darwin"* ]]; then
                             sed -i '' "s|-Xms.*|-Xms${min_ram}|" "${s_path}/user_jvm_args.txt"
@@ -3365,7 +3446,7 @@ run_server_management_menu() {
                             sed -i "s|-Xmx.*|-Xmx${max_ram}|" "${s_path}/user_jvm_args.txt"
                         fi
                     fi
-                    
+
                     if [ "$LANG_PREF" = "tr" ]; then
                         log_success "Bellek sınırları başarıyla güncellendi!"
                     else
@@ -3407,7 +3488,7 @@ select_and_manage_server() {
         sleep 2
         return 1
     fi
-    
+
     clear_screen
     draw_header
     local title
@@ -3418,49 +3499,49 @@ select_and_manage_server() {
     esac
     echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}${title}${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-    
+
     # Read registry
     local servers=()
     local paths=()
     local types=()
     local versions=()
     local list_options=()
-    
+
     local i=1
     while IFS=":" read -r name path type version || [ -n "$name" ]; do
         # Skip empty lines
         [ -z "$name" ] && continue
-        
+
         servers+=("$name")
         paths+=("$path")
         types+=("$type")
         versions+=("$version")
-        
+
         # Check active status
         local sess; sess=$(get_session_name "$path")
         local status="${COLOR_RED}[Stopped]${COLOR_RESET}"
         if is_server_running "$sess"; then
             status="${COLOR_GREEN}[Running]${COLOR_RESET}"
         fi
-        
+
         list_options+=("$name ($type $version) - $path $status")
         i=$((i + 1))
     done < "$REGISTRY_FILE"
-    
+
     if [ ${#servers[@]} -eq 0 ]; then
         log_warn "No valid servers registered in the registry."
         sleep 2
         return 1
     fi
-    
+
     list_options+=("$(t "settings_back" "Return to Main Menu")")
     local selection
     selection=$(prompt_selection "$(t "prompt_manage_server" "Choose server to manage:")" "${list_options[@]}")
-    
+
     if [ "$selection" = "$(t "settings_back" "Return to Main Menu")" ]; then
         return 0
     fi
-    
+
     # Find matching index
     local idx=-1
     for k in "${!list_options[@]}"; do
@@ -3469,7 +3550,7 @@ select_and_manage_server() {
             break
         fi
     done
-    
+
     if [ "$idx" -ne -1 ]; then
         case "$action" in
             backup)
@@ -3530,7 +3611,7 @@ remove_server_registration() {
         sleep 2
         return 1
     fi
-    
+
     clear_screen
     draw_header
     if [ "$LANG_PREF" = "tr" ]; then
@@ -3539,18 +3620,18 @@ remove_server_registration() {
         echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}DELETE SERVER / REGISTRATION${COLOR_RESET}"
     fi
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-    
+
     local servers=()
     local paths=()
     local list_options=()
-    
+
     while IFS=":" read -r name path type version || [ -n "$name" ]; do
         [ -z "$name" ] && continue
         servers+=("$name")
         paths+=("$path")
         list_options+=("$name - $path")
     done < "$REGISTRY_FILE"
-    
+
     if [ "$LANG_PREF" = "tr" ]; then
         list_options+=("TÜM SUNUCULARI SİL")
         list_options+=("İptal Et ve Çık")
@@ -3558,18 +3639,18 @@ remove_server_registration() {
         list_options+=("DELETE ALL SERVERS")
         list_options+=("Cancel and Exit")
     fi
-    
+
     local selection
     if [ "$LANG_PREF" = "tr" ]; then
         selection=$(prompt_selection "Silmek istediğiniz sunucuyu seçin:" "${list_options[@]}")
     else
         selection=$(prompt_selection "$(t "prompt_delete_server" "Choose server to delete:")" "${list_options[@]}")
     fi
-    
+
     if [ "$selection" = "Cancel and Exit" ] || [ "$selection" = "İptal Et ve Çık" ]; then
         return 0
     fi
-    
+
     if [ "$selection" = "DELETE ALL SERVERS" ] || [ "$selection" = "TÜM SUNUCULARI SİL" ]; then
         for k in "${!paths[@]}"; do
             local path="${paths[$k]}"
@@ -3583,7 +3664,7 @@ remove_server_registration() {
                 stop_minecraft_server "$path"
             fi
         done
-        
+
         local delete_files="false"
         if [ "$LANG_PREF" = "tr" ]; then
             prompt_yes_no "Tüm sunucuların dosyalarını tamamen silmek istiyor musunuz?" "n"
@@ -3591,7 +3672,7 @@ remove_server_registration() {
             prompt_yes_no "Do you want to completely erase files for all servers?" "n"
         fi
         [ $? -eq 0 ] && delete_files="true"
-        
+
         for k in "${!paths[@]}"; do
             local path="${paths[$k]}"
             if [ "$delete_files" = "true" ]; then
@@ -3602,9 +3683,9 @@ remove_server_registration() {
                 fi
             fi
         done
-        
+
         echo -n "" > "$REGISTRY_FILE"
-        
+
         if [ "$LANG_PREF" = "tr" ]; then
             if [ "$delete_files" = "true" ]; then
                 log_success "Tüm sunucular ve dosyaları başarıyla silindi."
@@ -3621,7 +3702,7 @@ remove_server_registration() {
         sleep 2
         return 0
     fi
-    
+
     local idx=-1
     for k in "${!list_options[@]}"; do
         if [ "${list_options[$k]}" = "$selection" ]; then
@@ -3629,13 +3710,13 @@ remove_server_registration() {
             break
         fi
     done
-    
+
     if [ "$idx" -eq -1 ]; then return 0; fi
-    
+
     local sel_name="${servers[$idx]}"
     local sel_path="${paths[$idx]}"
     local sess_name; sess_name=$(get_session_name "$sel_path")
-    
+
     if is_server_running "$sess_name"; then
         if [ "$LANG_PREF" = "tr" ]; then
             log_info "Çalışan sunucu kapatılıyor: ${sel_name}..."
@@ -3644,7 +3725,7 @@ remove_server_registration() {
         fi
         stop_minecraft_server "$sel_path"
     fi
-    
+
     local delete_files="false"
     if [ "$LANG_PREF" = "tr" ]; then
         prompt_yes_no "${sel_path} dizinindeki tüm dosyaları tamamen silmek istiyor musunuz?" "n"
@@ -3652,7 +3733,7 @@ remove_server_registration() {
         prompt_yes_no "Do you want to completely erase the files at ${sel_path}?" "n"
     fi
     [ $? -eq 0 ] && delete_files="true"
-    
+
     # Remove from registry
     if [[ "$OSTYPE" == "darwin"* ]]; then
         sed -i '' "s|^.*:$sel_path:.*$||" "$REGISTRY_FILE"
@@ -3660,7 +3741,7 @@ remove_server_registration() {
         sed -i "s|^.*:$sel_path:.*$||" "$REGISTRY_FILE"
     fi
     sed_delete_blank_lines "$REGISTRY_FILE"
-    
+
     if [ "$delete_files" = "true" ]; then
         if [ "$LANG_PREF" = "tr" ]; then
             run_with_spinner "Sunucu dosyaları siliniyor" rm -rf "$sel_path"
@@ -3676,7 +3757,7 @@ remove_server_registration() {
             log_success "Server registration removed from CLI, but files were kept."
         fi
     fi
-    
+
     sleep 2
 }
 
@@ -3686,18 +3767,18 @@ update_server_software() {
         sleep 2
         return 1
     fi
-    
+
     clear_screen
     draw_header
     echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_update_software" "UPDATE SERVER SOFTWARE")${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-    
+
     local servers=()
     local paths=()
     local types=()
     local versions=()
     local list_options=()
-    
+
     while IFS=":" read -r name path type version || [ -n "$name" ]; do
         [ -z "$name" ] && continue
         servers+=("$name")
@@ -3706,15 +3787,15 @@ update_server_software() {
         versions+=("$version")
         list_options+=("$name ($type $version)")
     done < "$REGISTRY_FILE"
-    
+
     list_options+=("Cancel and Exit")
     local selection
     selection=$(prompt_selection "$(t "prompt_update_server" "Choose server to update:")" "${list_options[@]}")
-    
+
     if [ "$selection" = "Cancel and Exit" ]; then
         return 0
     fi
-    
+
     local idx=-1
     for k in "${!list_options[@]}"; do
         if [ "${list_options[$k]}" = "$selection" ]; then
@@ -3722,23 +3803,23 @@ update_server_software() {
             break
         fi
     done
-    
+
     if [ "$idx" -eq -1 ]; then return 0; fi
-    
+
     local s_path="${paths[$idx]}"
     local s_type="${types[$idx]}"
     local s_ver="${versions[$idx]}"
     local sess_name; sess_name=$(get_session_name "$s_path")
-    
+
     if is_server_running "$sess_name"; then
         log_error "The server must be stopped before executing an update!"
         sleep 2
         return 1
     fi
-    
+
     log_info "Fetching update options for $s_type..."
     local download_url=""
-    
+
     case "$s_type" in
         vanilla)
             download_url=$(fetch_vanilla_download_url "$s_ver")
@@ -3759,20 +3840,20 @@ update_server_software() {
             return 0
             ;;
     esac
-    
+
     if [ -z "$download_url" ]; then
         log_error "Failed to resolve download URL."
         sleep 2
         return 1
     fi
-    
+
     local jar_name="server.jar"
     [ "$s_type" = "velocity" ] && jar_name="velocity.jar"
     [ "$s_type" = "waterfall" ] && jar_name="waterfall.jar"
     [ "$s_type" = "purpur" ] && jar_name="purpur.jar"
     # Find matching jar or default to server.jar
     local dest_path="${s_path}/${jar_name}"
-    
+
     download_file_with_progress "$download_url" "$dest_path" "updated $s_type jar"
     if [ $? -eq 0 ]; then
         log_success "Software updated successfully!"
@@ -3787,14 +3868,14 @@ configure_discord_webhook() {
     draw_header
     echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_discord_webhook" "CONFIGURE DISCORD WEBHOOK")${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-    
+
     local settings_file="${SETTINGS_FILE}"
     local current_webhook=""
     if [ -f "$settings_file" ]; then
         # Load existing webhook setting safely
         current_webhook=$(grep '^DISCORD_WEBHOOK=' "$settings_file" | cut -d'"' -f2 | tr -d '\r')
     fi
-    
+
     if [ -n "$current_webhook" ]; then
         echo -e "  Active Webhook URL: ${COLOR_GREEN}${current_webhook:0:55}...${COLOR_RESET}"
         prompt_yes_no "Do you want to disable or update the Discord webhook?" "n"
@@ -3804,11 +3885,11 @@ configure_discord_webhook() {
             return 0
         fi
     fi
-    
+
     if [ -z "$current_webhook" ]; then
         local webhook
         webhook=$(prompt_input "Enter Discord Webhook URL (leave empty to disable)" "")
-        
+
         [ -f "$settings_file" ] || {
             echo 'LANG="en"' > "$settings_file"
             echo 'DISCORD_WEBHOOK=""' >> "$settings_file"
@@ -3832,7 +3913,7 @@ configure_discord_webhook() {
             log_success "Discord Webhook disabled."
         fi
     fi
-    
+
     sleep 2
 }
 
@@ -3842,12 +3923,12 @@ run_java_manager_menu() {
         draw_header
         echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_java_manager" "JAVA JRE MANAGER")${COLOR_RESET}"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-        
+
         local active_ver
         active_ver=$(get_java_installed_version)
         echo -e "  Active System JRE:   Java ${COLOR_GREEN}${active_ver}${COLOR_RESET}"
         echo -e "  Installed Java environments found:"
-        
+
         local javas_found=0
         for jv in 8 17 21 25; do
             local jpath
@@ -3857,11 +3938,11 @@ run_java_manager_menu() {
                 javas_found=$((javas_found + 1))
             fi
         done
-        
+
         if [ "$javas_found" -eq 0 ]; then
             echo -e "    - No directory-isolated OpenJDK versions found."
         fi
-        
+
         echo -e "\n  Options:"
         echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} Install OpenJDK 8"
         echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} Install OpenJDK 17"
@@ -3869,10 +3950,10 @@ run_java_manager_menu() {
         echo -e "    ${COLOR_YELLOW}4.${COLOR_RESET} Install OpenJDK 25 (requires Ubuntu PPA check)"
         echo -e "    ${COLOR_YELLOW}5.${COLOR_RESET} $(t "return_settings" "Return to Settings")"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
-        
+
         local choice
         choice=$(prompt_input "Select option" "5")
-        
+
         case "$choice" in
             1) install_java_package 8; sleep 2 ;;
             2) install_java_package 17; sleep 2 ;;
@@ -3894,10 +3975,10 @@ change_language_settings() {
     echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} Türkçe"
     echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} Back / Geri"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
-    
+
     local choice
     choice=$(prompt_input "Select Option / Seçim Yapın" "3")
-    
+
     case "$choice" in
         1)
             LANG_PREF="en"
@@ -3934,24 +4015,24 @@ change_language_settings() {
 
 check_for_updates() {
     local raw_script_url="https://raw.githubusercontent.com/devRaikou/mcserver-installer/main/mcserver-installer"
-    
+
     # --- Semantic version comparison helper ---
     # Returns 0 if $1 > $2 (i.e. remote is newer than local)
     version_gt() {
         local remote="$1"
         local local_v="$2"
-        
+
         # Split into major.minor parts
         local r_major r_minor l_major l_minor
         r_major=$(echo "$remote" | cut -d'.' -f1)
         r_minor=$(echo "$remote" | cut -d'.' -f2)
         l_major=$(echo "$local_v" | cut -d'.' -f1)
         l_minor=$(echo "$local_v" | cut -d'.' -f2)
-        
+
         # Default to 0 if empty
         r_major=${r_major:-0}; r_minor=${r_minor:-0}
         l_major=${l_major:-0}; l_minor=${l_minor:-0}
-        
+
         if [ "$r_major" -gt "$l_major" ] 2>/dev/null; then
             return 0
         elif [ "$r_major" -eq "$l_major" ] 2>/dev/null && [ "$r_minor" -gt "$l_minor" ] 2>/dev/null; then
@@ -3959,23 +4040,23 @@ check_for_updates() {
         fi
         return 1
     }
-    
+
     # Try GitHub API first (lightweight, only fetches tag name)
     local latest=""
     local api_response
     api_response=$(curl -s -m 5 -H "$UA_HEADER" "https://api.github.com/repos/devRaikou/mcserver-installer/releases/latest" 2>/dev/null)
-    
+
     if [ -n "$api_response" ]; then
         latest=$(echo "$api_response" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | cut -d'"' -f4 | tr -d '[:space:]')
         # Strip leading 'v' if present (e.g. v1.28 -> 1.28)
         latest="${latest#v}"
     fi
-    
+
     # Fallback: parse APP_VERSION from raw script if API failed
     if [ -z "$latest" ]; then
         latest=$(curl -s -m 5 "${raw_script_url}" | grep -m 1 "^APP_VERSION=" | cut -d'"' -f2 | tr -d '[:space:]')
     fi
-    
+
     # Only prompt if remote version is strictly greater than local
     if [ -n "$latest" ] && version_gt "$latest" "$APP_VERSION"; then
         clear_screen
@@ -3991,7 +4072,7 @@ check_for_updates() {
             echo -e "  ${COLOR_YELLOW}================================================================${COLOR_RESET}\n"
             prompt_yes_no "Would you like to automatically update to the latest version?" "y"
         fi
-        
+
         if [ $? -eq 0 ]; then
             local temp_file="$0.tmp"
             if [ "$LANG_PREF" = "tr" ]; then
@@ -3999,7 +4080,7 @@ check_for_updates() {
             else
                 run_with_spinner "Downloading new version" curl -s -L -o "$temp_file" "${raw_script_url}"
             fi
-            
+
             # Check shebang to ensure the downloaded file is a valid bash script
             if [ -f "$temp_file" ] && grep -q "#!/usr/bin/env bash" "$temp_file"; then
                 mv "$temp_file" "$0"
@@ -4034,7 +4115,7 @@ run_settings_menu() {
         ui_menu_item 4 "$(t "settings_lang" "Change Language (Dili Değiştir)")"
         ui_menu_item 5 "$(t "settings_back" "Return to Main Menu")"
         ui_divider
-        
+
         local choice
         echo -n -e "  ${COLOR_CYAN}$(t "main_select" "Select option")${COLOR_RESET} ${COLOR_GRAY}(1-5)${COLOR_RESET}: "
         if ! read -r choice; then
@@ -4042,7 +4123,7 @@ run_settings_menu() {
             break
         fi
         choice=$(echo "$choice" | tr -d '\r')
-        
+
         case "$choice" in
             1)
                 clear_screen
@@ -4078,7 +4159,7 @@ main_menu() {
 
     # System startup requirements checks
     verify_system_requirements
-    
+
     while true; do
         clear_screen
         draw_header
@@ -4106,7 +4187,7 @@ main_menu() {
         ui_menu_item 8 "$(t "main_about" "About")"
         ui_menu_item 9 "$(t "main_exit" "Exit")"
         ui_divider
-        
+
         echo -n -e "  ${COLOR_CYAN}$(t "main_select" "Select option")${COLOR_RESET} ${COLOR_GRAY}(1-9)${COLOR_RESET}: "
         if ! read -r choice; then
             if [ "$LANG_PREF" = "tr" ]; then
@@ -4117,7 +4198,7 @@ main_menu() {
             exit 0
         fi
         choice=$(echo "$choice" | tr -d '\r')
-        
+
         case "$choice" in
             1)
                 run_installation_wizard
@@ -4170,7 +4251,7 @@ if [ $# -gt 0 ]; then
             echo "Usage: $0 --backup <server_name>" >&2
             exit 1
         fi
-        
+
         HEADLESS_MODE="true"
         target_name="$2"
         if [ -f "$REGISTRY_FILE" ]; then

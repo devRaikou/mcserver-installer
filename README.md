@@ -1,6 +1,6 @@
 # mcserver-installer
 
-![Version](https://img.shields.io/badge/version-1.31-2ea44f)
+![Version](https://img.shields.io/badge/version-1.32-2ea44f)
 ![Shell](https://img.shields.io/badge/shell-bash-4eaa25)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu-blue)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
@@ -60,6 +60,8 @@ The script automatically checks for the required tools and can install missing p
 - `gzip`
 - Java/OpenJDK version required by the selected Minecraft version
 
+Velocity builds require Java 21. The installer selects Java 21 for Velocity automatically and refreshes generated `start.sh` launchers before starting registered servers.
+
 Non-Debian Linux distributions and macOS may work in compatibility mode, but Debian/Ubuntu is the intended production target.
 
 ### Quick Start
@@ -84,7 +86,7 @@ This is useful for `cron`, remote automation, and external dashboards.
 ### Main Menu
 
 ```text
-  Developer: devRaikou | Version: 1.31
+  Developer: devRaikou | Version: 1.32
   GitHub:    https://github.com/devRaikou/mcserver-installer
   ================================================================
 
@@ -225,6 +227,8 @@ Script gerekli araclari otomatik kontrol eder ve Debian/Ubuntu uzerinde eksik pa
 - `gzip`
 - Secilen Minecraft surumunun gerektirdigi Java/OpenJDK surumu
 
+Velocity derlemeleri Java 21 gerektirir. Installer, Velocity icin Java 21'i otomatik secer ve kayitli sunucular baslatilmadan once olusturulan `start.sh` dosyasindaki Java yolunu yeniler.
+
 Debian disi Linux dagitimlari ve macOS uyumluluk modunda calisabilir, ancak asil hedef uretim ortami Debian/Ubuntu sistemleridir.
 
 ### Hizli Baslangic
@@ -249,7 +253,7 @@ Bu ozellik `cron`, uzak otomasyonlar ve harici paneller icin kullanislidir.
 ### Ana Menu
 
 ```text
-  Geliştirici: devRaikou | Sürüm: 1.31
+  Geliştirici: devRaikou | Sürüm: 1.32
   GitHub:      https://github.com/devRaikou/mcserver-installer
   ================================================================
 
