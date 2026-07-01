@@ -44,6 +44,48 @@ function getRegisteredServers() {
     });
 }
 
+const configDir = path.join(os.homedir(), '.mcserver-installer');
+const otpPath = path.join(configDir, '.dashboard_otp');
+let storedOtp = '';
+
+if (fs.existsSync(otpPath)) {
+  storedOtp = fs.readFileSync(otpPath, 'utf8').trim();
+}
+if (!storedOtp) {
+  storedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+  if (!fs.existsSync(configDir)) {
+    fs.mkdirSync(configDir, { recursive: true });
+  }
+  fs.writeFileSync(otpPath, storedOtp, 'utf8');
+}
+
+// Authentication Middleware
+function requireAuth(req, res, next) {
+  if (req.path === '/api/login') {
+    return next();
+  }
+
+  let token = '';
+  const authHeader = req.headers['authorization'];
+  if (authHeader) {
+    token = authHeader.replace('Bearer ', '').trim();
+  } else if (req.query.token) {
+    token = req.query.token.toString().trim();
+  }
+
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized: Missing token' });
+  }
+
+  if (token !== storedOtp) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+  }
+
+  next();
+}
+
+app.use('/api', requireAuth);
+
 // 1. Get System Status (CPU, RAM, Disk)
 app.get('/api/status', (req, res) => {
   const stats = {
@@ -363,6 +405,82 @@ app.post('/api/servers/:name/backup', (req, res) => {
   });
 
   res.json({ success: true, message: 'Backup job triggered in background' });
+});
+
+app.post('/api/login', (req, res) => {
+  const { pin } = req.body;
+  if (!pin) {
+    return res.status(400).json({ error: 'PIN code is required' });
+  }
+  if (pin.toString().trim() === storedOtp) {
+    return res.json({ success: true, token: storedOtp });
+  }
+  return res.status(401).json({ error: 'Invalid PIN code' });
+});
+
+app.get('/api/software-versions', (req, res) => {
+  const { type } = req.query;
+  if (!type) return res.status(400).json({ error: 'Type is required' });
+  
+  const mainScript = path.resolve(__dirname, '..', 'mcserver-installer');
+  exec(`"${mainScript}" --get-versions "${type}"`, (error, stdout) => {
+    if (error) {
+      return res.status(500).json({ error: 'Failed to fetch versions' });
+    }
+    const versions = stdout
+      .split('\n')
+      .map(v => v.trim())
+      .filter(v => v.length > 0);
+    res.json(versions);
+  });
+});
+
+app.post('/api/servers/install', (req, res) => {
+  const { name, software, version, port, ram } = req.body;
+  if (!name || !software || !version || !port || !ram) {
+    return res.status(400).json({ error: 'Missing arguments' });
+  }
+
+  const mainScript = path.resolve(__dirname, '..', 'mcserver-installer');
+  const installProcess = spawn(mainScript, ['--install', name, software, version, port, ram]);
+  
+  installProcess.stdout.on('data', (data) => {
+    console.log(`[Install ${name}]: ${data}`);
+  });
+  installProcess.stderr.on('data', (data) => {
+    console.error(`[Install ${name} Error]: ${data}`);
+  });
+  
+  res.json({ success: true, message: 'Installation started' });
+});
+
+app.post('/api/dashboard/bind-domain', (req, res) => {
+  const { domain } = req.body;
+  if (!domain) {
+    return res.status(400).json({ error: 'Domain is required' });
+  }
+
+  const mainScript = path.resolve(__dirname, '..', 'mcserver-installer');
+  exec(`"${mainScript}" --bind-domain "${domain}"`, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`Domain binding failed: ${stderr || error.message}`);
+      return res.status(500).json({ error: stderr || 'Domain binding failed' });
+    }
+    res.json({ success: true, message: stdout.trim() });
+  });
+});
+
+app.get('/api/dashboard/domain', (req, res) => {
+  const settingsFile = path.join(os.homedir(), '.mcserver-installer', 'settings.conf');
+  let domain = '';
+  if (fs.existsSync(settingsFile)) {
+    const lines = fs.readFileSync(settingsFile, 'utf8').split('\n');
+    const domainLine = lines.find(l => l.startsWith('DASHBOARD_DOMAIN='));
+    if (domainLine) {
+      domain = domainLine.split('=')[1].replace(/"/g, '').trim();
+    }
+  }
+  res.json({ domain });
 });
 
 function findFreePort(startPort, maxPort = 3100) {

@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.45
+# Version: 1.50
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.45"
+APP_VERSION="1.50"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -81,7 +81,7 @@ t() {
             "main_restore") echo "Yedeği Geri Yükle" ;;
             "main_remove") echo "Sunucuyu Kaldır / Kaydı Sil" ;;
             "main_settings") echo "Ayarlar ve Sistem Kontrolleri" ;;
-            "main_dashboard") echo "Web Kontrol Paneli (Web Dashboard)" ;;
+            "main_dashboard") echo "Web Kontrol Paneli" ;;
             "main_about") echo "Hakkında" ;;
             "main_exit") echo "Çıkış" ;;
             "main_select") echo "Seçim yapın" ;;
@@ -130,7 +130,7 @@ t() {
             "hdr_discord_webhook") echo "DISCORD WEBHOOK YAPILANDIR" ;;
             "hdr_java_manager") echo "JAVA JRE YÖNETİCİSİ" ;;
             "hdr_optimize") echo "SUNUCU PERFORMANS OPTİMİZASYONU" ;;
-            "hdr_web_dashboard") echo "WEB KONTROL PANELİ (WEB DASHBOARD)" ;;
+            "hdr_web_dashboard") echo "WEB KONTROL PANELİ" ;;
 
             # prompt_selection internal UI keys
             "page_word") echo "Sayfa" ;;
@@ -4409,6 +4409,20 @@ launch_web_dashboard() {
         fi
     fi
 
+    local otp_code="123456"
+    local otp_file="${CONFIG_DIR}/.dashboard_otp"
+    if [ -f "$otp_file" ]; then
+        otp_code=$(cat "$otp_file" | tr -d '[:space:]')
+    else
+        otp_code=$((100000 + RANDOM % 900000))
+        echo "$otp_code" > "$otp_file"
+    fi
+
+    local dashboard_domain=""
+    if [ -f "$SETTINGS_FILE" ]; then
+        dashboard_domain=$(grep '^DASHBOARD_DOMAIN=' "$SETTINGS_FILE" | cut -d'"' -f2 | tr -d '\r')
+    fi
+
     if screen -list | grep -q "\.mc-dashboard"; then
         local local_ip="127.0.0.1"
         if command -v hostname &>/dev/null; then
@@ -4426,7 +4440,11 @@ launch_web_dashboard() {
             log_success "Web paneli başarıyla başlatıldı!"
             echo -e "\n  Paneli tarayıcınızdan açmak için aşağıdaki bağlantıları kullanın:"
             echo -e "  - Yerel Erişim:  ${COLOR_CYAN}http://localhost:${active_port}${COLOR_RESET}"
-            echo -e "  - Ağ Üzerinden:  ${COLOR_CYAN}http://${local_ip}:${active_port}${COLOR_RESET}\n"
+            echo -e "  - Ağ Üzerinden:  ${COLOR_CYAN}http://${local_ip}:${active_port}${COLOR_RESET}"
+            if [ -n "$dashboard_domain" ]; then
+                echo -e "  - Domain Adresi: ${COLOR_CYAN}http://${dashboard_domain}${COLOR_RESET}"
+            fi
+            echo -e "  - Giriş Şifresi (OTP PIN): ${COLOR_GREEN}${otp_code}${COLOR_RESET}\n"
             echo -e "  ${COLOR_YELLOW}Not:${COLOR_RESET} Eğer AWS, Hetzner veya Google Cloud gibi bir bulut sağlayıcı kullanıyorsanız,"
             echo -e "  bulut panelinizden ${COLOR_GREEN}${active_port}${COLOR_RESET} TCP portuna gelen bağlantılara (Inbound Rules) izin vermeyi unutmayın.\n"
             echo -e "  Paneli durdurmak veya durumunu görmek için bu menüyü tekrar kullanabilirsiniz."
@@ -4434,7 +4452,11 @@ launch_web_dashboard() {
             log_success "Web Dashboard successfully launched!"
             echo -e "\n  Open the dashboard in your browser using the links below:"
             echo -e "  - Local Link:    ${COLOR_CYAN}http://localhost:${active_port}${COLOR_RESET}"
-            echo -e "  - Network Link:  ${COLOR_CYAN}http://${local_ip}:${active_port}${COLOR_RESET}\n"
+            echo -e "  - Network Link:  ${COLOR_CYAN}http://${local_ip}:${active_port}${COLOR_RESET}"
+            if [ -n "$dashboard_domain" ]; then
+                echo -e "  - Domain Link:   ${COLOR_CYAN}http://${dashboard_domain}${COLOR_RESET}"
+            fi
+            echo -e "  - Access PIN (OTP Code): ${COLOR_GREEN}${otp_code}${COLOR_RESET}\n"
             echo -e "  ${COLOR_YELLOW}Note:${COLOR_RESET} If you are using a cloud provider (e.g. AWS, GCP, Hetzner, DigitalOcean),"
             echo -e "  please ensure that TCP port ${COLOR_GREEN}${active_port}${COLOR_RESET} is opened in your cloud firewall/security group.\n"
             echo -e "  You can return to this menu item at any time to stop or restart the dashboard."
@@ -4681,6 +4703,264 @@ main_menu() {
     done
 }
 
+headless_install_server() {
+    local name="$1"
+    local software="$2"
+    local version="$3"
+    local port="$4"
+    local ram="$5"
+
+    if [ -z "$name" ] || [ -z "$software" ] || [ -z "$version" ] || [ -z "$port" ] || [ -z "$ram" ]; then
+        echo "Error: Missing arguments." >&2
+        echo "Usage: --install <name> <software> <version> <port> <ram>" >&2
+        return 1
+    fi
+
+    # Clean name
+    name=$(echo "$name" | tr -cd 'a-zA-Z0-9_-')
+    if [ -z "$name" ]; then
+        echo "Error: Invalid server name." >&2
+        return 1
+    fi
+
+    # Check duplicates in registry
+    if [ -f "$REGISTRY_FILE" ] && grep -q "^${name}:" "$REGISTRY_FILE"; then
+        echo "Error: Server with name '${name}' already exists in registry." >&2
+        return 1
+    fi
+
+    # Create target directory
+    local inst_dir="${HOME}/minecraft/${name}"
+    if [ -d "$inst_dir" ]; then
+        echo "Error: Directory '${inst_dir}' already exists." >&2
+        return 1
+    fi
+
+    mkdir -p "$inst_dir"
+    cd "$inst_dir" || { echo "Error: Cannot enter folder ${inst_dir}." >&2; return 1; }
+
+    # Resolve download url
+    local download_url=""
+    local build_num=""
+    local s_type=$(echo "$software" | tr '[:upper:]' '[:lower:]')
+
+    case "$s_type" in
+        vanilla)
+            download_url=$(fetch_vanilla_download_url "$version")
+            ;;
+        paper|folia|velocity|waterfall)
+            local builds
+            builds=$(fetch_papermc_builds "$s_type" "$version" | sort -nr)
+            build_num=$(echo "$builds" | head -n 1)
+            if [ -n "$build_num" ]; then
+                download_url=$(fetch_papermc_download_url "$s_type" "$version" "$build_num")
+            fi
+            ;;
+        purpur)
+            download_url="https://api.purpurmc.org/v2/purpur/${version}/latest/download"
+            ;;
+        *)
+            echo "Error: Headless installation only supports Vanilla, Paper, Folia, Purpur, Velocity, and Waterfall currently." >&2
+            cd "${HOME}" && rm -rf "$inst_dir"
+            return 1
+            ;;
+    esac
+
+    if [ -z "$download_url" ] || [ "$download_url" = "null" ]; then
+        echo "Error: Could not resolve download URL for ${software} ${version}." >&2
+        cd "${HOME}" && rm -rf "$inst_dir"
+        return 1
+    fi
+
+    # Download JAR
+    local jar_file="server.jar"
+    if [ "$s_type" = "velocity" ]; then
+        jar_file="velocity.jar"
+    elif [ "$s_type" = "waterfall" ]; then
+        jar_file="waterfall.jar"
+    elif [ "$s_type" = "bungeecord" ]; then
+        jar_file="bungeecord.jar"
+    fi
+
+    echo "Downloading ${software} ${version} jar file..."
+    if ! curl -s -L -o "$jar_file" "$download_url"; then
+        echo "Error: Failed to download JAR from ${download_url}." >&2
+        cd "${HOME}" && rm -rf "$inst_dir"
+        return 1
+    fi
+
+    # Create EULA
+    echo "eula=true" > eula.txt
+
+    # Configs
+    if [ "$s_type" = "velocity" ]; then
+        cat <<EOF > velocity.toml
+[servers]
+[forced-hosts]
+[advanced]
+[query]
+enabled = true
+port = ${port}
+EOF
+    elif [ "$s_type" = "waterfall" ] || [ "$s_type" = "bungeecord" ]; then
+        cat <<EOF > config.yml
+listeners:
+- query_port: ${port}
+  host: 0.0.0.0:${port}
+  query_enabled: true
+EOF
+    else
+        cat <<EOF > server.properties
+server-port=${port}
+query.port=${port}
+enable-query=true
+motd=A Minecraft Server Installed via Web Dashboard
+EOF
+    fi
+
+    # Java JRE resolution
+    local java_ver=17
+    if [[ "$version" =~ ^1\.(20\.[5-9]|2[1-9]) ]]; then
+        java_ver=21
+    elif [[ "$version" =~ ^1\.(18|19|20) ]]; then
+        java_ver=17
+    elif [[ "$version" =~ ^1\.(16|17) ]]; then
+        java_ver=16
+    elif [[ "$version" =~ ^1\.(8|9|10|11|12|13|14|15) ]]; then
+        java_ver=8
+    fi
+
+    local resolved_java="java"
+    if [ -n "$(find_java_binary "$java_ver")" ]; then
+        resolved_java=$(find_java_binary "$java_ver")
+    else
+        install_java_package "$java_ver" &>/dev/null
+        if [ -n "$(find_java_binary "$java_ver")" ]; then
+            resolved_java=$(find_java_binary "$java_ver")
+        fi
+    fi
+
+    # Build start.sh
+    cat <<EOF > start.sh
+#!/usr/bin/env bash
+MEM_MIN="${ram}"
+MEM_MAX="${ram}"
+
+cd "\$(dirname "\$0")"
+
+while [ ! -f .stop_restart ]; do
+    echo "[mcserver-installer] Starting Minecraft server..."
+    "${resolved_java}" -Xms"\${MEM_MIN}" -Xmx"\${MEM_MAX}" -jar ${jar_file} nogui
+    if [ -f .stop_restart ]; then
+        break
+    fi
+    echo "[mcserver-installer] Server stopped. Restarting in 5 seconds..."
+    sleep 5
+done
+rm -f .stop_restart
+EOF
+    chmod +x start.sh
+
+    # Save to registry
+    echo "${name}:${inst_dir}:${s_type}:${version}" >> "$REGISTRY_FILE"
+
+    # Firewall
+    if command -v ufw &>/dev/null; then
+        if sudo ufw status 2>/dev/null | grep -q "Status: active"; then
+            sudo ufw allow "${port}/tcp" &>/dev/null
+            sudo ufw allow "${port}/udp" &>/dev/null
+        fi
+    fi
+
+    # Start Minecraft Server
+    start_minecraft_server "$inst_dir" &>/dev/null
+
+    echo "SUCCESS: Server '${name}' successfully installed to '${inst_dir}' and started on port ${port}."
+    return 0
+}
+
+bind_dashboard_domain() {
+    local domain="$1"
+    if [ -z "$domain" ]; then
+        echo "Error: Missing domain name." >&2
+        return 1
+    fi
+
+    if ! command -v nginx &>/dev/null; then
+        echo "Nginx is not installed. Installing nginx..."
+        if command -v apt-get &>/dev/null; then
+            sudo apt-get update &>/dev/null
+            sudo apt-get install -y nginx &>/dev/null
+        else
+            echo "Error: Nginx not found and package manager apt-get not available." >&2
+            return 1
+        fi
+    fi
+
+    local port="3000"
+    if [ -f "${CONFIG_DIR}/.dashboard_port" ]; then
+        port=$(cat "${CONFIG_DIR}/.dashboard_port" | tr -d '[:space:]')
+    fi
+
+    local conf_file="/etc/nginx/sites-available/${domain}"
+    
+    sudo bash -c "cat <<EOF > '${conf_file}'
+server {
+    listen 80;
+    server_name ${domain};
+
+    location / {
+        proxy_pass http://127.0.0.1:${port};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \\\$http_upgrade;
+        proxy_set_header Connection \"upgrade\";
+        proxy_set_header Host \\\$host;
+        proxy_set_header X-Real-IP \\\$remote_addr;
+        proxy_set_header X-Forwarded-For \\\$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \\\$scheme;
+    }
+}
+EOF"
+
+    sudo ln -sf "${conf_file}" "/etc/nginx/sites-enabled/"
+    sudo rm -f "/etc/nginx/sites-enabled/default"
+
+    if ! sudo nginx -t &>/dev/null; then
+        echo "Error: Nginx configuration test failed!" >&2
+        sudo rm -f "/etc/nginx/sites-enabled/${domain}"
+        sudo rm -f "${conf_file}"
+        return 1
+    fi
+
+    if command -v systemctl &>/dev/null; then
+        sudo systemctl reload nginx &>/dev/null
+    else
+        sudo service nginx reload &>/dev/null
+    fi
+
+    if command -v ufw &>/dev/null; then
+        if sudo ufw status 2>/dev/null | grep -q "Status: active"; then
+            sudo ufw allow 80/tcp &>/dev/null
+            sudo ufw allow 443/tcp &>/dev/null
+        fi
+    fi
+
+    if [ -f "$SETTINGS_FILE" ]; then
+        if grep -q "^DASHBOARD_DOMAIN=" "$SETTINGS_FILE"; then
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                sed -i '' "s|^DASHBOARD_DOMAIN=.*|DASHBOARD_DOMAIN=\"${domain}\"|" "$SETTINGS_FILE"
+            else
+                sed -i "s|^DASHBOARD_DOMAIN=.*|DASHBOARD_DOMAIN=\"${domain}\"|" "$SETTINGS_FILE"
+            fi
+        else
+            echo "DASHBOARD_DOMAIN=\"${domain}\"" >> "$SETTINGS_FILE"
+        fi
+    fi
+
+    echo "SUCCESS: Domain ${domain} successfully bound to Web Dashboard on port ${port}!"
+    return 0
+}
+
 # --- Command Line Argument Parser (Headless Execution) ---
 if [ $# -gt 0 ]; then
     if [ "$1" = "--backup" ]; then
@@ -4711,9 +4991,48 @@ if [ $# -gt 0 ]; then
             echo "Error: Registry file is empty or does not exist." >&2
             exit 1
         fi
+    elif [ "$1" = "--get-versions" ]; then
+        if [ $# -lt 2 ]; then
+            echo "Usage: $0 --get-versions <vanilla|paper|purpur|velocity|folia|waterfall>" >&2
+            exit 1
+        fi
+        HEADLESS_MODE="true"
+        local s_type="$2"
+        case "$s_type" in
+            vanilla)
+                fetch_vanilla_releases
+                ;;
+            paper|folia|velocity|waterfall)
+                fetch_papermc_versions "$s_type"
+                ;;
+            purpur)
+                fetch_purpur_versions
+                ;;
+            *)
+                echo "Unsupported software: $s_type" >&2
+                exit 1
+                ;;
+        esac
+        exit 0
+    elif [ "$1" = "--install" ]; then
+        if [ $# -lt 6 ]; then
+            echo "Usage: $0 --install <name> <software> <version> <port> <ram>" >&2
+            exit 1
+        fi
+        HEADLESS_MODE="true"
+        headless_install_server "$2" "$3" "$4" "$5" "$6"
+        exit $?
+    elif [ "$1" = "--bind-domain" ]; then
+        if [ $# -lt 2 ]; then
+            echo "Usage: $0 --bind-domain <domain>" >&2
+            exit 1
+        fi
+        HEADLESS_MODE="true"
+        bind_dashboard_domain "$2"
+        exit $?
     else
         echo "Unknown argument: $1" >&2
-        echo "Usage: $0 [--backup <server_name>]" >&2
+        echo "Usage: $0 [--backup <server_name>] [--get-versions <software>] [--install <name> <software> <version> <port> <ram>] [--bind-domain <domain>]" >&2
         exit 1
     fi
 fi

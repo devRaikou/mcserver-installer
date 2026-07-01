@@ -53,6 +53,28 @@
   </style>
 </head>
 <body class="p-6 md:p-8">
+  <!-- OTP Login Overlay -->
+  <div id="login-overlay" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-lg hidden">
+    <div class="glass-card w-full max-w-md p-8 space-y-6 text-center shadow-2xl">
+      <div class="w-16 h-16 mx-auto rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+        <i class="fa-solid fa-lock text-3xl text-white"></i>
+      </div>
+      <div class="space-y-2">
+        <h2 data-i18n="login_title" class="text-xl font-extrabold text-white">Authentication Required</h2>
+        <p data-i18n="login_sub" class="text-sm text-slate-400">Please enter the 6-digit access PIN (OTP Code) printed on your terminal.</p>
+      </div>
+      <div class="space-y-4">
+        <input id="login-otp-input" type="password" placeholder="Access PIN (OTP Code)" data-i18n="login_placeholder" class="w-full text-center tracking-widest text-lg font-bold bg-black/50 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-cyan-500 transition-colors" maxlength="6" onkeydown="if(event.key === 'Enter') attemptLogin();" />
+        <button onclick="attemptLogin()" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2">
+          <span data-i18n="login_btn">Verify & Enter</span> <i class="fa-solid fa-arrow-right-to-bracket"></i>
+        </button>
+      </div>
+      <div id="login-error" class="text-sm text-rose-500 font-medium hidden">
+        Invalid PIN code!
+      </div>
+    </div>
+  </div>
+
   <div class="max-w-7xl mx-auto space-y-8">
     
     <!-- Top Header -->
@@ -68,12 +90,21 @@
           <p class="text-sm text-slate-400 font-medium">Web Administration & Console Monitor</p>
         </div>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap items-center gap-3">
         <span class="text-xs bg-cyan-500/10 text-cyan-400 font-bold px-3 py-1.5 rounded-full border border-cyan-500/20 flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span> Panel Online
+          <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span> <span data-i18n="panel_online">Panel Online</span>
         </span>
+        <button id="lang-btn" onclick="toggleLanguage();" class="glass-card hover:bg-white/5 active:scale-95 transition-all text-xs font-semibold px-4 py-2 flex items-center gap-2">
+          🌐 EN
+        </button>
+        <button onclick="openDomainModal();" class="glass-card hover:bg-white/5 active:scale-95 transition-all text-xs font-semibold px-4 py-2 flex items-center gap-2">
+          <i class="fa-solid fa-globe text-cyan-400"></i> <span data-i18n="domain_btn">Bind Domain</span>
+        </button>
+        <button onclick="openInstallModal();" class="glass-card hover:bg-white/5 active:scale-95 transition-all text-xs font-semibold px-4 py-2 flex items-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:opacity-90 border-none text-white">
+          <i class="fa-solid fa-plus"></i> <span data-i18n="install_btn">Install Server</span>
+        </button>
         <button onclick="fetchStatus(); fetchServers();" class="glass-card hover:bg-white/5 active:scale-95 transition-all text-xs font-semibold px-4 py-2 flex items-center gap-2">
-          <i class="fa-solid fa-rotate"></i> Refresh
+          <i class="fa-solid fa-rotate"></i> <span data-i18n="refresh">Refresh</span>
         </button>
       </div>
     </header>
@@ -83,9 +114,9 @@
       <!-- CPU Metric -->
       <div class="glass-card p-6 flex items-center justify-between">
         <div class="space-y-2">
-          <p class="text-xs text-slate-400 uppercase tracking-wider font-bold">CPU Yükü / CPU Load</p>
+          <p data-i18n="cpu_title" class="text-xs text-slate-400 uppercase tracking-wider font-bold">CPU LOAD</p>
           <h3 id="cpu-text" class="text-3xl font-extrabold tracking-tight">0%</h3>
-          <p class="text-xs text-slate-500">Çekirdek bazlı ortalama yük</p>
+          <p data-i18n="cpu_sub" class="text-xs text-slate-500">Average load across CPU cores</p>
         </div>
         <div class="relative w-16 h-16">
           <svg class="w-full h-full transform -rotate-90">
@@ -105,9 +136,9 @@
       <!-- RAM Metric -->
       <div class="glass-card p-6 flex items-center justify-between">
         <div class="space-y-2">
-          <p class="text-xs text-slate-400 uppercase tracking-wider font-bold">Bellek Kullanımı / RAM Usage</p>
+          <p data-i18n="ram_title" class="text-xs text-slate-400 uppercase tracking-wider font-bold">RAM USAGE</p>
           <h3 id="ram-text" class="text-3xl font-extrabold tracking-tight">0 / 0 GB</h3>
-          <p id="ram-pct" class="text-xs text-slate-500">0% Kullanılıyor</p>
+          <p id="ram-pct" class="text-xs text-slate-500">0% Used</p>
         </div>
         <div class="relative w-16 h-16">
           <svg class="w-full h-full transform -rotate-90">
@@ -127,9 +158,9 @@
       <!-- Disk Metric -->
       <div class="glass-card p-6 flex items-center justify-between">
         <div class="space-y-2">
-          <p class="text-xs text-slate-400 uppercase tracking-wider font-bold">Disk Alanı / Disk Space</p>
+          <p data-i18n="disk_title" class="text-xs text-slate-400 uppercase tracking-wider font-bold">DISK SPACE</p>
           <h3 id="disk-text" class="text-3xl font-extrabold tracking-tight">0 / 0 GB</h3>
-          <p id="disk-pct" class="text-xs text-slate-500">0% Doluluk</p>
+          <p id="disk-pct" class="text-xs text-slate-500">0% Used</p>
         </div>
         <div class="relative w-16 h-16">
           <svg class="w-full h-full transform -rotate-90">
@@ -150,7 +181,7 @@
     <!-- Server List -->
     <section class="space-y-4">
       <h2 class="text-lg font-bold tracking-tight flex items-center gap-2">
-        <i class="fa-solid fa-list-check text-cyan-400"></i> Sunucularınız / Installed Servers
+        <i class="fa-solid fa-list-check text-cyan-400"></i> <span data-i18n="servers_title">Installed Servers</span>
       </h2>
       <div id="server-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <!-- Servers will load here dynamically -->
@@ -160,7 +191,7 @@
   </div>
 
   <!-- Manager Modal -->
-  <div id="manager-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 md:p-6 bg-black/60 backdrop-blur-md">
+  <div id="manager-modal" class="fixed inset-0 z-40 hidden flex items-center justify-center p-4 md:p-6 bg-black/60 backdrop-blur-md">
     <div class="glass-modal w-full max-w-5xl h-[85vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden">
       <!-- Modal Header -->
       <header class="flex items-center justify-between px-6 py-4 border-b border-white/5">
@@ -181,13 +212,13 @@
       <!-- Sub Navigation Tabs -->
       <div class="flex border-b border-white/5 bg-black/20 text-sm font-medium">
         <button onclick="switchTab('console')" id="tab-console-btn" class="px-6 py-3 border-b-2 border-cyan-400 text-cyan-400 transition-all flex items-center gap-2">
-          <i class="fa-solid fa-terminal"></i> Konsol / Console
+          <i class="fa-solid fa-terminal"></i> <span data-i18n="tab_console">Console</span>
         </button>
         <button onclick="switchTab('properties')" id="tab-properties-btn" class="px-6 py-3 border-b-2 border-transparent text-slate-400 hover:text-white transition-all flex items-center gap-2">
-          <i class="fa-solid fa-sliders"></i> Ayarlar / Properties
+          <i class="fa-solid fa-sliders"></i> <span data-i18n="tab_properties">Properties</span>
         </button>
         <button onclick="switchTab('backups')" id="tab-backups-btn" class="px-6 py-3 border-b-2 border-transparent text-slate-400 hover:text-white transition-all flex items-center gap-2">
-          <i class="fa-solid fa-box-archive"></i> Yedekler / Backups
+          <i class="fa-solid fa-box-archive"></i> <span data-i18n="tab_backups">Backups</span>
         </button>
       </div>
 
@@ -198,13 +229,13 @@
           <!-- Server Quick Controls -->
           <div class="flex items-center gap-3">
             <button id="ctrl-start-btn" onclick="startServer(currentServer.name)" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-2 transition-all">
-              <i class="fa-solid fa-play"></i> Başlat
+              <i class="fa-solid fa-play"></i> <span data-i18n="btn_start">Start</span>
             </button>
             <button id="ctrl-stop-btn" onclick="stopServer(currentServer.name)" class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-2 transition-all">
-              <i class="fa-solid fa-stop"></i> Durdur
+              <i class="fa-solid fa-stop"></i> <span data-i18n="btn_stop">Stop</span>
             </button>
             <button id="ctrl-restart-btn" onclick="restartServer(currentServer.name)" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-2 transition-all">
-              <i class="fa-solid fa-rotate-left"></i> Yeniden Başlat
+              <i class="fa-solid fa-rotate-left"></i> <span data-i18n="btn_restart">Restart</span>
             </button>
           </div>
           <!-- Terminal logs screen -->
@@ -213,9 +244,9 @@
           </div>
           <!-- Command Input -->
           <div class="flex gap-2">
-            <input id="cmd-input" type="text" placeholder="Minecraft console command..." class="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-sm terminal-font focus:outline-none focus:border-cyan-500 transition-colors" onkeydown="if(event.key === 'Enter') sendCommand();" />
+            <input id="cmd-input" type="text" placeholder="Minecraft console command..." data-i18n="cmd_placeholder" class="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-sm terminal-font focus:outline-none focus:border-cyan-500 transition-colors" onkeydown="if(event.key === 'Enter') sendCommand();" />
             <button onclick="sendCommand()" class="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm px-6 py-2 rounded-lg transition-all flex items-center gap-2">
-              Gönder <i class="fa-solid fa-paper-plane text-xs"></i>
+              <span data-i18n="cmd_send">Send</span> <i class="fa-solid fa-paper-plane text-xs"></i>
             </button>
           </div>
         </div>
@@ -223,9 +254,9 @@
         <!-- Properties Tab -->
         <div id="tab-properties" class="absolute inset-0 hidden flex flex-col p-6 space-y-4">
           <div class="flex items-center justify-between">
-            <input id="prop-search" type="text" placeholder="Ayarlarda ara / Search key..." class="bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-sm max-w-sm focus:outline-none focus:border-cyan-500 transition-colors" oninput="filterProperties()" />
+            <input id="prop-search" type="text" placeholder="Search keys..." data-i18n="prop_search_placeholder" class="bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-sm max-w-sm focus:outline-none focus:border-cyan-500 transition-colors" oninput="filterProperties()" />
             <button onclick="saveProperties()" class="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm px-6 py-2 rounded-lg transition-all flex items-center gap-2">
-              Ayarları Kaydet <i class="fa-solid fa-floppy-disk"></i>
+              <span data-i18n="prop_save_btn">Save Properties</span> <i class="fa-solid fa-floppy-disk"></i>
             </button>
           </div>
           <!-- Properties Grid -->
@@ -238,11 +269,11 @@
         <div id="tab-backups" class="absolute inset-0 hidden flex flex-col p-6 space-y-4">
           <div class="flex items-center justify-between">
             <div>
-              <h4 class="font-bold text-white">Yedek Dosyaları / Server Backups</h4>
-              <p class="text-xs text-slate-400">Yedekler tar.gz formatında listelenir</p>
+              <h4 class="font-bold text-white" data-i18n="backup_title">Server Backups</h4>
+              <p class="text-xs text-slate-400" data-i18n="backup_sub">Backups are listed in tar.gz format</p>
             </div>
             <button onclick="createBackup()" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90 text-white font-semibold text-sm px-6 py-2 rounded-lg transition-all flex items-center gap-2">
-              Şimdi Yedek Al <i class="fa-solid fa-cloud-arrow-up"></i>
+              <span data-i18n="backup_now">Create Backup</span> <i class="fa-solid fa-cloud-arrow-up"></i>
             </button>
           </div>
           <!-- Backups List -->
@@ -250,10 +281,10 @@
             <table class="w-full text-sm text-left">
               <thead class="bg-white/5 uppercase text-xs tracking-wider text-slate-400 font-bold">
                 <tr>
-                  <th class="px-6 py-3">Dosya Adı / Filename</th>
-                  <th class="px-6 py-3">Boyut / Size</th>
-                  <th class="px-6 py-3">Tarih / Date</th>
-                  <th class="px-6 py-3 text-right">İndir / Action</th>
+                  <th class="px-6 py-3" data-i18n="table_filename">Filename</th>
+                  <th class="px-6 py-3" data-i18n="table_size">Size</th>
+                  <th class="px-6 py-3" data-i18n="table_date">Date</th>
+                  <th class="px-6 py-3 text-right" data-i18n="table_download">Download</th>
                 </tr>
               </thead>
               <tbody id="backups-list-body" class="divide-y divide-white/5">
@@ -266,31 +297,298 @@
     </div>
   </div>
 
+  <!-- Server Installation Modal -->
+  <div id="install-modal" class="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md hidden">
+    <div class="glass-modal w-full max-w-xl p-6 rounded-2xl flex flex-col shadow-2xl relative">
+      <header class="flex items-center justify-between pb-4 border-b border-white/5 mb-6">
+        <h3 class="font-extrabold text-white text-base" data-i18n="install_btn">Install New Server</h3>
+        <button onclick="closeInstallModal();" class="text-slate-400 hover:text-white transition-colors">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </header>
+      <div class="space-y-4 text-sm">
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-1">
+            <label class="text-xs text-slate-400 font-bold">Sunucu Adı / Server Name</label>
+            <input id="ins-name" type="text" placeholder="my-server" class="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500" />
+          </div>
+          <div class="space-y-1">
+            <label class="text-xs text-slate-400 font-bold">Yazılım / Software</label>
+            <select id="ins-software" onchange="loadSoftwareVersions()" class="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500">
+              <option value="vanilla">Vanilla</option>
+              <option value="paper">Paper</option>
+              <option value="purpur">Purpur</option>
+              <option value="velocity">Velocity</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-1">
+            <label class="text-xs text-slate-400 font-bold">Sürüm / Version</label>
+            <select id="ins-version" class="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500">
+              <!-- Loaded dynamically -->
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-xs text-slate-400 font-bold">Port</label>
+            <input id="ins-port" type="number" value="25565" class="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500" />
+          </div>
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-slate-400 font-bold">RAM (Miktar)</label>
+          <select id="ins-ram" class="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500">
+            <option value="1G">1 GB</option>
+            <option value="2G" selected>2 GB</option>
+            <option value="4G">4 GB</option>
+            <option value="6G">6 GB</option>
+            <option value="8G">8 GB</option>
+          </select>
+        </div>
+        <button id="install-submit-btn" onclick="triggerInstall()" class="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:opacity-90 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2 mt-4">
+          <span data-i18n="install_btn">Install New Server</span> <i class="fa-solid fa-download"></i>
+        </button>
+        
+        <div id="install-loader" class="hidden text-center space-y-4 pt-4 border-t border-white/5 mt-4">
+          <div class="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p class="text-xs text-cyan-400 font-semibold animate-pulse">Kurulum yapılıyor, bu işlem 1-2 dakika sürebilir... / Installing, please wait...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Domain Binding Modal -->
+  <div id="domain-modal" class="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md hidden">
+    <div class="glass-modal w-full max-w-xl p-6 rounded-2xl flex flex-col shadow-2xl relative">
+      <header class="flex items-center justify-between pb-4 border-b border-white/5 mb-6">
+        <h3 class="font-extrabold text-white text-base" data-i18n="domain_title">Nginx Domain / Subdomain Binding</h3>
+        <button onclick="closeDomainModal();" class="text-slate-400 hover:text-white transition-colors">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </header>
+      <div class="space-y-4 text-sm">
+        <p data-i18n="domain_note" class="text-xs text-slate-400">Nginx reverse proxy configuration will be automatically generated and enabled.</p>
+        
+        <div class="space-y-1">
+          <label class="text-xs text-slate-400 font-bold">Domain / Subdomain Name</label>
+          <input id="dom-name" type="text" placeholder="panel.yourdomain.com" class="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500" />
+        </div>
+        
+        <div id="current-domain-container" class="hidden text-xs bg-cyan-500/10 text-cyan-400 p-3 rounded-lg border border-cyan-500/20">
+          Aktif Domain / Active Domain: <span id="current-domain-span" class="font-bold"></span>
+        </div>
+
+        <button id="domain-submit-btn" onclick="triggerBindDomain()" class="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:opacity-90 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2 mt-4">
+          <span data-i18n="domain_bind_btn">Bind Domain</span> <i class="fa-solid fa-globe"></i>
+        </button>
+
+        <div id="domain-loader" class="hidden text-center space-y-4 pt-4 border-t border-white/5 mt-4">
+          <div class="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p class="text-xs text-cyan-400 font-semibold animate-pulse">Domain yapılandırılıyor... / Configuring domain proxy...</p>
+        </div>
+
+        <div id="domain-success-box" class="hidden space-y-3 bg-emerald-500/10 text-emerald-400 p-4 rounded-xl border border-emerald-500/20 text-xs mt-4">
+          <p class="font-bold" data-i18n="domain_success">Domain bound successfully! To obtain a free SSL certificate, run these commands in your terminal:</p>
+          <pre class="bg-black/50 p-3 rounded-lg text-[10px] text-slate-300 font-mono select-all">sudo apt-get install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d <span id="domain-success-placeholder" class="font-bold text-white">yourdomain.com</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     let currentServer = null;
     let consoleEventSource = null;
     let allProperties = [];
+    let currentLang = localStorage.getItem('dashboard_lang') || 'tr';
+
+    const translations = {
+      tr: {
+        page_title: "mcserver-installer | Web Panel",
+        panel_online: "Panel Aktif",
+        refresh: "Yenile",
+        cpu_title: "CPU YÜKÜ",
+        cpu_sub: "Çekirdek bazlı ortalama yük",
+        ram_title: "BELLEK KULLANIMI",
+        ram_sub: "Kullanılıyor",
+        disk_title: "DİSK ALANI",
+        disk_sub: "Doluluk",
+        servers_title: "Sunucularınız",
+        install_btn: "Yeni Sunucu Kur",
+        btn_start: "Başlat",
+        btn_stop: "Durdur",
+        btn_restart: "Yeniden Başlat",
+        btn_manage: "Yönet",
+        status_running: "Çalışıyor",
+        status_stopped: "Durduruldu",
+        tab_console: "Konsol",
+        tab_properties: "Ayarlar",
+        tab_backups: "Yedekler",
+        cmd_placeholder: "Konsol komutu girin...",
+        cmd_send: "Gönder",
+        prop_search_placeholder: "Ayarlarda ara...",
+        prop_save_btn: "Ayarları Kaydet",
+        backup_title: "Yedek Dosyaları",
+        backup_sub: "Yedekler tar.gz formatında listelenir",
+        backup_now: "Şimdi Yedek Al",
+        table_filename: "Dosya Adı",
+        table_size: "Boyut",
+        table_date: "Tarih",
+        table_download: "İndir",
+        login_title: "Kimlik Doğrulama",
+        login_sub: "Lütfen terminalde yazan 6 haneli PIN (OTP) kodunu girin.",
+        login_btn: "Giriş Yap",
+        login_placeholder: "Giriş Kodu (OTP PIN)",
+        domain_btn: "Domain Bağla",
+        domain_title: "Alan Adı (Domain) Bağlama",
+        domain_placeholder: "panel.raikou.dev",
+        domain_bind_btn: "Alan Adını Bağla",
+        domain_success: "Domain başarıyla bağlandı! SSL sertifikası almak için terminalde şu komutları çalıştırabilirsiniz:",
+        domain_note: "Nginx reverse proxy yapılandırması otomatik olarak oluşturulur ve etkinleştirilir."
+      },
+      en: {
+        page_title: "mcserver-installer | Web Dashboard",
+        panel_online: "Panel Online",
+        refresh: "Refresh",
+        cpu_title: "CPU LOAD",
+        cpu_sub: "Average load across CPU cores",
+        ram_title: "RAM USAGE",
+        ram_sub: "Used",
+        disk_title: "DISK SPACE",
+        disk_sub: "Used",
+        servers_title: "Installed Servers",
+        install_btn: "Install New Server",
+        btn_start: "Start",
+        btn_stop: "Stop",
+        btn_restart: "Restart",
+        btn_manage: "Manage",
+        status_running: "Running",
+        status_stopped: "Stopped",
+        tab_console: "Console",
+        tab_properties: "Properties",
+        tab_backups: "Backups",
+        cmd_placeholder: "Type a console command...",
+        cmd_send: "Send",
+        prop_search_placeholder: "Search keys...",
+        prop_save_btn: "Save Properties",
+        backup_title: "Server Backups",
+        backup_sub: "Backups are listed in tar.gz format",
+        backup_now: "Create Backup",
+        table_filename: "Filename",
+        table_size: "Size",
+        table_date: "Date",
+        table_download: "Download",
+        login_title: "Authentication Required",
+        login_sub: "Please enter the 6-digit access PIN (OTP Code) printed on your terminal.",
+        login_btn: "Verify & Enter",
+        login_placeholder: "Access PIN (OTP Code)",
+        domain_btn: "Bind Domain",
+        domain_title: "Nginx Domain / Subdomain Binding",
+        domain_placeholder: "panel.yourdomain.com",
+        domain_bind_btn: "Bind Domain",
+        domain_success: "Domain bound successfully! To obtain a free SSL certificate, run these commands in your terminal:",
+        domain_note: "An Nginx reverse proxy configuration will be automatically generated and enabled."
+      }
+    };
+
+    // Global Safe API fetch helper
+    async function apiFetch(url, options = {}) {
+      const token = localStorage.getItem('dashboard_token') || '';
+      const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers,
+        'Authorization': `Bearer ${token}`
+      };
+      
+      const res = await fetch(url, { ...options, headers });
+      
+      if (res.status === 401) {
+        localStorage.removeItem('dashboard_token');
+        document.getElementById('login-overlay').classList.remove('hidden');
+        throw new Error('Unauthorized');
+      }
+      
+      return res;
+    }
+
+    // Toggle and Apply language UI
+    function toggleLanguage() {
+      currentLang = currentLang === 'tr' ? 'en' : 'tr';
+      localStorage.setItem('dashboard_lang', currentLang);
+      applyTranslations();
+    }
+
+    function applyTranslations() {
+      document.getElementById('lang-btn').innerText = currentLang === 'tr' ? '🌐 TR' : '🌐 EN';
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (translations[currentLang] && translations[currentLang][key]) {
+          if (el.tagName === 'INPUT') {
+            el.placeholder = translations[currentLang][key];
+          } else {
+            el.innerText = translations[currentLang][key];
+          }
+        }
+      });
+    }
+
+    // Attempt Login using OTP PIN
+    async function attemptLogin() {
+      const input = document.getElementById('login-otp-input');
+      const errorDiv = document.getElementById('login-error');
+      const pin = input.value.trim();
+      
+      if (!pin) return;
+      errorDiv.classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          localStorage.setItem('dashboard_token', data.token);
+          document.getElementById('login-overlay').classList.add('hidden');
+          input.value = '';
+          fetchStatus();
+          fetchServers();
+        } else {
+          errorDiv.classList.remove('hidden');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
 
     // Initialize Dashboard
     document.addEventListener('DOMContentLoaded', () => {
-      fetchStatus();
-      fetchServers();
-      setInterval(fetchStatus, 4000);
-      setInterval(fetchServers, 5000);
+      applyTranslations();
+      
+      const token = localStorage.getItem('dashboard_token');
+      if (!token) {
+        document.getElementById('login-overlay').classList.remove('hidden');
+      } else {
+        fetchStatus();
+        fetchServers();
+        setInterval(fetchStatus, 4000);
+        setInterval(fetchServers, 5000);
+      }
     });
 
     // 1. Fetch System status
     async function fetchStatus() {
       try {
-        const res = await fetch('/api/status');
+        const res = await apiFetch('/api/status');
         const data = await res.json();
         
         // Update values
         document.getElementById('cpu-text').innerText = `${data.cpu}%`;
         document.getElementById('ram-text').innerText = `${data.ram.used} / ${data.ram.total} GB`;
-        document.getElementById('ram-pct').innerText = `${data.ram.percentage}% Kullanılıyor`;
+        document.getElementById('ram-pct').innerText = `${data.ram.percentage}% ${translations[currentLang].ram_sub}`;
         document.getElementById('disk-text').innerText = `${data.disk.used} / ${data.disk.total}`;
-        document.getElementById('disk-pct').innerText = `${data.disk.percentage}% Doluluk`;
+        document.getElementById('disk-pct').innerText = `${data.disk.percentage}% ${translations[currentLang].disk_sub}`;
 
         // Update gauges
         updateGauge('cpu-circle', data.cpu);
@@ -313,17 +611,17 @@
     // 2. Fetch server lists
     async function fetchServers() {
       try {
-        const res = await fetch('/api/servers');
+        const res = await apiFetch('/api/servers');
         const servers = await res.json();
         const container = document.getElementById('server-list');
         container.innerHTML = '';
 
         servers.forEach(srv => {
           const statusColor = srv.running ? 'bg-emerald-500' : 'bg-rose-500';
-          const statusText = srv.running ? 'Çalışıyor / Running' : 'Çevrimdışı / Offline';
+          const statusText = srv.running ? translations[currentLang].status_running : translations[currentLang].status_stopped;
           const actionBtn = srv.running 
-            ? `<button onclick="stopServer('${srv.name}')" class="flex-1 bg-rose-600/10 hover:bg-rose-600/20 text-rose-400 text-xs font-bold py-2 rounded-lg border border-rose-500/20 transition-all">Durdur</button>`
-            : `<button onclick="startServer('${srv.name}')" class="flex-1 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 text-xs font-bold py-2 rounded-lg border border-emerald-500/20 transition-all">Başlat</button>`;
+            ? `<button onclick="stopServer('${srv.name}')" class="flex-1 bg-rose-600/10 hover:bg-rose-600/20 text-rose-400 text-xs font-bold py-2 rounded-lg border border-rose-500/20 transition-all">${translations[currentLang].btn_stop}</button>`
+            : `<button onclick="startServer('${srv.name}')" class="flex-1 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 text-xs font-bold py-2 rounded-lg border border-emerald-500/20 transition-all">${translations[currentLang].btn_start}</button>`;
 
           const card = document.createElement('div');
           card.className = 'glass-card p-6 flex flex-col justify-between h-56 hover:border-white/10 transition-all duration-300';
@@ -343,7 +641,7 @@
             </div>
             <div class="flex gap-2 mt-4">
               ${actionBtn}
-              <button onclick="openManager(${JSON.stringify(srv).replace(/"/g, '&quot;')})" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold py-2 rounded-lg transition-all">Yönet / Manage</button>
+              <button onclick="openManager(${JSON.stringify(srv).replace(/"/g, '&quot;')})" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold py-2 rounded-lg transition-all">${translations[currentLang].btn_manage}</button>
             </div>
           `;
           container.appendChild(card);
@@ -355,21 +653,21 @@
 
     // Server Controls
     async function startServer(name) {
-      const res = await fetch(`/api/servers/${name}/start`, { method: 'POST' });
+      const res = await apiFetch(`/api/servers/${name}/start`, { method: 'POST' });
       const data = await res.json();
       if (data.error) alert(data.error);
       fetchServers();
     }
 
     async function stopServer(name) {
-      const res = await fetch(`/api/servers/${name}/stop`, { method: 'POST' });
+      const res = await apiFetch(`/api/servers/${name}/stop`, { method: 'POST' });
       const data = await res.json();
       if (data.error) alert(data.error);
       fetchServers();
     }
 
     async function restartServer(name) {
-      const res = await fetch(`/api/servers/${name}/restart`, { method: 'POST' });
+      const res = await apiFetch(`/api/servers/${name}/restart`, { method: 'POST' });
       const data = await res.json();
       if (data.error) alert(data.error);
       fetchServers();
@@ -415,14 +713,14 @@
 
       if (consoleEventSource) consoleEventSource.close();
 
-      consoleEventSource = new EventSource(`/api/servers/${name}/console`);
+      const token = localStorage.getItem('dashboard_token') || '';
+      consoleEventSource = new EventSource(`/api/servers/${name}/console?token=${token}`);
       consoleEventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.error) {
           term.innerHTML += `<div class="text-rose-500">${data.error}</div>`;
         } else if (data.line) {
           const div = document.createElement('div');
-          // Clean terminal lines slightly
           div.innerText = data.line;
           term.appendChild(div);
           term.scrollTop = term.scrollHeight;
@@ -430,7 +728,7 @@
       };
 
       consoleEventSource.onerror = () => {
-        term.innerHTML += `<div class="text-amber-500 mt-2">Connecting lost, retrying...</div>`;
+        term.innerHTML += `<div class="text-amber-500 mt-2">Connection lost, retrying...</div>`;
       };
     }
 
@@ -440,7 +738,7 @@
       const val = input.value.trim();
       if (!val) return;
 
-      const res = await fetch(`/api/servers/${currentServer.name}/command`, {
+      const res = await apiFetch(`/api/servers/${currentServer.name}/command`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: val })
@@ -452,7 +750,7 @@
 
     // Properties Actions
     async function fetchProperties() {
-      const res = await fetch(`/api/servers/${currentServer.name}/properties`);
+      const res = await apiFetch(`/api/servers/${currentServer.name}/properties`);
       if (res.status === 404) {
         document.getElementById('properties-container').innerHTML = '<div class="text-slate-500 col-span-2">server.properties bulunamadı.</div>';
         return;
@@ -489,29 +787,29 @@
         value: inp.value
       }));
 
-      const res = await fetch(`/api/servers/${currentServer.name}/properties`, {
+      const res = await apiFetch(`/api/servers/${currentServer.name}/properties`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ properties: updatedProps })
       });
       const data = await res.json();
       if (data.success) {
-        alert('Ayarlar başarıyla kaydedildi!');
+        alert(currentLang === 'tr' ? 'Ayarlar başarıyla kaydedildi!' : 'Properties saved successfully!');
         fetchProperties();
       } else {
-        alert('Kaydetme hatası: ' + data.error);
+        alert('Error: ' + data.error);
       }
     }
 
     // Backups Actions
     async function fetchBackups() {
-      const res = await fetch(`/api/servers/${currentServer.name}/backups`);
+      const res = await apiFetch(`/api/servers/${currentServer.name}/backups`);
       const backups = await res.json();
       const body = document.getElementById('backups-list-body');
       body.innerHTML = '';
 
       if (backups.length === 0) {
-        body.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-slate-500">Kayıtlı yedek dosyası bulunamadı.</td></tr>';
+        body.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-slate-500">${currentLang === 'tr' ? 'Kayıtlı yedek dosyası bulunamadı.' : 'No backup files found.'}</td></tr>`;
         return;
       }
 
@@ -523,8 +821,8 @@
           <td class="px-6 py-4">${bk.size}</td>
           <td class="px-6 py-4 text-xs text-slate-400">${new Date(bk.date).toLocaleString()}</td>
           <td class="px-6 py-4 text-right">
-            <a href="/api/servers/${currentServer.name}/backups/${bk.filename}" class="bg-cyan-600/10 border border-cyan-500/20 hover:bg-cyan-600/20 text-cyan-400 font-semibold px-3 py-1.5 rounded-lg text-xs transition-all inline-flex items-center gap-1.5">
-              <i class="fa-solid fa-download"></i> İndir
+            <a href="/api/servers/${currentServer.name}/backups/${bk.filename}?token=${localStorage.getItem('dashboard_token')}" class="bg-cyan-600/10 border border-cyan-500/20 hover:bg-cyan-600/20 text-cyan-400 font-semibold px-3 py-1.5 rounded-lg text-xs transition-all inline-flex items-center gap-1.5">
+              <i class="fa-solid fa-download"></i> ${translations[currentLang].table_download}
             </a>
           </td>
         `;
@@ -533,13 +831,150 @@
     }
 
     async function createBackup() {
-      const res = await fetch(`/api/servers/${currentServer.name}/backup`, { method: 'POST' });
+      const res = await apiFetch(`/api/servers/${currentServer.name}/backup`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
-        alert('Yedek alma işlemi arka planda başlatıldı! Lütfen birkaç saniye sonra sayfayı yenileyin.');
+        alert(currentLang === 'tr' ? 'Yedek alma işlemi arka planda başlatıldı! Lütfen birkaç saniye sonra sayfayı yenileyin.' : 'Backup initiated in the background! Please reload list in a few seconds.');
         setTimeout(fetchBackups, 3000);
       } else {
-        alert('Yedek alma hatası: ' + data.error);
+        alert('Error: ' + data.error);
+      }
+    }
+
+    // Modal Control: Installation Wizard
+    function openInstallModal() {
+      document.getElementById('install-modal').classList.remove('hidden');
+      loadSoftwareVersions();
+    }
+
+    function closeInstallModal() {
+      document.getElementById('install-modal').classList.add('hidden');
+      document.getElementById('install-loader').classList.add('hidden');
+      document.getElementById('install-submit-btn').disabled = false;
+    }
+
+    async function loadSoftwareVersions() {
+      const type = document.getElementById('ins-software').value;
+      const select = document.getElementById('ins-version');
+      select.innerHTML = '<option>Loading...</option>';
+
+      try {
+        const res = await apiFetch(`/api/software-versions?type=${type}`);
+        const list = await res.json();
+        select.innerHTML = '';
+        list.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v;
+          opt.innerText = v;
+          select.appendChild(opt);
+        });
+      } catch (err) {
+        console.error(err);
+        select.innerHTML = '<option value="1.20.4">1.20.4</option>';
+      }
+    }
+
+    async function triggerInstall() {
+      const name = document.getElementById('ins-name').value.trim();
+      const software = document.getElementById('ins-software').value;
+      const version = document.getElementById('ins-version').value;
+      const port = document.getElementById('ins-port').value;
+      const ram = document.getElementById('ins-ram').value;
+
+      if (!name) {
+        alert(currentLang === 'tr' ? 'Lütfen sunucu adı girin.' : 'Please enter a server name.');
+        return;
+      }
+
+      document.getElementById('install-loader').classList.remove('hidden');
+      document.getElementById('install-submit-btn').disabled = true;
+
+      try {
+        const res = await apiFetch('/api/servers/install', {
+          method: 'POST',
+          body: JSON.stringify({ name, software, version, port, ram })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(currentLang === 'tr' ? 'Kurulum işlemi arka planda başlatıldı! Kurulum bitince sunucunuz listede görünecektir.' : 'Installation started in the background! Your server will appear in the list once setup is completed.');
+          closeInstallModal();
+          setTimeout(fetchServers, 10000);
+        } else {
+          alert('Error: ' + data.error);
+          document.getElementById('install-loader').classList.add('hidden');
+          document.getElementById('install-submit-btn').disabled = false;
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById('install-loader').classList.add('hidden');
+        document.getElementById('install-submit-btn').disabled = false;
+      }
+    }
+
+    // Modal Control: Domain proxy
+    async function openDomainModal() {
+      document.getElementById('domain-modal').classList.remove('hidden');
+      document.getElementById('domain-success-box').classList.add('hidden');
+      
+      try {
+        const res = await apiFetch('/api/dashboard/domain');
+        const data = await res.json();
+        const container = document.getElementById('current-domain-container');
+        const span = document.getElementById('current-domain-span');
+        
+        if (data.domain) {
+          span.innerText = data.domain;
+          container.classList.remove('hidden');
+          document.getElementById('dom-name').value = data.domain;
+        } else {
+          container.classList.add('hidden');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function closeDomainModal() {
+      document.getElementById('domain-modal').classList.add('hidden');
+      document.getElementById('domain-loader').classList.add('hidden');
+      document.getElementById('domain-submit-btn').disabled = false;
+    }
+
+    async function triggerBindDomain() {
+      const domain = document.getElementById('dom-name').value.trim();
+      if (!domain) {
+        alert(currentLang === 'tr' ? 'Lütfen geçerli bir domain girin.' : 'Please enter a valid domain.');
+        return;
+      }
+
+      document.getElementById('domain-loader').classList.remove('hidden');
+      document.getElementById('domain-submit-btn').disabled = true;
+      document.getElementById('domain-success-box').classList.add('hidden');
+
+      try {
+        const res = await apiFetch('/api/dashboard/bind-domain', {
+          method: 'POST',
+          body: JSON.stringify({ domain })
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('domain-success-placeholder').innerText = domain;
+          document.getElementById('domain-success-box').classList.remove('hidden');
+          document.getElementById('domain-loader').classList.add('hidden');
+          document.getElementById('domain-submit-btn').disabled = false;
+          
+          // Update active domain label
+          document.getElementById('current-domain-span').innerText = domain;
+          document.getElementById('current-domain-container').classList.remove('hidden');
+        } else {
+          alert('Error: ' + data.error);
+          document.getElementById('domain-loader').classList.add('hidden');
+          document.getElementById('domain-submit-btn').disabled = false;
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById('domain-loader').classList.add('hidden');
+        document.getElementById('domain-submit-btn').disabled = false;
       }
     }
   </script>
