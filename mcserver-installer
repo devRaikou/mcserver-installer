@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.28
+# Version: 1.29
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.28"
+APP_VERSION="1.29"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.28 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.29 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -3717,11 +3717,49 @@ change_language_settings() {
 check_for_updates() {
     local raw_script_url="https://raw.githubusercontent.com/devRaikou/mcserver-installer/main/mcserver-installer"
     
-    # Query latest APP_VERSION from GitHub directly (with a 5-second timeout)
-    local latest
-    latest=$(curl -s -m 5 "${raw_script_url}" | grep -m 1 "^APP_VERSION=" | cut -d'"' -f2 | tr -d '[:space:]')
+    # --- Semantic version comparison helper ---
+    # Returns 0 if $1 > $2 (i.e. remote is newer than local)
+    version_gt() {
+        local remote="$1"
+        local local_v="$2"
+        
+        # Split into major.minor parts
+        local r_major r_minor l_major l_minor
+        r_major=$(echo "$remote" | cut -d'.' -f1)
+        r_minor=$(echo "$remote" | cut -d'.' -f2)
+        l_major=$(echo "$local_v" | cut -d'.' -f1)
+        l_minor=$(echo "$local_v" | cut -d'.' -f2)
+        
+        # Default to 0 if empty
+        r_major=${r_major:-0}; r_minor=${r_minor:-0}
+        l_major=${l_major:-0}; l_minor=${l_minor:-0}
+        
+        if [ "$r_major" -gt "$l_major" ] 2>/dev/null; then
+            return 0
+        elif [ "$r_major" -eq "$l_major" ] 2>/dev/null && [ "$r_minor" -gt "$l_minor" ] 2>/dev/null; then
+            return 0
+        fi
+        return 1
+    }
     
-    if [ -n "$latest" ] && [ "$latest" != "$APP_VERSION" ]; then
+    # Try GitHub API first (lightweight, only fetches tag name)
+    local latest=""
+    local api_response
+    api_response=$(curl -s -m 5 -H "$UA_HEADER" "https://api.github.com/repos/devRaikou/mcserver-installer/releases/latest" 2>/dev/null)
+    
+    if [ -n "$api_response" ]; then
+        latest=$(echo "$api_response" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | cut -d'"' -f4 | tr -d '[:space:]')
+        # Strip leading 'v' if present (e.g. v1.28 -> 1.28)
+        latest="${latest#v}"
+    fi
+    
+    # Fallback: parse APP_VERSION from raw script if API failed
+    if [ -z "$latest" ]; then
+        latest=$(curl -s -m 5 "${raw_script_url}" | grep -m 1 "^APP_VERSION=" | cut -d'"' -f2 | tr -d '[:space:]')
+    fi
+    
+    # Only prompt if remote version is strictly greater than local
+    if [ -n "$latest" ] && version_gt "$latest" "$APP_VERSION"; then
         clear_screen
         draw_header
         if [ "$LANG_PREF" = "tr" ]; then
