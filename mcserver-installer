@@ -4236,27 +4236,14 @@ check_for_updates() {
     local raw_script_url="https://raw.githubusercontent.com/devRaikou/mcserver-installer/main/mcserver-installer"
 
     # --- Semantic version comparison helper ---
-    # Returns 0 if $1 > $2 (i.e. remote is newer than local)
+    # Returns 0 if remote ($1) is strictly greater than local ($2)
     version_gt() {
         local remote="$1"
         local local_v="$2"
-
-        # Split into major.minor parts
-        local r_major r_minor l_major l_minor
-        r_major=$(echo "$remote" | cut -d'.' -f1)
-        r_minor=$(echo "$remote" | cut -d'.' -f2)
-        l_major=$(echo "$local_v" | cut -d'.' -f1)
-        l_minor=$(echo "$local_v" | cut -d'.' -f2)
-
-        # Default to 0 if empty
-        r_major=${r_major:-0}; r_minor=${r_minor:-0}
-        l_major=${l_major:-0}; l_minor=${l_minor:-0}
-
-        if [ "$r_major" -gt "$l_major" ] 2>/dev/null; then
-            return 0
-        elif [ "$r_major" -eq "$l_major" ] 2>/dev/null && [ "$r_minor" -gt "$l_minor" ] 2>/dev/null; then
-            return 0
-        fi
+        [ "$remote" = "$local_v" ] && return 1
+        local sorted
+        sorted=$(printf '%s\n%s' "$remote" "$local_v" | sort -V 2>/dev/null | head -n 1)
+        [ "$sorted" = "$local_v" ] && return 0
         return 1
     }
 
@@ -4302,14 +4289,22 @@ check_for_updates() {
 
             # Check shebang to ensure the downloaded file is a valid bash script
             if [ -f "$temp_file" ] && grep -q "#!/usr/bin/env bash" "$temp_file"; then
-                mv "$temp_file" "$0"
-                chmod +x "$0"
-                if [ "$LANG_PREF" = "tr" ]; then
-                    log_success "mcserver-installer başarıyla güncellendi! Lütfen betiği yeniden başlatın."
+                if mv "$temp_file" "$0" 2>/dev/null && chmod +x "$0" 2>/dev/null; then
+                    if [ "$LANG_PREF" = "tr" ]; then
+                        log_success "mcserver-installer başarıyla güncellendi! Lütfen betiği yeniden başlatın."
+                    else
+                        log_success "mcserver-installer updated successfully! Please restart the script."
+                    fi
+                    exit 0
                 else
-                    log_success "mcserver-installer updated successfully! Please restart the script."
+                    rm -f "$temp_file"
+                    if [ "$LANG_PREF" = "tr" ]; then
+                        log_error "Güncelleme dosyası yazılamadı! Lütfen yazma izinlerini kontrol edin veya sudo ile çalıştırın."
+                    else
+                        log_error "Failed to write update file! Please check write permissions or run with sudo."
+                    fi
+                    sleep 4
                 fi
-                exit 0
             else
                 rm -f "$temp_file"
                 if [ "$LANG_PREF" = "tr" ]; then
