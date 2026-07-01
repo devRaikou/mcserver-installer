@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.25
+# Version: 1.26
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.25"
+APP_VERSION="1.26"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.25 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.26 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -2635,7 +2635,7 @@ search_and_install_plugin() {
         echo -e ""
         log_warn "$(t "plugin_no_compat" "No exact compatible versions found for Minecraft") ${s_ver} on ${s_type}."
         prompt_yes_no "$(t "plugin_ask_all" "Would you like to list all available versions instead?")" "y"
-        if [ "$choice" = "y" ]; then
+        if [ $? -eq 0 ]; then
             local all_names=()
             local all_ids=()
             
@@ -2727,7 +2727,7 @@ list_and_remove_plugins() {
     fi
     
     prompt_yes_no "$confirm_msg" "n"
-    if [ "$choice" = "y" ]; then
+    if [ $? -eq 0 ]; then
         rm -f "${plugins_dir}/${chosen}"
         
         local success_msg
