@@ -1,0 +1,67 @@
+name: Auto Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract version from script
+        id: version
+        run: |
+          VERSION=$(grep -m 1 '^APP_VERSION=' mcserver-installer | cut -d'"' -f2)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Detected version: ${VERSION}"
+
+      - name: Check if tag already exists
+        id: check_tag
+        run: |
+          if git rev-parse "refs/tags/${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag ${{ steps.version.outputs.tag }} already exists, skipping release."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Tag ${{ steps.version.outputs.tag }} does not exist, will create release."
+          fi
+
+      - name: Generate release notes
+        if: steps.check_tag.outputs.exists == 'false'
+        id: notes
+        run: |
+          # Get commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            COMMITS=$(git log "${LAST_TAG}..HEAD" --pretty=format:"- %s" --no-merges)
+          else
+            COMMITS=$(git log --pretty=format:"- %s" --no-merges -20)
+          fi
+
+          # Write release notes to file
+          cat > release_notes.md << 'HEADER'
+          ## What's Changed
+          HEADER
+          echo "" >> release_notes.md
+          echo "$COMMITS" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "---" >> release_notes.md
+          echo "**Full Changelog**: https://github.com/${{ github.repository }}/commits/${{ steps.version.outputs.tag }}" >> release_notes.md
+
+      - name: Create GitHub Release
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "mcserver-installer v${{ steps.version.outputs.version }}"
+          body_path: release_notes.md
+          files: mcserver-installer
+          make_latest: true
+          generate_release_notes: false
