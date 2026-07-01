@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.22
+# Version: 1.23
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.22"
+APP_VERSION="1.23"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.22 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.23 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -135,6 +135,17 @@ t() {
             "return_mgmt_menu") echo "Yönetim Menüsüne Dön" ;;
             "press_q_mgmt") echo "Yönetim menüsüne dönmek için 'q' yazıp enter tuşuna basın." ;;
             "return_settings") echo "Ayarlara Dön" ;;
+            
+            # Backup scheduler UI translations
+            "sched_active") echo "Aktif Zamanlama:" ;;
+            "sched_none") echo "Yok (Devre Dışı)" ;;
+            "sched_options") echo "Seçenekler:" ;;
+            "sched_daily") echo "Günlük Yedekleme Zamanla (Saat 04:00'te)" ;;
+            "sched_weekly") echo "Haftalık Yedekleme Zamanla (Pazar Günleri Saat 04:00'te)" ;;
+            "sched_remove") echo "Otomatik Yedekleme Zamanlamasını Kaldır" ;;
+            "sched_daily_success") echo "Günlük yedekleme başarıyla zamanlandı!" ;;
+            "sched_weekly_success") echo "Haftalık yedekleme başarıyla zamanlandı!" ;;
+            "sched_remove_success") echo "Otomatik yedekleme zamanlaması kaldırıldı." ;;
             
             # Orchestrator
             "orch_title") echo "PROXY ARKA PLAN ORKESTRASYONU" ;;
@@ -1808,23 +1819,23 @@ manage_backup_scheduler() {
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
         
         local current_cron
-        current_cron=$(crontab -l 2>/dev/null | grep "mcserver-installer --backup ${s_name}" || true)
+        current_cron=$(crontab -l 2>/dev/null | grep "mcserver-installer" | grep "\-\-backup" | grep "${s_name}" || true)
         
         if [ -n "$current_cron" ]; then
-            echo -e "  Active Schedule: ${COLOR_GREEN}${current_cron}${COLOR_RESET}"
+            echo -e "  $(t "sched_active" "Active Schedule: ") ${COLOR_GREEN}${current_cron}${COLOR_RESET}"
         else
-            echo -e "  Active Schedule: ${COLOR_YELLOW}None (Disabled)${COLOR_RESET}"
+            echo -e "  $(t "sched_active" "Active Schedule: ") ${COLOR_YELLOW}$(t "sched_none" "None (Disabled)")${COLOR_RESET}"
         fi
         
-        echo -e "\n  Options:"
-        echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} Schedule Daily Backup (at 04:00 AM)"
-        echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} Schedule Weekly Backup (Sundays at 04:00 AM)"
-        echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} Remove Automated Backup Schedule"
+        echo -e "\n  $(t "sched_options" "Options:")"
+        echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} $(t "sched_daily" "Schedule Daily Backup (at 04:00 AM)")"
+        echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} $(t "sched_weekly" "Schedule Weekly Backup (Sundays at 04:00 AM)")"
+        echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} $(t "sched_remove" "Remove Automated Backup Schedule")"
         echo -e "    ${COLOR_YELLOW}4.${COLOR_RESET} $(t "return_mgmt_menu" "Return to Management Menu")"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
         
         local choice
-        choice=$(prompt_input "Select option" "4")
+        choice=$(prompt_input "$(t "main_select" "Select option")" "4")
         
         local script_path
         script_path=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
@@ -1832,26 +1843,26 @@ manage_backup_scheduler() {
         case "$choice" in
             1)
                 local schedule_line="0 4 * * * \"${script_path}\" --backup \"${s_name}\" >/dev/null 2>&1"
-                (crontab -l 2>/dev/null | grep -v "mcserver-installer --backup ${s_name}"; echo "$schedule_line") | crontab -
-                log_success "Daily backup successfully scheduled!"
+                (crontab -l 2>/dev/null | grep -vE "mcserver-installer.*--backup.*${s_name}"; echo "$schedule_line") | crontab -
+                log_success "$(t "sched_daily_success" "Daily backup successfully scheduled!")"
                 sleep 2
                 ;;
             2)
                 local schedule_line="0 4 * * 0 \"${script_path}\" --backup \"${s_name}\" >/dev/null 2>&1"
-                (crontab -l 2>/dev/null | grep -v "mcserver-installer --backup ${s_name}"; echo "$schedule_line") | crontab -
-                log_success "Weekly backup successfully scheduled!"
+                (crontab -l 2>/dev/null | grep -vE "mcserver-installer.*--backup.*${s_name}"; echo "$schedule_line") | crontab -
+                log_success "$(t "sched_weekly_success" "Weekly backup successfully scheduled!")"
                 sleep 2
                 ;;
             3)
-                crontab -l 2>/dev/null | grep -v "mcserver-installer --backup ${s_name}" | crontab - || crontab -r 2>/dev/null
-                log_success "Automated backup schedule removed."
+                (crontab -l 2>/dev/null | grep -vE "mcserver-installer.*--backup.*${s_name}") | crontab - || crontab -r 2>/dev/null
+                log_success "$(t "sched_remove_success" "Automated backup schedule removed.")"
                 sleep 2
                 ;;
             4)
                 break
                 ;;
             *)
-                log_warn "Invalid selection."
+                log_warn "$(t "invalid_sel" "Invalid selection.")"
                 sleep 1.5
                 ;;
         esac
