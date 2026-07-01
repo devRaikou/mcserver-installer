@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.50
+# Version: 1.51
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.50"
+APP_VERSION="1.51"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -4289,12 +4289,14 @@ launch_web_dashboard() {
 
     local dashboard_dir="${SCRIPT_DIR}/dashboard"
 
-    # Auto-download dashboard files if missing (handles standalone script installations)
-    if [ ! -f "${dashboard_dir}/package.json" ] || [ ! -f "${dashboard_dir}/server.js" ] || [ ! -f "${dashboard_dir}/public/index.html" ]; then
+    local force_npm_install="false"
+
+    # Auto-download dashboard files if missing or outdated compared to current APP_VERSION
+    if [ ! -f "${dashboard_dir}/package.json" ] || [ ! -f "${dashboard_dir}/server.js" ] || [ ! -f "${dashboard_dir}/public/index.html" ] || [ ! -f "${dashboard_dir}/.version" ] || [ "$(cat "${dashboard_dir}/.version" 2>/dev/null)" != "$APP_VERSION" ]; then
         if [ "$LANG_PREF" = "tr" ]; then
-            log_info "Web paneli dosyaları eksik. GitHub'dan indiriliyor..."
+            log_info "Web paneli dosyaları eksik veya eski sürüm. GitHub'dan güncelleniyor..."
         else
-            log_info "Web dashboard files are missing. Downloading from GitHub..."
+            log_info "Web dashboard files are missing or outdated. Syncing from GitHub..."
         fi
 
         mkdir -p "${dashboard_dir}/public"
@@ -4319,10 +4321,12 @@ launch_web_dashboard() {
             sleep 3
             return 1
         fi
+        echo "$APP_VERSION" > "${dashboard_dir}/.version"
+        force_npm_install="true"
     fi
 
     # 2. Check if node_modules is installed
-    if [ ! -d "${dashboard_dir}/node_modules" ]; then
+    if [ ! -d "${dashboard_dir}/node_modules" ] || [ "$force_npm_install" = "true" ]; then
         if [ "$LANG_PREF" = "tr" ]; then
             log_info "Web paneli bağımlılıkları yükleniyor (npm install)..."
             run_with_spinner "Bağımlılıklar yükleniyor" npm --prefix "$dashboard_dir" install
