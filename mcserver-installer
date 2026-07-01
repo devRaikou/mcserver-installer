@@ -102,6 +102,38 @@ t() {
             "hdr_discord_webhook") echo "DISCORD WEBHOOK YAPILANDIR" ;;
             "hdr_java_manager") echo "JAVA JRE YÖNETİCİSİ" ;;
             
+            # prompt_selection internal UI keys
+            "page_word") echo "Sayfa" ;;
+            "of_word") echo "/" ;;
+            "select_option_prompt") echo "Seçim yapın" ;;
+            "next_page_btn") echo "[Sonraki Sayfa ->]" ;;
+            "prev_page_btn") echo "[<- Önceki Sayfa]" ;;
+            "invalid_select_try") echo "Geçersiz seçim. Lütfen tekrar deneyin." ;;
+            
+            # Sub-menu prompt selection prompt headers
+            "prompt_software_type") echo "Kurulacak Minecraft sunucu yazılımı türünü seçin:" ;;
+            "prompt_mc_version") echo "Minecraft sürümünü seçin:" ;;
+            "prompt_build_num") echo "Derleme numarasını seçin:" ;;
+            "prompt_fabric_loader") echo "Fabric Loader sürümünü seçin:" ;;
+            "prompt_forge_build") echo "Forge derlemesini seçin:" ;;
+            "prompt_neoforge_build") echo "NeoForge derlemesini seçin:" ;;
+            "prompt_difficulty") echo "Zorluk derecesini seçin:" ;;
+            "prompt_gamemode") echo "Varsayılan oyun modunu seçin:" ;;
+            "prompt_restore_backup") echo "Geri yüklenecek yedeği seçin:" ;;
+            "prompt_install_plugin") echo "Kurulacak eklentiyi seçin:" ;;
+            "prompt_plugin_compat") echo "Kurulacak uyumlu sürümü seçin:" ;;
+            "prompt_plugin_risk") echo "Kurulacak sürümü seçin (sorumluluk size aittir):" ;;
+            "prompt_remove_plugin") echo "Silinecek eklenti dosyasını (.jar) seçin:" ;;
+            "prompt_manage_server") echo "Yönetilecek sunucuyu seçin:" ;;
+            "prompt_delete_server") echo "Silinecek sunucuyu seçin:" ;;
+            "prompt_update_server") echo "Güncellenecek sunucuyu seçin:" ;;
+            
+            # General Return Prompts
+            "press_enter_main") echo "Ana menüye dönmek için [Enter] tuşuna basın: " ;;
+            "return_mgmt_menu") echo "Yönetim Menüsüne Dön" ;;
+            "press_q_mgmt") echo "Yönetim menüsüne dönmek için 'q' yazıp enter tuşuna basın." ;;
+            "return_settings") echo "Ayarlara Dön" ;;
+            
             # Orchestrator
             "orch_title") echo "PROXY ARKA PLAN ORKESTRASYONU" ;;
             "orch_prompt") echo "Bu proxy arkasına otomatik arka plan sunucuları (Lobby, Survival vb.) kurmak ister misiniz?" ;;
@@ -722,14 +754,14 @@ prompt_selection() {
         
         local choice=0
         while true; do
-            echo -n "  Select option (1-${total}): " >&2
+            echo -n "  $(t "select_option_prompt" "Select option") (1-${total}): " >&2
             read -r choice
             choice=$(echo "$choice" | tr -d '\r')
             if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "$total" ]; then
                 echo "${options[$((choice - 1))]}" | tr -d '\r'
                 return 0
             fi
-            log_warn "Invalid selection. Please try again."
+            log_warn "$(t "invalid_select_try" "Invalid selection. Please try again.")"
         done
     fi
     
@@ -740,7 +772,7 @@ prompt_selection() {
     while true; do
         clear_screen
         draw_header
-        echo -e "  ${COLOR_CYAN}${msg} (Page $((current_page + 1)) of ${pages_count})${COLOR_RESET}" >&2
+        echo -e "  ${COLOR_CYAN}${msg} ($(t "page_word" "Page") $((current_page + 1)) $(t "of_word" "of") ${pages_count})${COLOR_RESET}" >&2
         
         local start_idx=$((current_page * max_visible))
         local end_idx=$((start_idx + max_visible))
@@ -765,7 +797,7 @@ prompt_selection() {
         local has_prev=false
         
         if [ "$current_page" -lt "$((pages_count - 1))" ]; then
-            echo -e "    ${COLOR_YELLOW}${next_num}.${COLOR_RESET} ${COLOR_BLUE}[Next Page ->]${COLOR_RESET}" >&2
+            echo -e "    ${COLOR_YELLOW}${next_num}.${COLOR_RESET} ${COLOR_BLUE}$(t "next_page_btn" "[Next Page ->]")${COLOR_RESET}" >&2
             has_next=true
             max_choice=$next_num
         fi
@@ -776,13 +808,13 @@ prompt_selection() {
             else
                 prev_num=$next_num
             fi
-            echo -e "    ${COLOR_YELLOW}${prev_num}.${COLOR_RESET} ${COLOR_BLUE}[<- Previous Page]${COLOR_RESET}" >&2
+            echo -e "    ${COLOR_YELLOW}${prev_num}.${COLOR_RESET} ${COLOR_BLUE}$(t "prev_page_btn" "[<- Previous Page]")${COLOR_RESET}" >&2
             has_prev=true
             max_choice=$prev_num
         fi
         
         local choice=0
-        echo -n "  Select option (1-${max_choice}): " >&2
+        echo -n "  $(t "select_option_prompt" "Select option") (1-${max_choice}): " >&2
         read -r choice
         choice=$(echo "$choice" | tr -d '\r')
         
@@ -1111,7 +1143,7 @@ run_installation_wizard() {
     # 1. Server Type
     local types=(Vanilla Paper Folia Purpur Fabric Forge NeoForge Velocity Waterfall BungeeCord)
     local s_type
-    s_type=$(prompt_selection "Choose Minecraft server software type:" "${types[@]}")
+    s_type=$(prompt_selection "$(t "prompt_software_type" "Choose Minecraft server software type:")" "${types[@]}")
     s_type=$(echo "$s_type" | tr '[:upper:]' '[:lower:]')
     
     # 2. Minecraft Version & Software fetch
@@ -1127,7 +1159,7 @@ run_installation_wizard() {
             log_info "Fetching Minecraft Vanilla versions..."
             local releases
             releases=$(fetch_vanilla_releases)
-            mc_version=$(prompt_selection "Select Minecraft version:" $releases)
+            mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" $releases)
             
             log_info "Resolving download URL for Vanilla $mc_version..."
             download_url=$(fetch_vanilla_download_url "$mc_version")
@@ -1136,7 +1168,7 @@ run_installation_wizard() {
             log_info "Fetching $s_type versions..."
             local versions
             versions=$(fetch_papermc_versions "$s_type")
-            mc_version=$(prompt_selection "Select Minecraft version:" $versions)
+            mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" $versions)
             
             log_info "Fetching builds for $s_type $mc_version..."
             local builds
@@ -1152,7 +1184,7 @@ run_installation_wizard() {
             build_choices+=("Latest Stable")
             
             local chosen_build
-            chosen_build=$(prompt_selection "Select build number:" "${build_choices[@]}")
+            chosen_build=$(prompt_selection "$(t "prompt_build_num" "Select build number:")" "${build_choices[@]}")
             if [ "$chosen_build" = "Latest Stable" ]; then
                 build_num=$(echo "${build_choices[0]}")
             else
@@ -1166,7 +1198,7 @@ run_installation_wizard() {
             log_info "Fetching Purpur versions..."
             local versions
             versions=$(fetch_purpur_versions)
-            mc_version=$(prompt_selection "Select Minecraft version:" $versions)
+            mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" $versions)
             
             log_info "Fetching builds for Purpur $mc_version..."
             local builds
@@ -1182,7 +1214,7 @@ run_installation_wizard() {
             build_choices+=("Latest Stable")
             
             local chosen_build
-            chosen_build=$(prompt_selection "Select build number:" "${build_choices[@]}")
+            chosen_build=$(prompt_selection "$(t "prompt_build_num" "Select build number:")" "${build_choices[@]}")
             if [ "$chosen_build" = "Latest Stable" ]; then
                 build_num="latest"
             else
@@ -1195,12 +1227,12 @@ run_installation_wizard() {
             log_info "Fetching Fabric game versions..."
             local releases
             releases=$(fetch_vanilla_releases)
-            mc_version=$(prompt_selection "Select Minecraft version:" $releases)
+            mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" $releases)
             
             log_info "Fetching Fabric Loader versions..."
             local loaders
             loaders=$(fetch_fabric_loaders)
-            loader_version=$(prompt_selection "Select Fabric Loader version:" $loaders)
+            loader_version=$(prompt_selection "$(t "prompt_fabric_loader" "Select Fabric Loader version:")" $loaders)
             
             log_info "Resolving Fabric Installer URL..."
             download_url=$(fetch_fabric_installer_url)
@@ -1209,7 +1241,7 @@ run_installation_wizard() {
             log_info "Fetching supported Minecraft versions for Forge..."
             local releases
             releases=(1.21.4 1.21.1 1.21 1.20.6 1.20.4 1.20.2 1.20.1 1.20 1.19.4 1.19.2 1.18.2 1.17.1 1.16.5 1.12.2 1.8.8 1.7.10)
-            mc_version=$(prompt_selection "Select Minecraft version:" "${releases[@]}")
+            mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" "${releases[@]}")
             
             log_info "Fetching Forge builds for $mc_version..."
             local builds
@@ -1221,13 +1253,13 @@ run_installation_wizard() {
             fi
             
             local chosen_build
-            chosen_build=$(prompt_selection "Select Forge build:" $builds)
+            chosen_build=$(prompt_selection "$(t "prompt_forge_build" "Select Forge build:")" $builds)
             download_url="https://maven.minecraftforge.net/net/minecraftforge/forge/${chosen_build}/forge-${chosen_build}-installer.jar"
             ;;
         neoforge)
             log_info "Fetching supported Minecraft versions for NeoForge..."
             local releases=(1.21.4 1.21.3 1.21.1 1.21 1.20.6 1.20.4 1.20.2 1.20.1)
-            mc_version=$(prompt_selection "Select Minecraft version:" "${releases[@]}")
+            mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" "${releases[@]}")
             
             log_info "Fetching NeoForge builds for $mc_version..."
             local builds
@@ -1239,7 +1271,7 @@ run_installation_wizard() {
             fi
             
             local chosen_build
-            chosen_build=$(prompt_selection "Select NeoForge build:" $builds)
+            chosen_build=$(prompt_selection "$(t "prompt_neoforge_build" "Select NeoForge build:")" $builds)
             download_url="https://maven.neoforged.net/releases/net/neoforged/neoforge/${chosen_build}/neoforge-${chosen_build}-installer.jar"
             ;;
         bungeecord)
@@ -1358,10 +1390,10 @@ run_installation_wizard() {
         max_players=$(prompt_input "Enter Max Players" "20")
         
         # 11. Difficulty
-        difficulty=$(prompt_selection "Select Difficulty:" peaceful easy normal hard)
+        difficulty=$(prompt_selection "$(t "prompt_difficulty" "Select Difficulty:")" peaceful easy normal hard)
         
         # 12. GameMode
-        gamemode=$(prompt_selection "Select Default GameMode:" survival creative adventure spectator)
+        gamemode=$(prompt_selection "$(t "prompt_gamemode" "Select Default GameMode:")" survival creative adventure spectator)
         
         # 13. World Name
         world_name=$(prompt_input "Enter World Name" "world")
@@ -1577,7 +1609,7 @@ EOF
         draw_box_close
     fi
     
-    echo -e -n "\n  Press [Enter] to return to the main menu: "
+    echo -e -n "\n  $(t "press_enter_main" "Press [Enter] to return to the main menu: ")"
     read -r _
 }
 
@@ -1651,7 +1683,7 @@ run_properties_editor() {
         echo -e "    ${COLOR_YELLOW}8.${COLOR_RESET} Whitelist Mode    [${COLOR_GREEN}${whitelist}${COLOR_RESET}]"
         echo -e "    ${COLOR_YELLOW}9.${COLOR_RESET} Allow Flight      [${COLOR_GREEN}${flight}${COLOR_RESET}]"
         echo -e "   ${COLOR_YELLOW}10.${COLOR_RESET} Spawn Protection  [${COLOR_GREEN}${spawn_prot}${COLOR_RESET}]"
-        echo -e "   ${COLOR_YELLOW}11.${COLOR_RESET} Return to Management Menu"
+        echo -e "   ${COLOR_YELLOW}11.${COLOR_RESET} $(t "return_mgmt_menu" "Return to Management Menu")"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
         
         echo -n "  Choose option (1-11): "
@@ -1677,11 +1709,11 @@ run_properties_editor() {
                 set_property_val "$prop_file" "max-players" "$val"
                 ;;
             5)
-                local val; val=$(prompt_selection "Select Difficulty:" peaceful easy normal hard)
+                local val; val=$(prompt_selection "$(t "prompt_difficulty" "Select Difficulty:")" peaceful easy normal hard)
                 set_property_val "$prop_file" "difficulty" "$val"
                 ;;
             6)
-                local val; val=$(prompt_selection "Select default GameMode:" survival creative adventure spectator)
+                local val; val=$(prompt_selection "$(t "prompt_gamemode" "Select Default GameMode:")" survival creative adventure spectator)
                 set_property_val "$prop_file" "gamemode" "$val"
                 ;;
             7)
@@ -1786,7 +1818,7 @@ manage_backup_scheduler() {
         echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} Schedule Daily Backup (at 04:00 AM)"
         echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} Schedule Weekly Backup (Sundays at 04:00 AM)"
         echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} Remove Automated Backup Schedule"
-        echo -e "    ${COLOR_YELLOW}4.${COLOR_RESET} Return to Management Menu"
+        echo -e "    ${COLOR_YELLOW}4.${COLOR_RESET} $(t "return_mgmt_menu" "Return to Management Menu")"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
         
         local choice
@@ -1859,7 +1891,7 @@ run_server_restore() {
     unset IFS
     
     local chosen_backup
-    chosen_backup=$(prompt_selection "Select backup to restore:" "${sorted_backups[@]}")
+    chosen_backup=$(prompt_selection "$(t "prompt_restore_backup" "Select backup to restore:")" "${sorted_backups[@]}")
     local full_backup_path="${backup_dir}/${chosen_backup}"
     
     log_warn "RESTORE ACTION IS DESTRUCTIVE!"
@@ -2346,7 +2378,7 @@ monitor_server_resources() {
         fi
         
         echo -e "  Disk Footprint: ${COLOR_BLUE}${disk}${COLOR_RESET}"
-        echo -e "\n  Press 'q' and enter to return to the management menu."
+        echo -e "\n  $(t "press_q_mgmt" "Press 'q' and enter to return to the management menu.")"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
         
         local input_char=""
@@ -2407,7 +2439,7 @@ manage_server_plugins() {
         
         echo -e "    ${COLOR_YELLOW}1.${COLOR_RESET} Search and Install Plugins"
         echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} List and Remove Plugins"
-        echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} Return to Management Menu"
+        echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} $(t "return_mgmt_menu" "Return to Management Menu")"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
         
         local choice
@@ -2484,7 +2516,7 @@ search_and_install_plugin() {
     done <<< "$hits"
     
     local chosen
-    chosen=$(prompt_selection "Select plugin to install:" "${titles[@]}")
+    chosen=$(prompt_selection "$(t "prompt_install_plugin" "Select plugin to install:")" "${titles[@]}")
     
     local idx=-1
     for i in "${!titles[@]}"; do
@@ -2534,7 +2566,7 @@ search_and_install_plugin() {
         done <<< "$(echo "$matched_versions" | jq -c '.[]')"
         
         local chosen_name
-        chosen_name=$(prompt_selection "Select compatible version to install:" "${v_names[@]}")
+        chosen_name=$(prompt_selection "$(t "prompt_plugin_compat" "Select compatible version to install:")" "${v_names[@]}")
         
         local v_idx=-1
         for i in "${!v_names[@]}"; do
@@ -2565,7 +2597,7 @@ search_and_install_plugin() {
             done <<< "$(echo "$res_ver" | jq -c '.[]' | head -n 10)"
             
             local chosen_name
-            chosen_name=$(prompt_selection "Select version to install (at your own risk):" "${all_names[@]}")
+            chosen_name=$(prompt_selection "$(t "prompt_plugin_risk" "Select version to install (at your own risk):")" "${all_names[@]}")
             
             local v_idx=-1
             for i in "${!all_names[@]}"; do
@@ -2627,7 +2659,7 @@ list_and_remove_plugins() {
     fi
     
     local chosen
-    chosen=$(prompt_selection "Select a plugin jar to remove:" "${files[@]}")
+    chosen=$(prompt_selection "$(t "prompt_remove_plugin" "Select a plugin jar to remove:")" "${files[@]}")
     
     prompt_yes_no "Are you sure you want to delete ${chosen}?" "n"
     if [ "$choice" = "y" ]; then
@@ -2987,11 +3019,11 @@ select_and_manage_server() {
         return 1
     fi
     
-    list_options+=("Return to Main Menu")
+    list_options+=("$(t "settings_back" "Return to Main Menu")")
     local selection
-    selection=$(prompt_selection "Choose server to manage:" "${list_options[@]}")
+    selection=$(prompt_selection "$(t "prompt_manage_server" "Choose server to manage:")" "${list_options[@]}")
     
-    if [ "$selection" = "Return to Main Menu" ]; then
+    if [ "$selection" = "$(t "settings_back" "Return to Main Menu")" ]; then
         return 0
     fi
     
@@ -3029,7 +3061,7 @@ show_about() {
     echo -e "  Developer: ${COLOR_CYAN}${DEVELOPER}${COLOR_RESET}"
     echo -e "  License: MIT License"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
-    echo -e -n "\n  Press [Enter] to return to the main menu: "
+    echo -e -n "\n  $(t "press_enter_main" "Press [Enter] to return to the main menu: ")"
     read -r _
 }
 
@@ -3076,7 +3108,7 @@ remove_server_registration() {
     if [ "$LANG_PREF" = "tr" ]; then
         selection=$(prompt_selection "Silmek istediğiniz sunucuyu seçin:" "${list_options[@]}")
     else
-        selection=$(prompt_selection "Choose server to delete:" "${list_options[@]}")
+        selection=$(prompt_selection "$(t "prompt_delete_server" "Choose server to delete:")" "${list_options[@]}")
     fi
     
     if [ "$selection" = "Cancel and Exit" ] || [ "$selection" = "İptal Et ve Çık" ]; then
@@ -3222,7 +3254,7 @@ update_server_software() {
     
     list_options+=("Cancel and Exit")
     local selection
-    selection=$(prompt_selection "Choose server to update:" "${list_options[@]}")
+    selection=$(prompt_selection "$(t "prompt_update_server" "Choose server to update:")" "${list_options[@]}")
     
     if [ "$selection" = "Cancel and Exit" ]; then
         return 0
@@ -3365,7 +3397,7 @@ run_java_manager_menu() {
         echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} Install OpenJDK 17"
         echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} Install OpenJDK 21"
         echo -e "    ${COLOR_YELLOW}4.${COLOR_RESET} Install OpenJDK 25 (requires Ubuntu PPA check)"
-        echo -e "    ${COLOR_YELLOW}5.${COLOR_RESET} Return to Settings"
+        echo -e "    ${COLOR_YELLOW}5.${COLOR_RESET} $(t "return_settings" "Return to Settings")"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
         
         local choice
