@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mcserver-installer | Web Dashboard</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at top right, #1a1b26 0%, #0d0e15 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+    .glass-card {
+      background: rgba(25, 27, 43, 0.45);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 1rem;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+    .glass-modal {
+      background: rgba(13, 14, 23, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .terminal-font {
+      font-family: 'Fira Code', monospace;
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  </style>
+</head>
+<body class="p-6 md:p-8">
+  <div class="max-w-7xl mx-auto space-y-8">
+    
+    <!-- Top Header -->
+    <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-white/5">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <i class="fa-solid fa-server text-2xl text-white"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+            MCSERVER INSTALLER
+          </h1>
+          <p class="text-sm text-slate-400 font-medium">Web Administration & Console Monitor</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-xs bg-cyan-500/10 text-cyan-400 font-bold px-3 py-1.5 rounded-full border border-cyan-500/20 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span> Panel Online
+        </span>
+        <button onclick="fetchStatus(); fetchServers();" class="glass-card hover:bg-white/5 active:scale-95 transition-all text-xs font-semibold px-4 py-2 flex items-center gap-2">
+          <i class="fa-solid fa-rotate"></i> Refresh
+        </button>
+      </div>
+    </header>
+
+    <!-- Metrics row -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <!-- CPU Metric -->
+      <div class="glass-card p-6 flex items-center justify-between">
+        <div class="space-y-2">
+          <p class="text-xs text-slate-400 uppercase tracking-wider font-bold">CPU Yükü / CPU Load</p>
+          <h3 id="cpu-text" class="text-3xl font-extrabold tracking-tight">0%</h3>
+          <p class="text-xs text-slate-500">Çekirdek bazlı ortalama yük</p>
+        </div>
+        <div class="relative w-16 h-16">
+          <svg class="w-full h-full transform -rotate-90">
+            <circle cx="32" cy="32" r="26" stroke="rgba(255,255,255,0.05)" stroke-width="6" fill="transparent" />
+            <circle id="cpu-circle" cx="32" cy="32" r="26" stroke="url(#cpu-grad)" stroke-width="6" fill="transparent"
+              stroke-dasharray="163.3" stroke-dashoffset="163.3" stroke-linecap="round" />
+            <defs>
+              <linearGradient id="cpu-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#22d3ee" />
+                <stop offset="100%" stop-color="#3b82f6" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+      </div>
+
+      <!-- RAM Metric -->
+      <div class="glass-card p-6 flex items-center justify-between">
+        <div class="space-y-2">
+          <p class="text-xs text-slate-400 uppercase tracking-wider font-bold">Bellek Kullanımı / RAM Usage</p>
+          <h3 id="ram-text" class="text-3xl font-extrabold tracking-tight">0 / 0 GB</h3>
+          <p id="ram-pct" class="text-xs text-slate-500">0% Kullanılıyor</p>
+        </div>
+        <div class="relative w-16 h-16">
+          <svg class="w-full h-full transform -rotate-90">
+            <circle cx="32" cy="32" r="26" stroke="rgba(255,255,255,0.05)" stroke-width="6" fill="transparent" />
+            <circle id="ram-circle" cx="32" cy="32" r="26" stroke="url(#ram-grad)" stroke-width="6" fill="transparent"
+              stroke-dasharray="163.3" stroke-dashoffset="163.3" stroke-linecap="round" />
+            <defs>
+              <linearGradient id="ram-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#a855f7" />
+                <stop offset="100%" stop-color="#ec4899" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Disk Metric -->
+      <div class="glass-card p-6 flex items-center justify-between">
+        <div class="space-y-2">
+          <p class="text-xs text-slate-400 uppercase tracking-wider font-bold">Disk Alanı / Disk Space</p>
+          <h3 id="disk-text" class="text-3xl font-extrabold tracking-tight">0 / 0 GB</h3>
+          <p id="disk-pct" class="text-xs text-slate-500">0% Doluluk</p>
+        </div>
+        <div class="relative w-16 h-16">
+          <svg class="w-full h-full transform -rotate-90">
+            <circle cx="32" cy="32" r="26" stroke="rgba(255,255,255,0.05)" stroke-width="6" fill="transparent" />
+            <circle id="disk-circle" cx="32" cy="32" r="26" stroke="url(#disk-grad)" stroke-width="6" fill="transparent"
+              stroke-dasharray="163.3" stroke-dashoffset="163.3" stroke-linecap="round" />
+            <defs>
+              <linearGradient id="disk-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#f43f5e" />
+                <stop offset="100%" stop-color="#e11d48" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- Server List -->
+    <section class="space-y-4">
+      <h2 class="text-lg font-bold tracking-tight flex items-center gap-2">
+        <i class="fa-solid fa-list-check text-cyan-400"></i> Sunucularınız / Installed Servers
+      </h2>
+      <div id="server-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Servers will load here dynamically -->
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Manager Modal -->
+  <div id="manager-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 md:p-6 bg-black/60 backdrop-blur-md">
+    <div class="glass-modal w-full max-w-5xl h-[85vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden">
+      <!-- Modal Header -->
+      <header class="flex items-center justify-between px-6 py-4 border-b border-white/5">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
+            <i class="fa-solid fa-cube text-cyan-400"></i>
+          </div>
+          <div>
+            <h3 id="modal-server-title" class="font-extrabold text-white text-base">Server Name</h3>
+            <p id="modal-server-subtitle" class="text-xs text-slate-400">Vanilla | 1.20.4</p>
+          </div>
+        </div>
+        <button onclick="closeManager();" class="text-slate-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 w-8 h-8 rounded-full flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </header>
+
+      <!-- Sub Navigation Tabs -->
+      <div class="flex border-b border-white/5 bg-black/20 text-sm font-medium">
+        <button onclick="switchTab('console')" id="tab-console-btn" class="px-6 py-3 border-b-2 border-cyan-400 text-cyan-400 transition-all flex items-center gap-2">
+          <i class="fa-solid fa-terminal"></i> Konsol / Console
+        </button>
+        <button onclick="switchTab('properties')" id="tab-properties-btn" class="px-6 py-3 border-b-2 border-transparent text-slate-400 hover:text-white transition-all flex items-center gap-2">
+          <i class="fa-solid fa-sliders"></i> Ayarlar / Properties
+        </button>
+        <button onclick="switchTab('backups')" id="tab-backups-btn" class="px-6 py-3 border-b-2 border-transparent text-slate-400 hover:text-white transition-all flex items-center gap-2">
+          <i class="fa-solid fa-box-archive"></i> Yedekler / Backups
+        </button>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="flex-1 min-h-0 relative bg-black/10">
+        <!-- Console Tab -->
+        <div id="tab-console" class="absolute inset-0 flex flex-col p-6 space-y-4">
+          <!-- Server Quick Controls -->
+          <div class="flex items-center gap-3">
+            <button id="ctrl-start-btn" onclick="startServer(currentServer.name)" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-2 transition-all">
+              <i class="fa-solid fa-play"></i> Başlat
+            </button>
+            <button id="ctrl-stop-btn" onclick="stopServer(currentServer.name)" class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-2 transition-all">
+              <i class="fa-solid fa-stop"></i> Durdur
+            </button>
+            <button id="ctrl-restart-btn" onclick="restartServer(currentServer.name)" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-2 transition-all">
+              <i class="fa-solid fa-rotate-left"></i> Yeniden Başlat
+            </button>
+          </div>
+          <!-- Terminal logs screen -->
+          <div id="terminal-screen" class="flex-1 bg-black/60 rounded-xl border border-white/5 p-4 overflow-y-auto terminal-font text-xs leading-relaxed space-y-1 text-emerald-400/90 selection:bg-emerald-500/20">
+            <!-- Logs stream here -->
+          </div>
+          <!-- Command Input -->
+          <div class="flex gap-2">
+            <input id="cmd-input" type="text" placeholder="Minecraft console command..." class="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-sm terminal-font focus:outline-none focus:border-cyan-500 transition-colors" onkeydown="if(event.key === 'Enter') sendCommand();" />
+            <button onclick="sendCommand()" class="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm px-6 py-2 rounded-lg transition-all flex items-center gap-2">
+              Gönder <i class="fa-solid fa-paper-plane text-xs"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Properties Tab -->
+        <div id="tab-properties" class="absolute inset-0 hidden flex flex-col p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <input id="prop-search" type="text" placeholder="Ayarlarda ara / Search key..." class="bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-sm max-w-sm focus:outline-none focus:border-cyan-500 transition-colors" oninput="filterProperties()" />
+            <button onclick="saveProperties()" class="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm px-6 py-2 rounded-lg transition-all flex items-center gap-2">
+              Ayarları Kaydet <i class="fa-solid fa-floppy-disk"></i>
+            </button>
+          </div>
+          <!-- Properties Grid -->
+          <div id="properties-container" class="flex-1 overflow-y-auto pr-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Properties inputs here -->
+          </div>
+        </div>
+
+        <!-- Backups Tab -->
+        <div id="tab-backups" class="absolute inset-0 hidden flex flex-col p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h4 class="font-bold text-white">Yedek Dosyaları / Server Backups</h4>
+              <p class="text-xs text-slate-400">Yedekler tar.gz formatında listelenir</p>
+            </div>
+            <button onclick="createBackup()" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90 text-white font-semibold text-sm px-6 py-2 rounded-lg transition-all flex items-center gap-2">
+              Şimdi Yedek Al <i class="fa-solid fa-cloud-arrow-up"></i>
+            </button>
+          </div>
+          <!-- Backups List -->
+          <div class="flex-1 overflow-y-auto border border-white/5 rounded-xl bg-black/20">
+            <table class="w-full text-sm text-left">
+              <thead class="bg-white/5 uppercase text-xs tracking-wider text-slate-400 font-bold">
+                <tr>
+                  <th class="px-6 py-3">Dosya Adı / Filename</th>
+                  <th class="px-6 py-3">Boyut / Size</th>
+                  <th class="px-6 py-3">Tarih / Date</th>
+                  <th class="px-6 py-3 text-right">İndir / Action</th>
+                </tr>
+              </thead>
+              <tbody id="backups-list-body" class="divide-y divide-white/5">
+                <!-- Backup files here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentServer = null;
+    let consoleEventSource = null;
+    let allProperties = [];
+
+    // Initialize Dashboard
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchStatus();
+      fetchServers();
+      setInterval(fetchStatus, 4000);
+      setInterval(fetchServers, 5000);
+    });
+
+    // 1. Fetch System status
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        
+        // Update values
+        document.getElementById('cpu-text').innerText = `${data.cpu}%`;
+        document.getElementById('ram-text').innerText = `${data.ram.used} / ${data.ram.total} GB`;
+        document.getElementById('ram-pct').innerText = `${data.ram.percentage}% Kullanılıyor`;
+        document.getElementById('disk-text').innerText = `${data.disk.used} / ${data.disk.total}`;
+        document.getElementById('disk-pct').innerText = `${data.disk.percentage}% Doluluk`;
+
+        // Update gauges
+        updateGauge('cpu-circle', data.cpu);
+        updateGauge('ram-circle', data.ram.percentage);
+        updateGauge('disk-circle', data.disk.percentage);
+      } catch (err) {
+        console.error('Error fetching system status:', err);
+      }
+    }
+
+    // Update SVG Circular progress gauges
+    function updateGauge(circleId, percentage) {
+      const circle = document.getElementById(circleId);
+      const radius = 26;
+      const circumference = 2 * Math.PI * radius; // ~163.3
+      const offset = circumference - (percentage / 100) * circumference;
+      circle.style.strokeDashoffset = offset;
+    }
+
+    // 2. Fetch server lists
+    async function fetchServers() {
+      try {
+        const res = await fetch('/api/servers');
+        const servers = await res.json();
+        const container = document.getElementById('server-list');
+        container.innerHTML = '';
+
+        servers.forEach(srv => {
+          const statusColor = srv.running ? 'bg-emerald-500' : 'bg-rose-500';
+          const statusText = srv.running ? 'Çalışıyor / Running' : 'Çevrimdışı / Offline';
+          const actionBtn = srv.running 
+            ? `<button onclick="stopServer('${srv.name}')" class="flex-1 bg-rose-600/10 hover:bg-rose-600/20 text-rose-400 text-xs font-bold py-2 rounded-lg border border-rose-500/20 transition-all">Durdur</button>`
+            : `<button onclick="startServer('${srv.name}')" class="flex-1 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 text-xs font-bold py-2 rounded-lg border border-emerald-500/20 transition-all">Başlat</button>`;
+
+          const card = document.createElement('div');
+          card.className = 'glass-card p-6 flex flex-col justify-between h-56 hover:border-white/10 transition-all duration-300';
+          card.innerHTML = `
+            <div class="space-y-4">
+              <div class="flex items-center justify-between">
+                <span class="text-xs bg-white/5 text-slate-300 font-bold px-2.5 py-1 rounded-md border border-white/5">${srv.type.toUpperCase()}</span>
+                <span class="text-xs font-bold flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full ${statusColor} border border-white/10"></span> ${srv.version}
+                </span>
+              </div>
+              <div>
+                <h3 class="text-lg font-bold text-white truncate">${srv.name}</h3>
+                <p class="text-xs text-slate-400 truncate mt-1"><i class="fa-solid fa-location-dot text-slate-500"></i> ${srv.path}</p>
+                <p class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-network-wired text-slate-500"></i> Port: ${srv.port}</p>
+              </div>
+            </div>
+            <div class="flex gap-2 mt-4">
+              ${actionBtn}
+              <button onclick="openManager(${JSON.stringify(srv).replace(/"/g, '&quot;')})" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold py-2 rounded-lg transition-all">Yönet / Manage</button>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      } catch (err) {
+        console.error('Error fetching servers:', err);
+      }
+    }
+
+    // Server Controls
+    async function startServer(name) {
+      const res = await fetch(`/api/servers/${name}/start`, { method: 'POST' });
+      const data = await res.json();
+      if (data.error) alert(data.error);
+      fetchServers();
+    }
+
+    async function stopServer(name) {
+      const res = await fetch(`/api/servers/${name}/stop`, { method: 'POST' });
+      const data = await res.json();
+      if (data.error) alert(data.error);
+      fetchServers();
+    }
+
+    async function restartServer(name) {
+      const res = await fetch(`/api/servers/${name}/restart`, { method: 'POST' });
+      const data = await res.json();
+      if (data.error) alert(data.error);
+      fetchServers();
+    }
+
+    // Modal tabs manager
+    function switchTab(tab) {
+      ['console', 'properties', 'backups'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.add('hidden');
+        document.getElementById(`tab-${t}-btn`).className = 'px-6 py-3 border-b-2 border-transparent text-slate-400 hover:text-white transition-all flex items-center gap-2';
+      });
+      document.getElementById(`tab-${tab}`).classList.remove('hidden');
+      document.getElementById(`tab-${tab}-btn`).className = 'px-6 py-3 border-b-2 border-cyan-400 text-cyan-400 transition-all flex items-center gap-2';
+
+      if (tab === 'properties') fetchProperties();
+      if (tab === 'backups') fetchBackups();
+    }
+
+    // Open Manager Dialog
+    function openManager(srv) {
+      currentServer = srv;
+      document.getElementById('modal-server-title').innerText = srv.name;
+      document.getElementById('modal-server-subtitle').innerText = `${srv.type.toUpperCase()} | ${srv.version} | ${srv.path}`;
+      document.getElementById('manager-modal').classList.remove('hidden');
+      switchTab('console');
+      startConsoleStream(srv.name);
+    }
+
+    // Close Manager Dialog
+    function closeManager() {
+      document.getElementById('manager-modal').classList.add('hidden');
+      if (consoleEventSource) {
+        consoleEventSource.close();
+        consoleEventSource = null;
+      }
+      currentServer = null;
+    }
+
+    // Start Live console log stream
+    function startConsoleStream(name) {
+      const term = document.getElementById('terminal-screen');
+      term.innerHTML = '<div class="text-slate-500">Connecting to terminal stream...</div>';
+
+      if (consoleEventSource) consoleEventSource.close();
+
+      consoleEventSource = new EventSource(`/api/servers/${name}/console`);
+      consoleEventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.error) {
+          term.innerHTML += `<div class="text-rose-500">${data.error}</div>`;
+        } else if (data.line) {
+          const div = document.createElement('div');
+          // Clean terminal lines slightly
+          div.innerText = data.line;
+          term.appendChild(div);
+          term.scrollTop = term.scrollHeight;
+        }
+      };
+
+      consoleEventSource.onerror = () => {
+        term.innerHTML += `<div class="text-amber-500 mt-2">Connecting lost, retrying...</div>`;
+      };
+    }
+
+    // Send server command
+    async function sendCommand() {
+      const input = document.getElementById('cmd-input');
+      const val = input.value.trim();
+      if (!val) return;
+
+      const res = await fetch(`/api/servers/${currentServer.name}/command`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: val })
+      });
+      const data = await res.json();
+      if (data.error) alert(data.error);
+      input.value = '';
+    }
+
+    // Properties Actions
+    async function fetchProperties() {
+      const res = await fetch(`/api/servers/${currentServer.name}/properties`);
+      if (res.status === 404) {
+        document.getElementById('properties-container').innerHTML = '<div class="text-slate-500 col-span-2">server.properties bulunamadı.</div>';
+        return;
+      }
+      allProperties = await res.json();
+      renderProperties(allProperties);
+    }
+
+    function renderProperties(props) {
+      const container = document.getElementById('properties-container');
+      container.innerHTML = '';
+
+      props.forEach(prop => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'glass-card p-4 space-y-2';
+        wrapper.innerHTML = `
+          <label class="text-xs text-cyan-400 font-bold font-mono block">${prop.key}</label>
+          <input type="text" data-key="${prop.key}" value="${prop.value}" class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500 transition-colors font-mono" />
+        `;
+        container.appendChild(wrapper);
+      });
+    }
+
+    function filterProperties() {
+      const query = document.getElementById('prop-search').value.toLowerCase().trim();
+      const filtered = allProperties.filter(p => p.key.toLowerCase().includes(query) || p.value.toLowerCase().includes(query));
+      renderProperties(filtered);
+    }
+
+    async function saveProperties() {
+      const inputs = document.querySelectorAll('#properties-container input');
+      const updatedProps = Array.from(inputs).map(inp => ({
+        key: inp.getAttribute('data-key'),
+        value: inp.value
+      }));
+
+      const res = await fetch(`/api/servers/${currentServer.name}/properties`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ properties: updatedProps })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Ayarlar başarıyla kaydedildi!');
+        fetchProperties();
+      } else {
+        alert('Kaydetme hatası: ' + data.error);
+      }
+    }
+
+    // Backups Actions
+    async function fetchBackups() {
+      const res = await fetch(`/api/servers/${currentServer.name}/backups`);
+      const backups = await res.json();
+      const body = document.getElementById('backups-list-body');
+      body.innerHTML = '';
+
+      if (backups.length === 0) {
+        body.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-slate-500">Kayıtlı yedek dosyası bulunamadı.</td></tr>';
+        return;
+      }
+
+      backups.forEach(bk => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-white/5 transition-colors';
+        tr.innerHTML = `
+          <td class="px-6 py-4 font-mono font-medium text-white truncate max-w-xs">${bk.filename}</td>
+          <td class="px-6 py-4">${bk.size}</td>
+          <td class="px-6 py-4 text-xs text-slate-400">${new Date(bk.date).toLocaleString()}</td>
+          <td class="px-6 py-4 text-right">
+            <a href="/api/servers/${currentServer.name}/backups/${bk.filename}" class="bg-cyan-600/10 border border-cyan-500/20 hover:bg-cyan-600/20 text-cyan-400 font-semibold px-3 py-1.5 rounded-lg text-xs transition-all inline-flex items-center gap-1.5">
+              <i class="fa-solid fa-download"></i> İndir
+            </a>
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    async function createBackup() {
+      const res = await fetch(`/api/servers/${currentServer.name}/backup`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        alert('Yedek alma işlemi arka planda başlatıldı! Lütfen birkaç saniye sonra sayfayı yenileyin.');
+        setTimeout(fetchBackups, 3000);
+      } else {
+        alert('Yedek alma hatası: ' + data.error);
+      }
+    }
+  </script>
+</body>
+</html>

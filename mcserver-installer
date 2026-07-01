@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.35
+# Version: 1.40
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.35"
+APP_VERSION="1.40"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -62,6 +62,7 @@ t() {
             "main_restore") echo "Yedeği Geri Yükle" ;;
             "main_remove") echo "Sunucuyu Kaldır / Kaydı Sil" ;;
             "main_settings") echo "Ayarlar ve Sistem Kontrolleri" ;;
+            "main_dashboard") echo "Web Kontrol Paneli (Web Dashboard)" ;;
             "main_about") echo "Hakkında" ;;
             "main_exit") echo "Çıkış" ;;
             "main_select") echo "Seçim yapın" ;;
@@ -110,6 +111,7 @@ t() {
             "hdr_discord_webhook") echo "DISCORD WEBHOOK YAPILANDIR" ;;
             "hdr_java_manager") echo "JAVA JRE YÖNETİCİSİ" ;;
             "hdr_optimize") echo "SUNUCU PERFORMANS OPTİMİZASYONU" ;;
+            "hdr_web_dashboard") echo "WEB KONTROL PANELİ (WEB DASHBOARD)" ;;
 
             # prompt_selection internal UI keys
             "page_word") echo "Sayfa" ;;
@@ -4248,6 +4250,129 @@ change_language_settings() {
     esac
 }
 
+launch_web_dashboard() {
+    clear_screen
+    draw_header
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_web_dashboard" "WEB KONTROL PANELİ (WEB DASHBOARD)")${COLOR_RESET}"
+    echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
+
+    # 1. Dependency checks
+    if ! command -v node &>/dev/null || ! command -v npm &>/dev/null; then
+        if [ "$LANG_PREF" = "tr" ]; then
+            log_error "Node.js veya npm kurulu değil! Web paneli çalıştırılamıyor."
+            log_info "Lütfen sisteminize Node.js kurun ve tekrar deneyin."
+        else
+            log_error "Node.js or npm is not installed! Cannot launch Web Dashboard."
+            log_info "Please install Node.js on your system and try again."
+        fi
+        sleep 3
+        return 1
+    fi
+
+    local script_dir
+    script_dir=$(cd "$(dirname "$0")" && pwd)
+    local dashboard_dir="${script_dir}/dashboard"
+
+    # 2. Check if node_modules is installed
+    if [ ! -d "${dashboard_dir}/node_modules" ]; then
+        if [ "$LANG_PREF" = "tr" ]; then
+            log_info "Web paneli bağımlılıkları yükleniyor (npm install)..."
+            run_with_spinner "Bağımlılıklar yükleniyor" npm --prefix "$dashboard_dir" install
+        else
+            log_info "Installing web dashboard dependencies (npm install)..."
+            run_with_spinner "Installing dependencies" npm --prefix "$dashboard_dir" install
+        fi
+        if [ $? -ne 0 ]; then
+            if [ "$LANG_PREF" = "tr" ]; then
+                log_error "Bağımlılıklar yüklenemedi!"
+            else
+                log_error "Failed to install dependencies!"
+            fi
+            sleep 3
+            return 1
+        fi
+    fi
+
+    # 3. Check if dashboard is already running
+    if screen -list | grep -q "\.mc-dashboard"; then
+        local choice
+        if [ "$LANG_PREF" = "tr" ]; then
+            echo -e "  ${COLOR_YELLOW}Web Kontrol Paneli şu anda arka planda çalışıyor.${COLOR_RESET}\n"
+            choice=$(prompt_selection "Lütfen bir işlem seçin:" "Paneli Durdur" "Paneli Yeniden Başlat" "Ana Menüye Dön")
+        else
+            echo -e "  ${COLOR_YELLOW}Web Dashboard is currently running in the background.${COLOR_RESET}\n"
+            choice=$(prompt_selection "Please select an action:" "Stop Dashboard" "Restart Dashboard" "Return to Main Menu")
+        fi
+
+        case "$choice" in
+            "Paneli Durdur"|"Stop Dashboard")
+                screen -S mc-dashboard -X quit &>/dev/null
+                if [ "$LANG_PREF" = "tr" ]; then
+                    log_success "Web paneli durduruldu."
+                else
+                    log_success "Web dashboard stopped."
+                fi
+                sleep 2
+                return 0
+                ;;
+            "Paneli Yeniden Başlat"|"Restart Dashboard")
+                screen -S mc-dashboard -X quit &>/dev/null
+                sleep 1
+                ;;
+            *)
+                return 0
+                ;;
+        esac
+    fi
+
+    # 4. Launch Dashboard
+    if [ "$LANG_PREF" = "tr" ]; then
+        log_info "Web paneli arka planda başlatılıyor (port: 3000)..."
+    else
+        log_info "Launching Web Dashboard in the background (port: 3000)..."
+    fi
+
+    screen -dmS mc-dashboard bash -c "cd '${dashboard_dir}' && npm start"
+    sleep 2
+
+    if screen -list | grep -q "\.mc-dashboard"; then
+        local local_ip="127.0.0.1"
+        if command -v hostname &>/dev/null; then
+            local_ip=$(hostname -I | awk '{print $1}')
+        fi
+        if [ -z "$local_ip" ]; then
+            local_ip=$(ip route get 1 2>/dev/null | awk '{print $7}')
+        fi
+        if [ -z "$local_ip" ]; then
+            local_ip=$(ifconfig | grep "inet " | grep -v "127.0.0.1" | awk '{print $2}' | head -n 1)
+        fi
+        [ -z "$local_ip" ] && local_ip="127.0.0.1"
+
+        if [ "$LANG_PREF" = "tr" ]; then
+            log_success "Web paneli başarıyla başlatıldı!"
+            echo -e "\n  Paneli tarayıcınızdan açmak için aşağıdaki bağlantıları kullanın:"
+            echo -e "  - Yerel Erişim:  ${COLOR_CYAN}http://localhost:3000${COLOR_RESET}"
+            echo -e "  - Ağ Üzerinden:  ${COLOR_CYAN}http://${local_ip}:3000${COLOR_RESET}\n"
+            echo -e "  Paneli durdurmak veya durumunu görmek için bu menüyü tekrar kullanabilirsiniz."
+        else
+            log_success "Web Dashboard successfully launched!"
+            echo -e "\n  Open the dashboard in your browser using the links below:"
+            echo -e "  - Local Link:    ${COLOR_CYAN}http://localhost:3000${COLOR_RESET}"
+            echo -e "  - Network Link:  ${COLOR_CYAN}http://${local_ip}:3000${COLOR_RESET}\n"
+            echo -e "  You can return to this menu item at any time to stop or restart the dashboard."
+        fi
+    else
+        if [ "$LANG_PREF" = "tr" ]; then
+            log_error "Web paneli başlatılamadı! Lütfen günlükleri kontrol edin."
+        else
+            log_error "Failed to start Web Dashboard! Please check your logs."
+        fi
+    fi
+
+    echo -e -n "\n  $(t "press_enter" "Press [Enter] to continue: ")"
+    read -r _
+}
+
 check_for_updates() {
     local raw_script_url="https://raw.githubusercontent.com/devRaikou/mcserver-installer/main/mcserver-installer"
 
@@ -4414,11 +4539,12 @@ main_menu() {
         ui_menu_item 5 "$(t "main_restore" "Restore Backup")"
         ui_menu_item 6 "$(t "main_remove" "Remove Server / Registration")"
         ui_menu_item 7 "$(t "main_settings" "Settings & System checks")"
-        ui_menu_item 8 "$(t "main_about" "About")"
-        ui_menu_item 9 "$(t "main_exit" "Exit")"
+        ui_menu_item 8 "$(t "main_dashboard" "Web Dashboard")"
+        ui_menu_item 9 "$(t "main_about" "About")"
+        ui_menu_item 10 "$(t "main_exit" "Exit")"
         ui_divider
 
-        echo -n -e "  ${COLOR_CYAN}$(t "main_select" "Select option")${COLOR_RESET} ${COLOR_GRAY}(1-9)${COLOR_RESET}: "
+        echo -n -e "  ${COLOR_CYAN}$(t "main_select" "Select option")${COLOR_RESET} ${COLOR_GRAY}(1-10)${COLOR_RESET}: "
         if ! read -r choice; then
             if [ "$LANG_PREF" = "tr" ]; then
                 echo -e "\n  Girdi akışı kapandı. Çıkış yapılıyor."
@@ -4452,9 +4578,12 @@ main_menu() {
                 run_settings_menu
                 ;;
             8)
-                show_about
+                launch_web_dashboard
                 ;;
             9)
+                show_about
+                ;;
+            10)
                 if [ "$LANG_PREF" = "tr" ]; then
                     echo -e "\n  ${COLOR_CYAN}mcserver-installer${COLOR_RESET} kullandığınız için teşekkürler! Görüşmek üzere."
                 else
@@ -4464,9 +4593,9 @@ main_menu() {
                 ;;
             *)
                 if [ "$LANG_PREF" = "tr" ]; then
-                    log_warn "Geçersiz seçim. Lütfen 1 ile 9 arasında bir sayı girin."
+                    log_warn "Geçersiz seçim. Lütfen 1 ile 10 arasında bir sayı girin."
                 else
-                    log_warn "Invalid selection. Please input a number from 1 to 9."
+                    log_warn "Invalid selection. Please input a number from 1 to 10."
                 fi
                 sleep 1.5
                 ;;
