@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.19
+# Version: 1.20
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.19"
+APP_VERSION="1.20"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.19 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.20 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -23,7 +23,6 @@ touch "$REGISTRY_FILE"
 
 SETTINGS_FILE="${HOME}/.mcserver-installer/settings.conf"
 API_BASE_URL="http://localhost:3000"
-LICENSE_FILE="${HOME}/.mcserver-installer/license.key"
 
 if [ ! -f "$SETTINGS_FILE" ]; then
     echo 'LANG="en"' > "$SETTINGS_FILE"
@@ -50,7 +49,6 @@ t() {
             "settings_java") echo "Java JRE Kurulumlarını Yönet" ;;
             "settings_webhook") echo "Discord Webhook Bildirimini Yapılandır" ;;
             "settings_lang") echo "Dili Değiştir (Change Language)" ;;
-            "settings_license") echo "Lisans Anahtarını Değiştir" ;;
             "settings_back") echo "Ana Menüye Dön" ;;
             
             "main_title") echo "ANA MENÜ" ;;
@@ -3415,97 +3413,68 @@ change_language_settings() {
     esac
 }
 
-verify_license_key() {
-    local force_prompt="${1:-false}"
-    local license_key=""
-    
-    if [ "$force_prompt" = "false" ] && [ -f "$LICENSE_FILE" ]; then
-        license_key=$(cat "$LICENSE_FILE" 2>/dev/null | tr -d '\r\n[:space:]')
-    fi
-    
-    # If key is empty, prompt the user
-    if [ -z "$license_key" ]; then
-        clear_screen
-        draw_header
-        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}LICENSE AUTHENTICATION REQUIRED${COLOR_RESET}"
-        echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
-        if [ "$LANG_PREF" = "tr" ]; then
-            echo -e "  Lütfen mcserver-installer lisans anahtarınızı girin."
-            echo -n -e "  ${COLOR_YELLOW}Lisans Anahtarı:${COLOR_RESET} "
-        else
-            echo -e "  Please enter your mcserver-installer license key."
-            echo -n -e "  ${COLOR_YELLOW}License Key:${COLOR_RESET} "
-        fi
-        read -r license_key
-        license_key=$(echo "$license_key" | tr -d '\r\n[:space:]')
-        if [ -z "$license_key" ]; then
-            log_error "License key cannot be empty."
-            exit 1
-        fi
-    fi
-    
-    # Verify key via curl
-    local response
-    response=$(curl -s -H "${UA_HEADER}" -H "Content-Type: application/json" \
-         -d "{\"key\": \"${license_key}\"}" \
-         "${API_BASE_URL}/api/license/verify" 2>/dev/null)
-         
-    if [ -z "$response" ]; then
-        if [ "$LANG_PREF" = "tr" ]; then
-            log_error "Lisans sunucusuna bağlanılamadı. Lütfen API sunucusunun açık olduğunu veya internet bağlantınızı kontrol edin."
-        else
-            log_error "Unable to connect to the license server. Please verify that the API server is running or check your internet connection."
-        fi
-        sleep 2
-        exit 1
-    fi
-         
-    local is_valid
-    is_valid=$(echo "$response" | jq -r '.valid' 2>/dev/null || echo "false")
-    
-    if [ "$is_valid" = "true" ]; then
-        local owner
-        owner=$(echo "$response" | jq -r '.owner' 2>/dev/null)
-        echo "$license_key" > "$LICENSE_FILE"
-        if [ "$force_prompt" = "true" ]; then
-            if [ "$LANG_PREF" = "tr" ]; then
-                log_success "Lisans başarıyla doğrulandı! Sahibi: $owner"
-            else
-                log_success "License validated successfully! Owner: $owner"
-            fi
-            sleep 2
-        fi
-        return 0
-    else
-        local msg
-        msg=$(echo "$response" | jq -r '.message' 2>/dev/null)
-        [ -z "$msg" ] || [ "$msg" = "null" ] && msg="Invalid or expired license key."
-        log_error "License check failed: $msg"
-        rm -f "$LICENSE_FILE"
-        sleep 2
-        exit 1
-    fi
-}
-
 check_for_updates() {
     local response
     response=$(curl -s -H "${UA_HEADER}" "${API_BASE_URL}/api/version" 2>/dev/null)
     if [ -n "$response" ] && [ "$response" != "null" ]; then
         local latest
         latest=$(echo "$response" | jq -r '.latest_version' 2>/dev/null)
+        local download_url
+        download_url=$(echo "$response" | jq -r '.download_url' 2>/dev/null)
+        
         if [ -n "$latest" ] && [ "$latest" != "null" ] && [ "$latest" != "$APP_VERSION" ]; then
+            clear_screen
+            draw_header
             if [ "$LANG_PREF" = "tr" ]; then
                 echo -e "  ${COLOR_YELLOW}================================================================${COLOR_RESET}"
                 echo -e "  🚀 Yeni bir mcserver-installer sürümü mevcut: ${COLOR_GREEN}${latest}${COLOR_RESET} (Mevcut: ${APP_VERSION})"
-                echo -e "  Güncellemek için lütfen en son sürümü indirin."
                 echo -e "  ${COLOR_YELLOW}================================================================${COLOR_RESET}\n"
+                prompt_yes_no "Otomatik olarak son sürüme güncellemek ister misiniz?" "y"
             else
                 echo -e "  ${COLOR_YELLOW}================================================================${COLOR_RESET}"
                 echo -e "  🚀 A new version of mcserver-installer is available: ${COLOR_GREEN}${latest}${COLOR_RESET} (Current: ${APP_VERSION})"
-                echo -e "  Please download the latest version to update."
                 echo -e "  ${COLOR_YELLOW}================================================================${COLOR_RESET}\n"
+                prompt_yes_no "Would you like to automatically update to the latest version?" "y"
             fi
-            sleep 3
+            
+            if [ $? -eq 0 ]; then
+                if [ -z "$download_url" ] || [ "$download_url" = "null" ]; then
+                    if [ "$LANG_PREF" = "tr" ]; then
+                        log_error "İndirme URL'si yapılandırılmamış, güncelleme iptal edildi."
+                    else
+                        log_error "Download URL not configured, update cancelled."
+                    fi
+                    sleep 2
+                    return 1
+                fi
+                
+                local temp_file="$0.tmp"
+                if [ "$LANG_PREF" = "tr" ]; then
+                    run_with_spinner "Yeni sürüm indiriliyor" curl -s -L -o "$temp_file" "$download_url"
+                else
+                    run_with_spinner "Downloading new version" curl -s -L -o "$temp_file" "$download_url"
+                fi
+                
+                # Check shebang to ensure the downloaded file is a valid bash script
+                if [ -f "$temp_file" ] && grep -q "#!/usr/bin/env bash" "$temp_file"; then
+                    mv "$temp_file" "$0"
+                    chmod +x "$0"
+                    if [ "$LANG_PREF" = "tr" ]; then
+                        log_success "mcserver-installer başarıyla güncellendi! Lütfen betiği yeniden başlatın."
+                    else
+                        log_success "mcserver-installer updated successfully! Please restart the script."
+                    fi
+                    exit 0
+                else
+                    rm -f "$temp_file"
+                    if [ "$LANG_PREF" = "tr" ]; then
+                        log_error "Güncelleme dosyası doğrulanamadı veya bozuk indirildi!"
+                    else
+                        log_error "Failed to validate update file or download corrupted!"
+                    fi
+                    sleep 3
+                fi
+            fi
         fi
     fi
 }
@@ -3520,12 +3489,11 @@ run_settings_menu() {
         echo -e "    ${COLOR_YELLOW}2.${COLOR_RESET} $(t "settings_java" "Manage Java JRE Installations")"
         echo -e "    ${COLOR_YELLOW}3.${COLOR_RESET} $(t "settings_webhook" "Configure Discord Webhook Alert")"
         echo -e "    ${COLOR_YELLOW}4.${COLOR_RESET} $(t "settings_lang" "Change Language (Dili Değiştir)")"
-        echo -e "    ${COLOR_YELLOW}5.${COLOR_RESET} $(t "settings_license" "Change License Key (Lisans Değiştir)")"
-        echo -e "    ${COLOR_YELLOW}6.${COLOR_RESET} $(t "settings_back" "Return to Main Menu")"
+        echo -e "    ${COLOR_YELLOW}5.${COLOR_RESET} $(t "settings_back" "Return to Main Menu")"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
         
         local choice
-        choice=$(prompt_input "$(t "main_select" "Select option")" "6")
+        choice=$(prompt_input "$(t "main_select" "Select option")" "5")
         
         case "$choice" in
             1)
@@ -3545,9 +3513,6 @@ run_settings_menu() {
                 change_language_settings
                 ;;
             5)
-                verify_license_key "true"
-                ;;
-            6)
                 break
                 ;;
             *)
@@ -3664,6 +3629,5 @@ fi
 
 # Launch Application
 HEADLESS_MODE="false"
-verify_license_key "false"
 check_for_updates
 main_menu
