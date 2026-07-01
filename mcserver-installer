@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.20
+# Version: 1.21
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.20"
+APP_VERSION="1.21"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.20 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.21 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -84,6 +84,27 @@ t() {
             "srv_back") echo "Ana Menüye Dön" ;;
             "invalid_sel") echo "Geçersiz seçim." ;;
             "press_enter") echo "Devam etmek için [Enter] tuşuna basın: " ;;
+            
+            # Menu Headers
+            "hdr_install_wizard") echo "KURULUM SİHİRBAZI" ;;
+            "hdr_properties_editor") echo "SUNUCU ÖZELLİKLERİ EDİTÖRÜ" ;;
+            "hdr_backup_creation") echo "YEDEK OLUŞTURMA" ;;
+            "hdr_backup_scheduler") echo "OTOMATİK YEDEKLEME ZAMANLAYICI" ;;
+            "hdr_restore_backup") echo "YEDEĞİ GERİ YÜKLE" ;;
+            "hdr_log_viewer") echo "SUNUCU GÜNLÜK GÖRÜNTÜLEYİCİ" ;;
+            "hdr_interactive_console") echo "ETKİLEŞİMLİ KONSOL" ;;
+            "hdr_raw_console") echo "HAM KONSOLA BAĞLANTI" ;;
+            "hdr_systemd_controller") echo "SYSTEMD AÇILIŞ OTOMATİK BAŞLATMA KONTROLCÜSÜ" ;;
+            "hdr_resource_monitor") echo "GERÇEK ZAMANLI KAYNAK İZLEME" ;;
+            "hdr_plugin_manager") echo "SUNUCU EKLENTİ YÖNETİCİSİ" ;;
+            "hdr_search_plugins") echo "EKLENTİ ARA VE KUR" ;;
+            "hdr_remove_plugins") echo "EKLENTİLERİ LİSTELE VE KALDIR" ;;
+            "hdr_install_geyser") echo "GEYSERMC & FLOODGATE (CROSS-PLAY) KUR" ;;
+            "hdr_select_server") echo "KURULU SUNUCU SEÇ" ;;
+            "hdr_about_project") echo "PROJE HAKKINDA" ;;
+            "hdr_update_software") echo "SUNUCU YAZILIMINI GÜNCELLE" ;;
+            "hdr_discord_webhook") echo "DISCORD WEBHOOK YAPILANDIR" ;;
+            "hdr_java_manager") echo "JAVA JRE YÖNETİCİSİ" ;;
             
             # Orchestrator
             "orch_title") echo "PROXY ARKA PLAN ORKESTRASYONU" ;;
@@ -1088,7 +1109,7 @@ EOF
 run_installation_wizard() {
     clear_screen
     draw_header
-    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}INSTALLATION WIZARD${COLOR_RESET}"
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_install_wizard" "INSTALLATION WIZARD")${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
     
     # 1. Server Type
@@ -1600,7 +1621,7 @@ run_properties_editor() {
     while true; do
         clear_screen
         draw_header
-        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}SERVER PROPERTIES EDITOR${COLOR_RESET}"
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_properties_editor" "SERVER PROPERTIES EDITOR")${COLOR_RESET}"
         echo -e "  Location: $prop_file"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
         
@@ -1709,7 +1730,7 @@ create_server_backup() {
     if [ "${HEADLESS_MODE:-false}" = "false" ]; then
         clear_screen
         draw_header
-        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}BACKUP CREATION${COLOR_RESET}"
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_backup_creation" "BACKUP CREATION")${COLOR_RESET}"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
     fi
     
@@ -1752,7 +1773,7 @@ manage_backup_scheduler() {
     while true; do
         clear_screen
         draw_header
-        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}AUTOMATED BACKUP SCHEDULER${COLOR_RESET}"
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_backup_scheduler" "AUTOMATED BACKUP SCHEDULER")${COLOR_RESET}"
         echo -e "  Server: $s_name"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
         
@@ -1813,7 +1834,7 @@ run_server_restore() {
     
     clear_screen
     draw_header
-    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}RESTORE BACKUP${COLOR_RESET}"
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_restore_backup" "RESTORE BACKUP")${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
     
     if [ ! -d "$backup_dir" ] || [ -z "$(ls -A "$backup_dir" 2>/dev/null)" ]; then
@@ -2011,7 +2032,7 @@ view_server_logs() {
     
     clear_screen
     draw_header
-    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}SERVER LOG VIEWER${COLOR_RESET} (Press Ctrl+C to exit)"
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_log_viewer" "SERVER LOG VIEWER")${COLOR_RESET} (Press Ctrl+C to exit)"
     echo -e "  File: $log_file"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
     
@@ -2049,7 +2070,7 @@ connect_server_console() {
     while true; do
         clear_screen
         draw_header
-        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}INTERACTIVE CONSOLE${COLOR_RESET} (Type 'exit' to quit console)"
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_interactive_console" "INTERACTIVE CONSOLE")${COLOR_RESET} (Type 'exit' to quit console)"
         echo -e "  Address:  ${COLOR_GREEN}${local_ip}:${port}${COLOR_RESET} (Local) | ${COLOR_GREEN}${public_ip}:${port}${COLOR_RESET} (Public)"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
         
@@ -2093,7 +2114,7 @@ connect_server_console_raw() {
     
     clear_screen
     draw_header
-    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}CONNECTING TO RAW CONSOLE${COLOR_RESET}"
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_raw_console" "CONNECTING TO RAW CONSOLE")${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}IMPORTANT: To detach from the console without stopping the server,${COLOR_RESET}"
     echo -e "  ${COLOR_YELLOW}Press: Ctrl+A, then D${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
@@ -2167,7 +2188,7 @@ toggle_systemd_service() {
     
     clear_screen
     draw_header
-    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}SYSTEMD BOOT AUTO-START CONTROLLER${COLOR_RESET}"
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_systemd_controller" "SYSTEMD BOOT AUTO-START CONTROLLER")${COLOR_RESET}"
     echo -e "  Server: $s_name | Auto-start status: ${COLOR_YELLOW}${active_str}${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
     
@@ -2287,7 +2308,7 @@ monitor_server_resources() {
         
         clear_screen
         draw_header
-        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}REAL-TIME RESOURCE MONITOR${COLOR_RESET}"
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_resource_monitor" "REAL-TIME RESOURCE MONITOR")${COLOR_RESET}"
         echo -e "  Server: $s_name | Session: $session_name | PID: $pid"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
         
@@ -2384,7 +2405,7 @@ manage_server_plugins() {
     while true; do
         clear_screen
         draw_header
-        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}SERVER PLUGIN MANAGER: $s_name${COLOR_RESET}"
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_plugin_manager" "SERVER PLUGIN MANAGER"): $s_name${COLOR_RESET}"
         echo -e "  Minecraft Version: $s_ver | Software: $s_type"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
         
@@ -2423,7 +2444,7 @@ search_and_install_plugin() {
     
     clear_screen
     draw_header
-    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}SEARCH AND INSTALL PLUGINS${COLOR_RESET}\n"
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_search_plugins" "SEARCH AND INSTALL PLUGINS")${COLOR_RESET}\n"
     
     local query
     query=$(prompt_input "Enter plugin name to search" "")
@@ -2592,7 +2613,7 @@ list_and_remove_plugins() {
     if [ ! -d "$plugins_dir" ] || [ -z "$(ls -A "$plugins_dir" 2>/dev/null | grep '\.jar$')" ]; then
         clear_screen
         draw_header
-        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}LIST AND REMOVE PLUGINS${COLOR_RESET}\n"
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_remove_plugins" "LIST AND REMOVE PLUGINS")${COLOR_RESET}\n"
         log_warn "No plugins found in plugins directory."
         sleep 2
         return 1
@@ -2679,7 +2700,7 @@ install_geyser_floodgate() {
     
     clear_screen
     draw_header
-    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}INSTALL GEYSERMC & FLOODGATE (CROSS-PLAY)${COLOR_RESET}"
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_install_geyser" "INSTALL GEYSERMC & FLOODGATE (CROSS-PLAY)")${COLOR_RESET}"
     echo -e "  Server: $s_name | Platform: $platform"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
     
@@ -2933,7 +2954,7 @@ select_and_manage_server() {
     
     clear_screen
     draw_header
-    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}SELECT INSTALLED SERVER${COLOR_RESET}"
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_select_server" "SELECT INSTALLED SERVER")${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
     
     # Read registry
@@ -2996,7 +3017,7 @@ select_and_manage_server() {
 show_about() {
     clear_screen
     draw_header
-    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}ABOUT THE PROJECT${COLOR_RESET}"
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_about_project" "ABOUT THE PROJECT")${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
     echo -e "  ${COLOR_BOLD}mcserver-installer${COLOR_RESET} is a premium Command Line Interface (CLI) tool"
     echo -e "  engineered to automate the installation and lifecycle management of"
@@ -3185,7 +3206,7 @@ update_server_software() {
     
     clear_screen
     draw_header
-    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}UPDATE SERVER SOFTWARE${COLOR_RESET}"
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_update_software" "UPDATE SERVER SOFTWARE")${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
     
     local servers=()
@@ -3281,7 +3302,7 @@ update_server_software() {
 configure_discord_webhook() {
     clear_screen
     draw_header
-    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}CONFIGURE DISCORD WEBHOOK${COLOR_RESET}"
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_discord_webhook" "CONFIGURE DISCORD WEBHOOK")${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
     
     local settings_file="${HOME}/.mcserver-installer/settings.conf"
@@ -3321,7 +3342,7 @@ run_java_manager_menu() {
     while true; do
         clear_screen
         draw_header
-        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}JAVA JRE MANAGER${COLOR_RESET}"
+        echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_java_manager" "JAVA JRE MANAGER")${COLOR_RESET}"
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
         
         local active_ver
