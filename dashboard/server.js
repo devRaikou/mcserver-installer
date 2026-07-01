@@ -1,4 +1,5 @@
 const express = require('express');
+const net = require('net');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
@@ -364,6 +365,41 @@ app.post('/api/servers/:name/backup', (req, res) => {
   res.json({ success: true, message: 'Backup job triggered in background' });
 });
 
-app.listen(PORT, () => {
-  console.log(`mcserver-installer Dashboard server listening on port ${PORT}`);
+function findFreePort(startPort, maxPort = 3100) {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        if (startPort < maxPort) {
+          resolve(findFreePort(startPort + 1, maxPort));
+        } else {
+          reject(new Error('No free ports available'));
+        }
+      } else {
+        reject(err);
+      }
+    });
+
+    server.listen(startPort, () => {
+      const { port } = server.address();
+      server.close(() => {
+        resolve(port);
+      });
+    });
+  });
+}
+
+findFreePort(PORT).then((freePort) => {
+  app.listen(freePort, () => {
+    console.log(`mcserver-installer Dashboard server listening on port ${freePort}`);
+    const configDir = path.join(os.homedir(), '.mcserver-installer');
+    if (!fs.existsSync(configDir)) {
+      fs.mkdirSync(configDir, { recursive: true });
+    }
+    fs.writeFileSync(path.join(configDir, '.dashboard_port'), freePort.toString(), 'utf8');
+  });
+}).catch((err) => {
+  console.error(err.message);
+  process.exit(1);
 });

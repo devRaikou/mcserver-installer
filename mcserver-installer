@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.42
+# Version: 1.43
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.42"
+APP_VERSION="1.43"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -4375,13 +4375,27 @@ launch_web_dashboard() {
 
     # 4. Launch Dashboard
     if [ "$LANG_PREF" = "tr" ]; then
-        log_info "Web paneli arka planda başlatılıyor (port: 3000)..."
+        log_info "Web paneli arka planda başlatılıyor..."
     else
-        log_info "Launching Web Dashboard in the background (port: 3000)..."
+        log_info "Launching Web Dashboard in the background..."
     fi
 
+    # Clear old port file
+    rm -f "${CONFIG_DIR}/.dashboard_port"
+
     screen -dmS mc-dashboard bash -c "cd '${dashboard_dir}' && npm start"
-    sleep 2
+    
+    # Wait for the backend to start and write the active port
+    local count=0
+    local active_port="3000"
+    while [ ! -f "${CONFIG_DIR}/.dashboard_port" ] && [ $count -lt 12 ]; do
+        sleep 0.5
+        count=$((count + 1))
+    done
+
+    if [ -f "${CONFIG_DIR}/.dashboard_port" ]; then
+        active_port=$(cat "${CONFIG_DIR}/.dashboard_port" | tr -d '[:space:]')
+    fi
 
     if screen -list | grep -q "\.mc-dashboard"; then
         local local_ip="127.0.0.1"
@@ -4399,14 +4413,14 @@ launch_web_dashboard() {
         if [ "$LANG_PREF" = "tr" ]; then
             log_success "Web paneli başarıyla başlatıldı!"
             echo -e "\n  Paneli tarayıcınızdan açmak için aşağıdaki bağlantıları kullanın:"
-            echo -e "  - Yerel Erişim:  ${COLOR_CYAN}http://localhost:3000${COLOR_RESET}"
-            echo -e "  - Ağ Üzerinden:  ${COLOR_CYAN}http://${local_ip}:3000${COLOR_RESET}\n"
+            echo -e "  - Yerel Erişim:  ${COLOR_CYAN}http://localhost:${active_port}${COLOR_RESET}"
+            echo -e "  - Ağ Üzerinden:  ${COLOR_CYAN}http://${local_ip}:${active_port}${COLOR_RESET}\n"
             echo -e "  Paneli durdurmak veya durumunu görmek için bu menüyü tekrar kullanabilirsiniz."
         else
             log_success "Web Dashboard successfully launched!"
             echo -e "\n  Open the dashboard in your browser using the links below:"
-            echo -e "  - Local Link:    ${COLOR_CYAN}http://localhost:3000${COLOR_RESET}"
-            echo -e "  - Network Link:  ${COLOR_CYAN}http://${local_ip}:3000${COLOR_RESET}\n"
+            echo -e "  - Local Link:    ${COLOR_CYAN}http://localhost:${active_port}${COLOR_RESET}"
+            echo -e "  - Network Link:  ${COLOR_CYAN}http://${local_ip}:${active_port}${COLOR_RESET}\n"
             echo -e "  You can return to this menu item at any time to stop or restart the dashboard."
         fi
     else
