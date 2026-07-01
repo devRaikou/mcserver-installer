@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.26
+# Version: 1.27
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.26"
+APP_VERSION="1.27"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.26 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/1.27 (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -164,6 +164,47 @@ t() {
             "plugin_fail_url") echo "İndirme bağlantısı çözülemedi." ;;
             "plugin_none_dir") echo "Eklenti dizininde hiçbir eklenti bulunamadı." ;;
             "plugin_none_jar") echo "Hiçbir eklenti jar dosyası bulunamadı." ;;
+            
+            # systemd Boot auto-start translations
+            "systemd_disabled") echo "Devre Dışı" ;;
+            "systemd_enabled") echo "Etkin" ;;
+            "prompt_systemd_disable") echo "Bu sunucu için sistem açılışında otomatik başlatmayı devre dışı bırakmak istiyor musunuz?" ;;
+            "systemd_disabling") echo "Sistem servisleri devre dışı bırakılıyor" ;;
+            "systemd_disabled_success") echo "Sistem açılışında otomatik başlatma başarıyla devre dışı bırakıldı." ;;
+            "prompt_systemd_enable") echo "Bu sunucu için sistem açılışında otomatik başlatmayı etkinleştirmek istiyor musunuz?" ;;
+            "systemd_enabling") echo "Sistem servisleri etkinleştiriliyor" ;;
+            "systemd_enabled_success") echo "Sistem açılışında otomatik başlatma başarıyla etkinleştirildi!" ;;
+            
+            # Backup creation translations
+            "backup_in_progress") echo "Yedek arşivleme işlemi sürüyor..." ;;
+            "backup_success") echo "Yedekleme başarıyla tamamlandı!" ;;
+            "backup_saved") echo "Şu konuma kaydedildi:" ;;
+            "backup_failed") echo "Yedekleme sıkıştırması başarısız oldu." ;;
+            
+            # Server startup / shutdown translations
+            "start_already_running") echo "Sunucu şu ekran oturumunda zaten çalışıyor:" ;;
+            "start_in_progress") echo "Sunucu başlatılıyor..." ;;
+            "start_success") echo "Sunucu arka planda başarıyla başlatıldı!" ;;
+            "start_screen_session") echo "Ekran (screen) oturumu:" ;;
+            "start_failed") echo "Sunucu başlatılamadı. logs/latest.log veya start.sh dosyasını kontrol edin." ;;
+            "stop_not_running") echo "Sunucu çalışmıyor." ;;
+            "stop_sending_command") echo "Sunucuya durdurma komutu gönderiliyor..." ;;
+            "stop_waiting_graceful") echo "Sunucunun güvenli bir şekilde durması bekleniyor " ;;
+            "stop_force_termination") echo "Sunucu güvenli bir şekilde durmadı. Kapatmaya zorlanıyor..." ;;
+            "stop_success") echo "Sunucu başarıyla durduruldu." ;;
+            
+            # Backup restore translations
+            "restore_none_found") echo "Bu sunucu için yedek bulunamadı." ;;
+            "restore_invalid") echo "Geçerli bir yedek dosyası bulunamadı." ;;
+            "restore_destructive") echo "GERİ YÜKLEME İŞLEMİ VERİ KAYBINA YOL AÇAR!" ;;
+            "restore_warning") echo "Bu işlem mevcut dünya klasörlerinizi ve yapılandırmalarınızı tamamen silecektir." ;;
+            "restore_canceled") echo "Geri yükleme işlemi iptal edildi." ;;
+            "restore_clearing") echo "Dizin geri yükleme için temizleniyor..." ;;
+            "restore_extracting") echo "Yedek arşiv dosyası açılıyor..." ;;
+            "restore_success") echo "Yedek başarıyla geri yüklendi!" ;;
+            "restore_verify") echo "Lütfen sunucuyu başlatmadan önce start.sh ve java ayarlarını kontrol edin." ;;
+            "restore_failed") echo "Yedek dosyası çıkartılırken bir hata oluştu." ;;
+            
             
             
             # Orchestrator
@@ -1797,7 +1838,7 @@ create_server_backup() {
     local tar_name="backup_${timestamp}.tar.gz"
     local tar_path="${backup_dir}/${tar_name}"
     
-    log_info "Creating backup archive in progress..."
+    log_info "$(t "backup_in_progress" "Creating backup archive in progress...")"
     
     (cd "$server_path" && tar --exclude='./backups' --exclude='./logs' -czf "$tar_path" .)
     local status=$?
@@ -1810,11 +1851,11 @@ create_server_backup() {
             size_bytes=$(stat -c %s "$tar_path")
         fi
         local size_mb=$((size_bytes / 1024 / 1024))
-        log_success "Backup completed successfully!"
-        log_success "Saved as: backups/${tar_name} (${size_mb} MB)"
+        log_success "$(t "backup_success" "Backup completed successfully!")"
+        log_success "$(t "backup_saved" "Saved as:") backups/${tar_name} (${size_mb} MB)"
         send_discord_notification "💾 Backup created successfully!" 3066993 "$server_path" "Backup Archive" "${tar_name} (${size_mb} MB)"
     else
-        log_error "Backup compression failed."
+        log_error "$(t "backup_failed" "Backup compression failed.")"
         send_discord_notification "⚠️ Backup compression failed!" 15158332 "$server_path"
     fi
     
@@ -1904,8 +1945,8 @@ run_server_restore() {
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
     
     if [ ! -d "$backup_dir" ] || [ -z "$(ls -A "$backup_dir" 2>/dev/null)" ]; then
-        log_warn "No backups found for this server."
-        echo -e -n "\n  Press [Enter] to return: "
+        log_warn "$(t "restore_none_found" "No backups found for this server.")"
+        echo -e -n "\n  $(t "press_enter" "Press [Enter] to return: ")"
         read -r _
         return 1
     fi
@@ -1918,8 +1959,8 @@ run_server_restore() {
     done
     
     if [ ${#backups_list[@]} -eq 0 ]; then
-        log_warn "No valid backups found."
-        echo -e -n "\n  Press [Enter] to return: "
+        log_warn "$(t "restore_invalid" "No valid backups found.")"
+        echo -e -n "\n  $(t "press_enter" "Press [Enter] to return: ")"
         read -r _
         return 1
     fi
@@ -1932,32 +1973,40 @@ run_server_restore() {
     chosen_backup=$(prompt_selection "$(t "prompt_restore_backup" "Select backup to restore:")" "${sorted_backups[@]}")
     local full_backup_path="${backup_dir}/${chosen_backup}"
     
-    log_warn "RESTORE ACTION IS DESTRUCTIVE!"
-    log_warn "This will overwrite your existing world files, properties, and configurations."
-    prompt_yes_no "Are you absolutely sure you want to restore ${chosen_backup}?" "n"
+    log_warn "$(t "restore_destructive" "RESTORE ACTION IS DESTRUCTIVE!")"
+    log_warn "$(t "restore_warning" "This will overwrite your existing world files, properties, and configurations.")"
+    
+    local confirm_msg
+    if [ "$LANG_PREF" = "tr" ]; then
+        confirm_msg="${chosen_backup} yedeğini geri yüklemek istediğinizden kesinlikle emin misiniz?"
+    else
+        confirm_msg="Are you absolutely sure you want to restore ${chosen_backup}?"
+    fi
+    
+    prompt_yes_no "$confirm_msg" "n"
     if [ $? -ne 0 ]; then
-        log_info "Restore canceled."
-        echo -e -n "\n  Press [Enter] to return: "
+        log_info "$(t "restore_canceled" "Restore canceled.")"
+        echo -e -n "\n  $(t "press_enter" "Press [Enter] to return: ")"
         read -r _
         return 0
     fi
     
     # We remove worlds and configs but keep logs and backup folder safe
-    log_info "Clearing directory for restore..."
+    log_info "$(t "restore_clearing" "Clearing directory for restore...")"
     find "$server_path" -maxdepth 1 -not -name "backups" -not -name "logs" -not -name "." -not -name ".." -exec rm -rf {} +
     
-    log_info "Extracting backup content..."
+    log_info "$(t "restore_extracting" "Extracting backup content...")"
     tar -xzf "$full_backup_path" -C "$server_path"
     local status=$?
     
     if [ $status -eq 0 ]; then
-        log_success "Backup restored successfully!"
-        log_info "Please verify the start script and java configurations before starting."
+        log_success "$(t "restore_success" "Backup restored successfully!")"
+        log_info "$(t "restore_verify" "Please verify the start script and java configurations before starting.")"
     else
-        log_error "Failed to extract backup file correctly."
+        log_error "$(t "restore_failed" "Failed to extract backup file correctly.")"
     fi
     
-    echo -e -n "\n  Press [Enter] to return: "
+    echo -e -n "\n  $(t "press_enter" "Press [Enter] to return: ")"
     read -r _
 }
 
@@ -2013,7 +2062,7 @@ start_minecraft_server() {
     session_name=$(get_session_name "$server_path")
     
     if is_server_running "$session_name"; then
-        log_warn "Server is already running in screen session: $session_name"
+        log_warn "$(t "start_already_running" "Server is already running in screen session:") $session_name"
         sleep 2
         return 1
     fi
@@ -2027,18 +2076,18 @@ start_minecraft_server() {
     local port; port=$(get_server_port "$server_path" "$s_type")
     check_firewall_rules "$port"
     
-    log_info "Starting server..."
+    log_info "$(t "start_in_progress" "Starting server...")"
     rm -f "${server_path}/.stop_restart"
     
     (cd "$server_path" && screen -dmS "$session_name" ./start.sh)
     
     sleep 2
     if is_server_running "$session_name"; then
-        log_success "Server started successfully in background!"
-        log_info "Screen session: $session_name"
+        log_success "$(t "start_success" "Server started successfully in background!")"
+        log_info "$(t "start_screen_session" "Screen session:") $session_name"
         send_discord_notification "🟢 Server has started successfully!" 3066993 "$server_path"
     else
-        log_error "Server failed to start. Check your logs/latest.log or start.sh."
+        log_error "$(t "start_failed" "Server failed to start. Check your logs/latest.log or start.sh.")"
     fi
     sleep 2
 }
@@ -2049,18 +2098,18 @@ stop_minecraft_server() {
     session_name=$(get_session_name "$server_path")
     
     if ! is_server_running "$session_name"; then
-        log_warn "Server is not running."
+        log_warn "$(t "stop_not_running" "Server is not running.")"
         sleep 2
         return 1
     fi
     
-    log_info "Sending stop command to server..."
+    log_info "$(t "stop_sending_command" "Sending stop command to server...")"
     touch "${server_path}/.stop_restart"
     
     screen -S "$session_name" -p 0 -X stuff "stop$(printf \\r)"
     
     local count=0
-    printf "  Waiting for server to stop gracefully "
+    printf "  $(t "stop_waiting_graceful" "Waiting for server to stop gracefully ")"
     while is_server_running "$session_name" && [ $count -lt 30 ]; do
         printf "."
         sleep 1
@@ -2069,12 +2118,12 @@ stop_minecraft_server() {
     printf "\n"
     
     if is_server_running "$session_name"; then
-        log_warn "Server did not stop gracefully. Forcing termination..."
+        log_warn "$(t "stop_force_termination" "Server did not stop gracefully. Forcing termination...")"
         screen -S "$session_name" -p 0 -X quit
         pkill -f "java.*${session_name}"
         send_discord_notification "🔴 Server did not stop gracefully. Forced termination applied." 15158332 "$server_path"
     else
-        log_success "Server stopped gracefully."
+        log_success "$(t "stop_success" "Server stopped gracefully.")"
         send_discord_notification "🔴 Server has stopped gracefully." 15158332 "$server_path"
     fi
     rm -f "${server_path}/.stop_restart"
@@ -2254,30 +2303,36 @@ toggle_systemd_service() {
     session_name=$(get_session_name "$s_path")
     
     local service_file="/etc/systemd/system/mc-${session_name}.service"
-    local active_str="Disabled"
+    local active_raw="Disabled"
+    local active_str="$(t "systemd_disabled" "Disabled")"
     if [ -f "$service_file" ]; then
-        active_str="Enabled"
+        active_raw="Enabled"
+        active_str="$(t "systemd_enabled" "Enabled")"
     fi
     
     clear_screen
     draw_header
     echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_systemd_controller" "SYSTEMD BOOT AUTO-START CONTROLLER")${COLOR_RESET}"
-    echo -e "  Server: $s_name | Auto-start status: ${COLOR_YELLOW}${active_str}${COLOR_RESET}"
+    if [ "$LANG_PREF" = "tr" ]; then
+        echo -e "  Sunucu: $s_name | Otomatik başlatma durumu: ${COLOR_YELLOW}${active_str}${COLOR_RESET}"
+    else
+        echo -e "  Server: $s_name | Auto-start status: ${COLOR_YELLOW}${active_str}${COLOR_RESET}"
+    fi
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
     
-    if [ "$active_str" = "Enabled" ]; then
-        prompt_yes_no "Do you want to disable boot auto-start for this server?" "n"
+    if [ "$active_raw" = "Enabled" ]; then
+        prompt_yes_no "$(t "prompt_systemd_disable" "Do you want to disable boot auto-start for this server?")" "n"
         if [ $? -eq 0 ]; then
             local disable_cmd="systemctl stop mc-${session_name} && systemctl disable mc-${session_name} && rm -f $service_file && systemctl daemon-reload"
             if [ "$EUID" -eq 0 ]; then
-                run_with_spinner "Disabling systemd service" bash -c "$disable_cmd"
+                run_with_spinner "$(t "systemd_disabling" "Disabling systemd service")" bash -c "$disable_cmd"
             else
-                run_with_spinner "Disabling systemd service (via sudo)" sudo bash -c "$disable_cmd"
+                run_with_spinner "$(t "systemd_disabling" "Disabling systemd service (via sudo)")" sudo bash -c "$disable_cmd"
             fi
-            log_success "Boot auto-start disabled successfully."
+            log_success "$(t "systemd_disabled_success" "Boot auto-start disabled successfully.")"
         fi
     else
-        prompt_yes_no "Do you want to enable boot auto-start for this server?" "y"
+        prompt_yes_no "$(t "prompt_systemd_enable" "Do you want to enable boot auto-start for this server?")" "y"
         if [ $? -eq 0 ]; then
             local tmp_service
             tmp_service=$(mktemp)
@@ -2301,12 +2356,12 @@ EOF
             
             local enable_cmd="cp $tmp_service $service_file && chown root:root $service_file && chmod 644 $service_file && systemctl daemon-reload && systemctl enable mc-${session_name}"
             if [ "$EUID" -eq 0 ]; then
-                run_with_spinner "Enabling systemd service" bash -c "$enable_cmd"
+                run_with_spinner "$(t "systemd_enabling" "Enabling systemd service")" bash -c "$enable_cmd"
             else
-                run_with_spinner "Enabling systemd service (via sudo)" sudo bash -c "$enable_cmd"
+                run_with_spinner "$(t "systemd_enabling" "Enabling systemd service (via sudo)")" sudo bash -c "$enable_cmd"
             fi
             rm -f "$tmp_service"
-            log_success "Boot auto-start enabled successfully!"
+            log_success "$(t "systemd_enabled_success" "Boot auto-start enabled successfully!")"
         fi
     fi
     sleep 2
