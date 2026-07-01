@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.32
+# Version: 1.33
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.32"
+APP_VERSION="1.33"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -1426,10 +1426,16 @@ run_installation_wizard() {
     echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_install_wizard" "INSTALLATION WIZARD")${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
 
+    local back_opt
+    back_opt=$(t "settings_back" "Return to Main Menu")
+
     # 1. Server Type
-    local types=(Vanilla Paper Folia Purpur Fabric Forge NeoForge Velocity Waterfall BungeeCord)
+    local types=(Vanilla Paper Folia Purpur Fabric Forge NeoForge Velocity Waterfall BungeeCord "$back_opt")
     local s_type
     s_type=$(prompt_selection "$(t "prompt_software_type" "Choose Minecraft server software type:")" "${types[@]}")
+    if [ "$s_type" = "$back_opt" ] || [ -z "$s_type" ]; then
+        return 0
+    fi
     s_type=$(echo "$s_type" | tr '[:upper:]' '[:lower:]')
 
     # 2. Minecraft Version & Software fetch
@@ -1445,7 +1451,14 @@ run_installation_wizard() {
             log_info "Fetching Minecraft Vanilla versions..."
             local releases
             releases=$(fetch_vanilla_releases)
-            mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" $releases)
+            local list_options=()
+            for r in $releases; do list_options+=("$r"); done
+            list_options+=("$back_opt")
+            mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" "${list_options[@]}")
+            if [ "$mc_version" = "$back_opt" ] || [ -z "$mc_version" ]; then
+                rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
+                return 0
+            fi
 
             log_info "Resolving download URL for Vanilla $mc_version..."
             download_url=$(fetch_vanilla_download_url "$mc_version")
@@ -1454,7 +1467,14 @@ run_installation_wizard() {
             log_info "Fetching $s_type versions..."
             local versions
             versions=$(fetch_papermc_versions "$s_type")
-            mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" $versions)
+            local list_options=()
+            for v in $versions; do list_options+=("$v"); done
+            list_options+=("$back_opt")
+            mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" "${list_options[@]}")
+            if [ "$mc_version" = "$back_opt" ] || [ -z "$mc_version" ]; then
+                rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
+                return 0
+            fi
 
             log_info "Fetching builds for $s_type $mc_version..."
             local builds
@@ -1462,15 +1482,20 @@ run_installation_wizard() {
 
             if [ -z "$builds" ]; then
                 log_error "No builds found for $s_type version $mc_version."
-                exit 1
+                rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
+                return 1
             fi
 
             local build_choices=()
             for b in $builds; do build_choices+=("$b"); done
-            build_choices+=("Latest Stable")
+            build_choices+=("Latest Stable" "$back_opt")
 
             local chosen_build
             chosen_build=$(prompt_selection "$(t "prompt_build_num" "Select build number:")" "${build_choices[@]}")
+            if [ "$chosen_build" = "$back_opt" ] || [ -z "$chosen_build" ]; then
+                rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
+                return 0
+            fi
             if [ "$chosen_build" = "Latest Stable" ]; then
                 build_num=$(echo "${build_choices[0]}")
             else
@@ -1484,7 +1509,14 @@ run_installation_wizard() {
             log_info "Fetching Purpur versions..."
             local versions
             versions=$(fetch_purpur_versions)
-            mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" $versions)
+            local list_options=()
+            for v in $versions; do list_options+=("$v"); done
+            list_options+=("$back_opt")
+            mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" "${list_options[@]}")
+            if [ "$mc_version" = "$back_opt" ] || [ -z "$mc_version" ]; then
+                rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
+                return 0
+            fi
 
             log_info "Fetching builds for Purpur $mc_version..."
             local builds
@@ -1492,15 +1524,20 @@ run_installation_wizard() {
 
             if [ -z "$builds" ]; then
                 log_error "No builds found for Purpur version $mc_version."
-                exit 1
+                rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
+                return 1
             fi
 
             local build_choices=()
             for b in $builds; do build_choices+=("$b"); done
-            build_choices+=("Latest Stable")
+            build_choices+=("Latest Stable" "$back_opt")
 
             local chosen_build
             chosen_build=$(prompt_selection "$(t "prompt_build_num" "Select build number:")" "${build_choices[@]}")
+            if [ "$chosen_build" = "$back_opt" ] || [ -z "$chosen_build" ]; then
+                rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
+                return 0
+            fi
             if [ "$chosen_build" = "Latest Stable" ]; then
                 build_num="latest"
             else
@@ -1513,21 +1550,41 @@ run_installation_wizard() {
             log_info "Fetching Fabric game versions..."
             local releases
             releases=$(fetch_vanilla_releases)
-            mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" $releases)
+            local list_options=()
+            for r in $releases; do list_options+=("$r"); done
+            list_options+=("$back_opt")
+            mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" "${list_options[@]}")
+            if [ "$mc_version" = "$back_opt" ] || [ -z "$mc_version" ]; then
+                rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
+                return 0
+            fi
 
             log_info "Fetching Fabric Loader versions..."
             local loaders
             loaders=$(fetch_fabric_loaders)
-            loader_version=$(prompt_selection "$(t "prompt_fabric_loader" "Select Fabric Loader version:")" $loaders)
+            local loader_choices=()
+            for l in $loaders; do loader_choices+=("$l"); done
+            loader_choices+=("$back_opt")
+            loader_version=$(prompt_selection "$(t "prompt_fabric_loader" "Select Fabric Loader version:")" "${loader_choices[@]}")
+            if [ "$loader_version" = "$back_opt" ] || [ -z "$loader_version" ]; then
+                rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
+                return 0
+            fi
 
             log_info "Resolving Fabric Installer URL..."
             download_url=$(fetch_fabric_installer_url)
             ;;
         forge)
             log_info "Fetching supported Minecraft versions for Forge..."
-            local releases
-            releases=(1.21.4 1.21.1 1.21 1.20.6 1.20.4 1.20.2 1.20.1 1.20 1.19.4 1.19.2 1.18.2 1.17.1 1.16.5 1.12.2 1.8.8 1.7.10)
-            mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" "${releases[@]}")
+            local releases=(1.21.4 1.21.1 1.21 1.20.6 1.20.4 1.20.2 1.20.1 1.20 1.19.4 1.19.2 1.18.2 1.17.1 1.16.5 1.12.2 1.8.8 1.7.10)
+            local list_options=()
+            for r in "${releases[@]}"; do list_options+=("$r"); done
+            list_options+=("$back_opt")
+            mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" "${list_options[@]}")
+            if [ "$mc_version" = "$back_opt" ] || [ -z "$mc_version" ]; then
+                rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
+                return 0
+            fi
 
             log_info "Fetching Forge builds for $mc_version..."
             local builds
@@ -1535,17 +1592,33 @@ run_installation_wizard() {
 
             if [ -z "$builds" ]; then
                 log_error "No Forge builds found for Minecraft $mc_version."
-                exit 1
+                rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
+                return 1
             fi
 
+            local build_choices=()
+            for b in $builds; do build_choices+=("$b"); done
+            build_choices+=("$back_opt")
+
             local chosen_build
-            chosen_build=$(prompt_selection "$(t "prompt_forge_build" "Select Forge build:")" $builds)
+            chosen_build=$(prompt_selection "$(t "prompt_forge_build" "Select Forge build:")" "${build_choices[@]}")
+            if [ "$chosen_build" = "$back_opt" ] || [ -z "$chosen_build" ]; then
+                rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
+                return 0
+            fi
             download_url="https://maven.minecraftforge.net/net/minecraftforge/forge/${chosen_build}/forge-${chosen_build}-installer.jar"
             ;;
         neoforge)
             log_info "Fetching supported Minecraft versions for NeoForge..."
             local releases=(1.21.4 1.21.3 1.21.1 1.21 1.20.6 1.20.4 1.20.2 1.20.1)
-            mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" "${releases[@]}")
+            local list_options=()
+            for r in "${releases[@]}"; do list_options+=("$r"); done
+            list_options+=("$back_opt")
+            mc_version=$(prompt_selection "$(t "prompt_mc_version" "Select Minecraft version:")" "${list_options[@]}")
+            if [ "$mc_version" = "$back_opt" ] || [ -z "$mc_version" ]; then
+                rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
+                return 0
+            fi
 
             log_info "Fetching NeoForge builds for $mc_version..."
             local builds
@@ -1553,11 +1626,20 @@ run_installation_wizard() {
 
             if [ -z "$builds" ]; then
                 log_error "No NeoForge builds found for Minecraft $mc_version."
-                exit 1
+                rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
+                return 1
             fi
 
+            local build_choices=()
+            for b in $builds; do build_choices+=("$b"); done
+            build_choices+=("$back_opt")
+
             local chosen_build
-            chosen_build=$(prompt_selection "$(t "prompt_neoforge_build" "Select NeoForge build:")" $builds)
+            chosen_build=$(prompt_selection "$(t "prompt_neoforge_build" "Select NeoForge build:")" "${build_choices[@]}")
+            if [ "$chosen_build" = "$back_opt" ] || [ -z "$chosen_build" ]; then
+                rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
+                return 0
+            fi
             download_url="https://maven.neoforged.net/releases/net/neoforged/neoforge/${chosen_build}/neoforge-${chosen_build}-installer.jar"
             ;;
         bungeecord)
@@ -1568,7 +1650,8 @@ run_installation_wizard() {
 
     if [ -z "$download_url" ]; then
         log_error "Could not resolve download URL for the selected configurations."
-        exit 1
+        rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
+        return 1
     fi
 
     # 4. Installation Directory
@@ -1686,10 +1769,20 @@ run_installation_wizard() {
         max_players=$(prompt_input "Enter Max Players" "20")
 
         # 11. Difficulty
-        difficulty=$(prompt_selection "$(t "prompt_difficulty" "Select Difficulty:")" peaceful easy normal hard)
+        local diff_options=(peaceful easy normal hard "$back_opt")
+        difficulty=$(prompt_selection "$(t "prompt_difficulty" "Select Difficulty:")" "${diff_options[@]}")
+        if [ "$difficulty" = "$back_opt" ] || [ -z "$difficulty" ]; then
+            rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
+            return 0
+        fi
 
         # 12. GameMode
-        gamemode=$(prompt_selection "$(t "prompt_gamemode" "Select Default GameMode:")" survival creative adventure spectator)
+        local gm_options=(survival creative adventure spectator "$back_opt")
+        gamemode=$(prompt_selection "$(t "prompt_gamemode" "Select Default GameMode:")" "${gm_options[@]}")
+        if [ "$gamemode" = "$back_opt" ] || [ -z "$gamemode" ]; then
+            rm -rf "$TMP_WIZARD_DIR" 2>/dev/null
+            return 0
+        fi
 
         # 13. World Name
         world_name=$(prompt_input "Enter World Name" "world")
