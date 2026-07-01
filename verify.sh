@@ -4,6 +4,7 @@
 #
 
 echo "=== Run Validation Tests ==="
+status=0
 
 # 1. Check Bash Syntax
 echo -n "Checking mcserver-installer Bash syntax... "
@@ -27,15 +28,20 @@ fi
 echo -n "Checking JQ version manifest parsing... "
 if command -v jq &>/dev/null && command -v curl &>/dev/null; then
     # Test curl and jq output format
-    res=$(curl -s "https://launchermeta.mojang.com/mc/game/version_manifest_v2.json" | jq -r '.latest.release' 2>/dev/null)
-    if [ -n "$res" ]; then
+    res=$(curl -fsS --connect-timeout 10 "https://launchermeta.mojang.com/mc/game/version_manifest_v2.json" 2>/dev/null | jq -r '.latest.release // empty' 2>/dev/null)
+    if [[ "$res" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
         echo "PASS ($res)"
     else
         echo "FAIL (JQ parse empty)"
+        status=1
     fi
 else
     echo "SKIP (curl or jq missing)"
 fi
 
-echo "=== All syntax and dependencies checks completed successfully! ==="
-exit 0
+if [ "$status" -eq 0 ]; then
+    echo "=== All syntax and dependencies checks completed successfully! ==="
+else
+    echo "=== Validation completed with failures. ==="
+fi
+exit "$status"

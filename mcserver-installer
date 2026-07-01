@@ -11,10 +11,10 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.29"
+APP_VERSION="1.30"
 DEVELOPER="devRaikou"
 REGISTRY_FILE="${HOME}/.mcserver-installer/registry.txt"
-UA_HEADER="User-Agent: mcserver-installer/1.29 (${DEVELOPER})"
+UA_HEADER="User-Agent: mcserver-installer/${APP_VERSION} (${DEVELOPER})"
 HEADLESS_MODE="false"
 
 # Ensure application config directory exists
@@ -261,6 +261,65 @@ log_success() { echo -e "  ${COLOR_GREEN}${ICON_SUCCESS} $*${COLOR_RESET}" >&2; 
 log_warn() { echo -e "  ${COLOR_YELLOW}${ICON_WARNING} $*${COLOR_RESET}" >&2; }
 log_error() { echo -e "  ${COLOR_RED}${ICON_ERROR} $*${COLOR_RESET}" >&2; }
 
+sed_in_place() {
+    local expr="$1"
+    local file="$2"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' "$expr" "$file"
+    else
+        sed -i "$expr" "$file"
+    fi
+}
+
+sed_delete_blank_lines() {
+    sed_in_place '/^[[:space:]]*$/d' "$1"
+}
+
+escape_sed_replacement() {
+    printf '%s' "$1" | sed 's/[&|\\]/\\&/g'
+}
+
+is_valid_port() {
+    local port="$1"
+    [[ "$port" =~ ^[0-9]+$ ]] && [ "$port" -ge 1 ] && [ "$port" -le 65535 ]
+}
+
+is_valid_ram_value() {
+    [[ "$1" =~ ^[1-9][0-9]*[MmGg]$ ]]
+}
+
+is_registry_safe_value() {
+    [[ "$1" != *:* && "$1" != *$'\n'* && "$1" != *$'\r'* ]]
+}
+
+prompt_port_input() {
+    local msg="$1"
+    local default="$2"
+    local port
+    while true; do
+        port=$(prompt_input "$msg" "$default")
+        if is_valid_port "$port"; then
+            echo "$port"
+            return 0
+        fi
+        log_warn "Invalid port. Enter a number between 1 and 65535."
+    done
+}
+
+prompt_ram_input() {
+    local msg="$1"
+    local default="$2"
+    local value
+    while true; do
+        value=$(prompt_input "$msg" "$default")
+        if is_valid_ram_value "$value"; then
+            echo "$value"
+            return 0
+        fi
+        log_warn "Invalid RAM value. Use a positive value ending in M or G, for example 1024M or 4G."
+    done
+}
+
 send_discord_notification() {
     local msg="$1"
     local color="${2:-3066993}"
@@ -301,28 +360,54 @@ send_discord_notification() {
                 done < "$REGISTRY_FILE"
             fi
             
-            local fields_json=""
-            if [ "$s_name" != "Unknown" ]; then
-                fields_json=", \"fields\": [
-                    { \"name\": \"Server Name\", \"value\": \"${s_name}\", \"inline\": true },
-                    { \"name\": \"Software & Version\", \"value\": \"${s_type} (${s_ver})\", \"inline\": true },
-                    { \"name\": \"Connection Address\", \"value\": \"\`${public_ip}:${port}\` (Public)\\n\`${local_ip}:${port}\` (Local)\", \"inline\": false }"
-                    
-                if [ -n "$extra_field_name" ] && [ -n "$extra_field_val" ]; then
-                    fields_json="${fields_json}, { \"name\": \"${extra_field_name}\", \"value\": \"${extra_field_val}\", \"inline\": true }"
-                fi
-                fields_json="${fields_json} ]"
-            elif [ -n "$extra_field_name" ] && [ -n "$extra_field_val" ]; then
-                fields_json=", \"fields\": [ { \"name\": \"${extra_field_name}\", \"value\": \"${extra_field_val}\", \"inline\": true } ]"
-            fi
-            
-            local clean_msg
-            clean_msg=$(echo "$msg" | sed 's/"/\\"/g')
+            local timestamp
+            timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            local connection_address
+            connection_address=$(printf '`%s:%s` (Public)\n`%s:%s` (Local)' "$public_ip" "$port" "$local_ip" "$port")
+            local payload
+            payload=$(jq -n \
+                --arg msg "$msg" \
+                --argjson color "$color" \
+                --arg timestamp "$timestamp" \
+                --arg server_name "$s_name" \
+                --arg software "${s_type} (${s_ver})" \
+                --arg connection "$connection_address" \
+                --arg extra_name "$extra_field_name" \
+                --arg extra_val "$extra_field_val" '
+                def extra_fields:
+                    if (($extra_name | length) > 0 and ($extra_val | length) > 0) then
+                        [{name: $extra_name, value: $extra_val, inline: true}]
+                    else
+                        []
+                    end;
+                {
+                    embeds: [
+                        ({
+                            title: "mcserver-installer",
+                            description: $msg,
+                            color: $color,
+                            footer: {text: "mcserver-installer"},
+                            timestamp: $timestamp
+                        } + (
+                            if $server_name != "Unknown" then
+                                {fields: ([
+                                    {name: "Server Name", value: $server_name, inline: true},
+                                    {name: "Software & Version", value: $software, inline: true},
+                                    {name: "Connection Address", value: $connection, inline: false}
+                                ] + extra_fields)}
+                            elif ((extra_fields | length) > 0) then
+                                {fields: extra_fields}
+                            else
+                                {}
+                            end
+                        ))
+                    ]
+                }')
             
             (
                 curl -s -H "Content-Type: application/json" \
                      -X POST \
-                     -d "{\"embeds\": [{\"title\": \"mcserver-installer\", \"description\": \"${clean_msg}\", \"color\": ${color} ${fields_json}, \"footer\": {\"text\": \"mcserver-installer\"}, \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}]}" \
+                     -d "$payload" \
                      "$webhook" >/dev/null 2>&1
             ) &
         fi
@@ -972,7 +1057,15 @@ orchestrate_proxy_network() {
     IFS=',' read -ra ADDR <<< "$backend_names_str"
     for i in "${ADDR[@]}"; do
         local name; name=$(echo "$i" | xargs)
-        [ -n "$name" ] && backend_names+=("$name")
+        if [ -z "$name" ]; then
+            continue
+        fi
+        if ! is_registry_safe_value "$name"; then
+            log_warn "Backend server names cannot contain ':' characters: $name"
+            sleep 2
+            return 1
+        fi
+        backend_names+=("$name")
     done
     
     if [ ${#backend_names[@]} -eq 0 ]; then
@@ -1100,7 +1193,7 @@ EOF
             else
                 sed -i "s|^.*:${b_dir}:.*$||" "$REGISTRY_FILE"
             fi
-            sed -i '/^[[:space:]]*$/d' "$REGISTRY_FILE"
+            sed_delete_blank_lines "$REGISTRY_FILE"
         fi
         echo "${name}:${b_dir}:paper:${mc_version}" >> "$REGISTRY_FILE"
     done
@@ -1359,19 +1452,29 @@ run_installation_wizard() {
     # 4. Installation Directory
     local default_dir="${HOME}/MinecraftServer"
     local inst_dir
-    if [ "$LANG_PREF" = "tr" ]; then
-        inst_dir=$(prompt_input "Kurulum dizinini girin" "$default_dir")
-    else
-        inst_dir=$(prompt_input "Enter installation directory" "$default_dir")
-    fi
-    
-    # Expand tilde if present
-    inst_dir="${inst_dir/#\~/$HOME}"
-    
-    # Resolve relative paths to absolute path
-    if [[ "$inst_dir" != /* ]]; then
-        inst_dir="$(pwd)/${inst_dir}"
-    fi
+    while true; do
+        if [ "$LANG_PREF" = "tr" ]; then
+            inst_dir=$(prompt_input "Kurulum dizinini girin" "$default_dir")
+        else
+            inst_dir=$(prompt_input "Enter installation directory" "$default_dir")
+        fi
+
+        # Expand tilde if present
+        inst_dir="${inst_dir/#\~/$HOME}"
+
+        # Resolve relative paths to absolute path
+        if [[ "$inst_dir" != /* ]]; then
+            inst_dir="$(pwd)/${inst_dir}"
+        fi
+
+        local candidate_name
+        candidate_name=$(basename "$inst_dir")
+        if [ -z "$candidate_name" ] || ! is_registry_safe_value "$candidate_name" || ! is_registry_safe_value "$inst_dir"; then
+            log_warn "Installation path and server name cannot be empty or contain ':' characters."
+            continue
+        fi
+        break
+    done
     
     if [ -d "$inst_dir" ] && [ "$(ls -A "$inst_dir" 2>/dev/null)" ]; then
         log_warn "Directory $inst_dir exists and is NOT empty."
@@ -1385,8 +1488,8 @@ run_installation_wizard() {
     # 5. RAM Selection
     local min_ram
     local max_ram
-    min_ram=$(prompt_input "Enter Minimum RAM allocation (e.g., 1024M, 2G)" "1024M")
-    max_ram=$(prompt_input "Enter Maximum RAM allocation (e.g., 4096M, 4G)" "4096M")
+    min_ram=$(prompt_ram_input "Enter Minimum RAM allocation (e.g., 1024M, 2G)" "1024M")
+    max_ram=$(prompt_ram_input "Enter Maximum RAM allocation (e.g., 4096M, 4G)" "4096M")
     
     # 6. Java Detection & Required Java configuration
     local required_java
@@ -1411,9 +1514,9 @@ run_installation_wizard() {
     local port
     while true; do
         if [ "$LANG_PREF" = "tr" ]; then
-            port=$(prompt_input "Sunucu portunu girin" "$default_port")
+            port=$(prompt_port_input "Sunucu portunu girin" "$default_port")
         else
-            port=$(prompt_input "Enter server port" "$default_port")
+            port=$(prompt_port_input "Enter server port" "$default_port")
         fi
         
         # Check active port binding
@@ -1621,7 +1724,7 @@ EOF
             sed -i "s|^.*:$inst_dir:.*$||" "$REGISTRY_FILE"
         fi
         # Remove empty lines
-        sed -i '/^[[:space:]]*$/d' "$REGISTRY_FILE"
+        sed_delete_blank_lines "$REGISTRY_FILE"
     fi
     echo "${server_name}:${inst_dir}:${s_type}:${mc_version}" >> "$REGISTRY_FILE"
     
@@ -1695,11 +1798,13 @@ set_property_val() {
     local file="$1"
     local key="$2"
     local val="$3"
+    local escaped_val
+    escaped_val=$(escape_sed_replacement "$val")
     if grep -q "^${key}=" "$file"; then
         if [[ "$OSTYPE" == "darwin"* ]]; then
-            sed -i '' "s|^${key}=.*|${key}=${val}|" "$file"
+            sed -i '' "s|^${key}=.*|${key}=${escaped_val}|" "$file"
         else
-            sed -i "s|^${key}=.*|${key}=${val}|" "$file"
+            sed -i "s|^${key}=.*|${key}=${escaped_val}|" "$file"
         fi
     else
         echo "${key}=${val}" >> "$file"
@@ -1877,7 +1982,7 @@ manage_backup_scheduler() {
         echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
         
         local current_cron
-        current_cron=$(crontab -l 2>/dev/null | grep "mcserver-installer" | grep "\-\-backup" | grep "${s_name}" || true)
+        current_cron=$(crontab -l 2>/dev/null | grep -F "mcserver-installer" | grep -F -- "--backup" | grep -F -- "\"${s_name}\"" || true)
         
         if [ -n "$current_cron" ]; then
             local schedule_desc=""
@@ -1909,18 +2014,18 @@ manage_backup_scheduler() {
         case "$choice" in
             1)
                 local schedule_line="0 4 * * * \"${script_path}\" --backup \"${s_name}\" >/dev/null 2>&1"
-                (crontab -l 2>/dev/null | grep -vE "mcserver-installer.*--backup.*${s_name}"; echo "$schedule_line") | crontab -
+                (crontab -l 2>/dev/null | grep -Fv -- "--backup \"${s_name}\""; echo "$schedule_line") | crontab -
                 log_success "$(t "sched_daily_success" "Daily backup successfully scheduled!")"
                 sleep 2
                 ;;
             2)
                 local schedule_line="0 4 * * 0 \"${script_path}\" --backup \"${s_name}\" >/dev/null 2>&1"
-                (crontab -l 2>/dev/null | grep -vE "mcserver-installer.*--backup.*${s_name}"; echo "$schedule_line") | crontab -
+                (crontab -l 2>/dev/null | grep -Fv -- "--backup \"${s_name}\""; echo "$schedule_line") | crontab -
                 log_success "$(t "sched_weekly_success" "Weekly backup successfully scheduled!")"
                 sleep 2
                 ;;
             3)
-                (crontab -l 2>/dev/null | grep -vE "mcserver-installer.*--backup.*${s_name}") | crontab - || crontab -r 2>/dev/null
+                (crontab -l 2>/dev/null | grep -Fv -- "--backup \"${s_name}\"") | crontab - || crontab -r 2>/dev/null
                 log_success "$(t "sched_remove_success" "Automated backup schedule removed.")"
                 sleep 2
                 ;;
@@ -3165,12 +3270,12 @@ run_server_management_menu() {
                     draw_header
                     if [ "$LANG_PREF" = "tr" ]; then
                         echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}BELLEK YAPILANDIRMASINI DEĞİŞTİR${COLOR_RESET}\n"
-                        local min_ram; min_ram=$(prompt_input "Yeni Minimum RAM miktarını girin" "1024M")
-                        local max_ram; max_ram=$(prompt_input "Yeni Maksimum RAM miktarını girin" "4096M")
+                        local min_ram; min_ram=$(prompt_ram_input "Yeni Minimum RAM miktarını girin" "1024M")
+                        local max_ram; max_ram=$(prompt_ram_input "Yeni Maksimum RAM miktarını girin" "4096M")
                     else
                         echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}CHANGE MEMORY CONFIGURATION${COLOR_RESET}\n"
-                        local min_ram; min_ram=$(prompt_input "Enter new Minimum RAM allocation" "1024M")
-                        local max_ram; max_ram=$(prompt_input "Enter new Maximum RAM allocation" "4096M")
+                        local min_ram; min_ram=$(prompt_ram_input "Enter new Minimum RAM allocation" "1024M")
+                        local max_ram; max_ram=$(prompt_ram_input "Enter new Maximum RAM allocation" "4096M")
                     fi
                     
                     if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -3226,6 +3331,7 @@ run_server_management_menu() {
 }
 
 select_and_manage_server() {
+    local action="${1:-manage}"
     if [ ! -f "$REGISTRY_FILE" ] || [ ! -s "$REGISTRY_FILE" ]; then
         log_warn "No installed servers registered."
         sleep 2
@@ -3234,7 +3340,13 @@ select_and_manage_server() {
     
     clear_screen
     draw_header
-    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_select_server" "SELECT INSTALLED SERVER")${COLOR_RESET}"
+    local title
+    case "$action" in
+        backup) title="$(t "hdr_backup_creation" "BACKUP CREATION")" ;;
+        restore) title="$(t "hdr_restore_backup" "RESTORE BACKUP")" ;;
+        *) title="$(t "hdr_select_server" "SELECT INSTALLED SERVER")" ;;
+    esac
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}${title}${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
     
     # Read registry
@@ -3289,7 +3401,28 @@ select_and_manage_server() {
     done
     
     if [ "$idx" -ne -1 ]; then
-        run_server_management_menu "${servers[$idx]}" "${paths[$idx]}" "${types[$idx]}" "${versions[$idx]}"
+        case "$action" in
+            backup)
+                create_server_backup "${paths[$idx]}"
+                ;;
+            restore)
+                local sess
+                sess=$(get_session_name "${paths[$idx]}")
+                if is_server_running "$sess"; then
+                    if [ "$LANG_PREF" = "tr" ]; then
+                        log_error "Lütfen yedeği geri yüklemeden önce sunucuyu durdurun!"
+                    else
+                        log_error "Please stop the server before running a restore!"
+                    fi
+                    sleep 2
+                else
+                    run_server_restore "${paths[$idx]}"
+                fi
+                ;;
+            *)
+                run_server_management_menu "${servers[$idx]}" "${paths[$idx]}" "${types[$idx]}" "${versions[$idx]}"
+                ;;
+        esac
     fi
 }
 
@@ -3456,7 +3589,7 @@ remove_server_registration() {
     else
         sed -i "s|^.*:$sel_path:.*$||" "$REGISTRY_FILE"
     fi
-    sed -i '/^[[:space:]]*$/d' "$REGISTRY_FILE"
+    sed_delete_blank_lines "$REGISTRY_FILE"
     
     if [ "$delete_files" = "true" ]; then
         if [ "$LANG_PREF" = "tr" ]; then
@@ -3606,11 +3739,26 @@ configure_discord_webhook() {
         local webhook
         webhook=$(prompt_input "Enter Discord Webhook URL (leave empty to disable)" "")
         
+        [ -f "$settings_file" ] || {
+            echo 'LANG="en"' > "$settings_file"
+            echo 'DISCORD_WEBHOOK=""' >> "$settings_file"
+        }
+
+        local escaped_webhook
+        escaped_webhook=$(escape_sed_replacement "$webhook")
         if [ -n "$webhook" ]; then
-            echo "DISCORD_WEBHOOK=\"${webhook}\"" > "$settings_file"
+            if grep -q '^DISCORD_WEBHOOK=' "$settings_file"; then
+                sed_in_place "s|^DISCORD_WEBHOOK=.*|DISCORD_WEBHOOK=\"${escaped_webhook}\"|" "$settings_file"
+            else
+                echo "DISCORD_WEBHOOK=\"${webhook}\"" >> "$settings_file"
+            fi
             log_success "Discord Webhook saved successfully!"
         else
-            rm -f "$settings_file"
+            if grep -q '^DISCORD_WEBHOOK=' "$settings_file"; then
+                sed_in_place 's|^DISCORD_WEBHOOK=.*|DISCORD_WEBHOOK=""|' "$settings_file"
+            else
+                echo 'DISCORD_WEBHOOK=""' >> "$settings_file"
+            fi
             log_success "Discord Webhook disabled."
         fi
     fi
@@ -3888,10 +4036,10 @@ main_menu() {
                 update_server_software
                 ;;
             4)
-                select_and_manage_server
+                select_and_manage_server backup
                 ;;
             5)
-                select_and_manage_server
+                select_and_manage_server restore
                 ;;
             6)
                 remove_server_registration
@@ -3933,7 +4081,13 @@ if [ $# -gt 0 ]; then
         HEADLESS_MODE="true"
         target_name="$2"
         if [ -f "$REGISTRY_FILE" ]; then
-            line=$(grep "^${target_name}:" "$REGISTRY_FILE" | head -n 1)
+            line=""
+            while IFS=":" read -r r_name r_path r_type r_ver || [ -n "$r_name" ]; do
+                if [ "$r_name" = "$target_name" ]; then
+                    line="${r_name}:${r_path}:${r_type}:${r_ver}"
+                    break
+                fi
+            done < "$REGISTRY_FILE"
             if [ -n "$line" ]; then
                 s_path=$(echo "$line" | cut -d: -f2)
                 create_server_backup "$s_path"
