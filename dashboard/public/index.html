@@ -865,9 +865,15 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     try {
       const res = await apiFetch(`/api/software-versions?type=${selectedSoftware}`);
       const list = await res.json();
+      if (!Array.isArray(list)) {
+         select.innerHTML = `<option value="1.20.4">Err: ${list.error || 'Unknown'}</option>`;
+         return;
+      }
       select.innerHTML = '';
       list.forEach(v => { const o = document.createElement('option'); o.value = v; o.innerText = v; select.appendChild(o); });
-    } catch (err) { select.innerHTML = '<option value="1.20.4">1.20.4</option>'; }
+    } catch (err) { 
+      select.innerHTML = `<option value="1.20.4">Err: ${err.message}</option>`; 
+    }
   }
 
   async function triggerInstall() {
