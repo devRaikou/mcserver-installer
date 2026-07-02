@@ -272,6 +272,7 @@
       .manager-modal { height: 95vh; }
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -353,6 +354,15 @@
       </div>
     </div>
   </section>
+
+  <!-- Live Resource Chart -->
+  <div class="card" style="margin-top:24px; padding:20px;">
+    <div class="section-title" style="margin-top:0;"><i class="fa-solid fa-chart-line" style="color:var(--accent-blue)"></i> <span data-i18n="chart_title">Real-time Resource Usage</span></div>
+    <div style="position:relative; height:180px; width:100%;">
+      <canvas id="resourceChart"></canvas>
+    </div>
+  </div>
+
 
   <!-- Server List -->
   <div class="section-title"><i class="fa-solid fa-server" style="color:var(--accent-teal)"></i> <span data-i18n="servers_title">Installed Servers</span></div>
@@ -521,7 +531,35 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
   let consoleEventSource = null;
   let allProperties = [];
   let currentLang = localStorage.getItem('dashboard_lang') || 'en';
+  let resourceChart = null;
   let selectedSoftware = 'vanilla';
+
+  function initChart() {
+    const ctx = document.getElementById('resourceChart').getContext('2d');
+    resourceChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: Array(20).fill(''),
+        datasets: [
+          { label: 'CPU %', data: Array(20).fill(0), borderColor: '#2dd4bf', backgroundColor: 'rgba(45, 212, 191, 0.1)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0 },
+          { label: 'RAM %', data: Array(20).fill(0), borderColor: '#a78bfa', backgroundColor: 'rgba(167, 139, 250, 0.1)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 0 },
+        scales: {
+          y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { family: 'JetBrains Mono' } } },
+          x: { grid: { display: false }, ticks: { display: false } }
+        },
+        plugins: {
+          legend: { labels: { color: '#cbd5e1', font: { family: 'Inter', weight: 600 } } }
+        },
+        interaction: { mode: 'index', intersect: false }
+      }
+    });
+  }
 
   const translations = {
     tr: {
@@ -564,7 +602,8 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
       domain_title: "Alan Adı (Domain) Bağlama",
       domain_bind_btn: "Alan Adını Bağla",
       domain_success: "Domain başarıyla bağlandı! SSL sertifikası için:",
-      domain_note: "Nginx reverse proxy yapılandırması otomatik olarak oluşturulur."
+      domain_note: "Nginx reverse proxy yapılandırması otomatik olarak oluşturulur.",
+      chart_title: "Canlı Kaynak Tüketimi"
     },
     en: {
       page_title: "mcserver-installer | Web Dashboard",
@@ -606,7 +645,8 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
       domain_title: "Domain / Subdomain Binding",
       domain_bind_btn: "Bind Domain",
       domain_success: "Domain bound successfully! For SSL:",
-      domain_note: "Nginx reverse proxy configuration will be automatically generated."
+      domain_note: "Nginx reverse proxy configuration will be automatically generated.",
+      chart_title: "Real-time Resource Usage"
     }
   };
 
@@ -661,6 +701,7 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
 
   document.addEventListener('DOMContentLoaded', () => {
     applyTranslations();
+    initChart();
     const token = localStorage.getItem('dashboard_token');
     if (!token) { document.getElementById('login-overlay').classList.remove('hidden'); }
     else { fetchStatus(); fetchServers(); setInterval(fetchStatus, 4000); setInterval(fetchServers, 5000); }
@@ -678,6 +719,14 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
       updateGauge('cpu-circle', data.cpu);
       updateGauge('ram-circle', data.ram.percentage);
       updateGauge('disk-circle', data.disk.percentage);
+      
+      if (resourceChart) {
+        resourceChart.data.datasets[0].data.push(data.cpu);
+        resourceChart.data.datasets[0].data.shift();
+        resourceChart.data.datasets[1].data.push(data.ram.percentage);
+        resourceChart.data.datasets[1].data.shift();
+        resourceChart.update();
+      }
     } catch (err) { console.error(err); }
   }
 
