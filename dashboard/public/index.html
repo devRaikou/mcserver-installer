@@ -399,7 +399,7 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" class="font-bold t
     let currentServer = null;
     let consoleEventSource = null;
     let allProperties = [];
-    let currentLang = localStorage.getItem('dashboard_lang') || 'tr';
+    let currentLang = localStorage.getItem('dashboard_lang') || 'en';
 
     const translations = {
       tr: {
@@ -518,7 +518,7 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" class="font-bold t
     }
 
     function applyTranslations() {
-      document.getElementById('lang-btn').innerText = currentLang === 'tr' ? '🌐 TR' : '🌐 EN';
+      document.getElementById('lang-btn').innerText = currentLang === 'tr' ? '🌐 EN' : '🌐 TR';
       document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
         if (translations[currentLang] && translations[currentLang][key]) {

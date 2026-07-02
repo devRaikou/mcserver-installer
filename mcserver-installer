@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.52
+# Version: 1.53
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.52"
+APP_VERSION="1.53"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -4391,7 +4391,7 @@ launch_web_dashboard() {
     otp_code=$((100000 + RANDOM % 900000))
     echo "$otp_code" > "$otp_file"
 
-    screen -dmS mc-dashboard bash -c "cd '${dashboard_dir}' && CONFIG_DIR='${CONFIG_DIR}' npm start"
+    screen -dmS mc-dashboard bash -c "cd '${dashboard_dir}' && CONFIG_DIR='${CONFIG_DIR}' node server.js"
     
     # Wait for the backend to start and write the active port
     local count=0
