@@ -5202,7 +5202,7 @@ if [ $# -gt 0 ]; then
             exit 1
         fi
         HEADLESS_MODE="true"
-        local s_type="$2"
+        s_type="$2"
         case "$s_type" in
             vanilla)
                 fetch_vanilla_releases

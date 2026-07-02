@@ -420,9 +420,11 @@ app.get('/api/software-versions', (req, res) => {
   if (!type) return res.status(400).json({ error: 'Type is required' });
   
   const mainScript = path.resolve(__dirname, '..', 'mcserver-installer');
-  exec(`"${mainScript}" --get-versions "${type}"`, (error, stdout) => {
+  exec(`"${mainScript}" --get-versions "${type}"`, { timeout: 30000 }, (error, stdout, stderr) => {
     if (error) {
-      return res.status(500).json({ error: 'Failed to fetch versions' });
+      console.error(`[software-versions] Error fetching ${type}: ${error.message}`);
+      if (stderr) console.error(`[software-versions] stderr: ${stderr}`);
+      return res.status(500).json({ error: `Failed to fetch versions: ${stderr || error.message}` });
     }
     const versions = stdout
       .split('\n')
