@@ -386,6 +386,7 @@
       <button onclick="switchTab('console')" id="tab-console-btn" class="tab-btn active"><i class="fa-solid fa-terminal"></i> <span data-i18n="tab_console">Console</span></button>
       <button onclick="switchTab('properties')" id="tab-properties-btn" class="tab-btn"><i class="fa-solid fa-sliders"></i> <span data-i18n="tab_properties">Properties</span></button>
       <button onclick="switchTab('files')" id="tab-files-btn" class="tab-btn"><i class="fa-solid fa-folder-open"></i> <span data-i18n="tab_files">Files</span></button>
+      <button onclick="switchTab('players')" id="tab-players-btn" class="tab-btn"><i class="fa-solid fa-users"></i> <span data-i18n="tab_players">Players</span></button>
       <button onclick="switchTab('backups')" id="tab-backups-btn" class="tab-btn"><i class="fa-solid fa-box-archive"></i> <span data-i18n="tab_backups">Backups</span></button>
     </div>
     <div class="manager-content">
@@ -427,6 +428,33 @@
         </div>
         <div id="file-editor-container" class="hidden" style="flex:1;display:flex;flex-direction:column;">
           <textarea id="file-editor" style="flex:1;width:100%;resize:none;font-family:'JetBrains Mono',monospace;font-size:13px;padding:12px;background:#0f1117;color:#e2e8f0;border:1px solid var(--border-subtle);border-radius:var(--radius-md);"></textarea>
+        </div>
+      </div>
+      <!-- Players -->
+      <div id="tab-players" class="tab-panel hidden" style="flex-direction:row;gap:16px;">
+        <div style="flex:1;display:flex;flex-direction:column;gap:12px;">
+          <div style="font-weight:600;color:var(--accent-amber);"><i class="fa-solid fa-star"></i> Operators (OPs)</div>
+          <div class="flex-between gap-2">
+            <input type="text" id="op-input" class="input" placeholder="Player name..." style="flex:1" />
+            <button onclick="playerAction('op', document.getElementById('op-input').value)" class="btn btn-primary"><i class="fa-solid fa-plus"></i></button>
+          </div>
+          <div id="ops-list" style="flex:1;background:rgba(0,0,0,0.2);border:1px solid var(--border-subtle);border-radius:4px;overflow-y:auto;padding:8px;"></div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:12px;">
+          <div style="font-weight:600;color:var(--accent-teal);"><i class="fa-solid fa-list-check"></i> Whitelist</div>
+          <div class="flex-between gap-2">
+            <input type="text" id="wl-input" class="input" placeholder="Player name..." style="flex:1" />
+            <button onclick="playerAction('whitelist add', document.getElementById('wl-input').value)" class="btn btn-primary"><i class="fa-solid fa-plus"></i></button>
+          </div>
+          <div id="wl-list" style="flex:1;background:rgba(0,0,0,0.2);border:1px solid var(--border-subtle);border-radius:4px;overflow-y:auto;padding:8px;"></div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:12px;">
+          <div style="font-weight:600;color:var(--accent-rose);"><i class="fa-solid fa-ban"></i> Banned Players</div>
+          <div class="flex-between gap-2">
+            <input type="text" id="ban-input" class="input" placeholder="Player name..." style="flex:1" />
+            <button onclick="playerAction('ban', document.getElementById('ban-input').value)" class="btn btn-primary"><i class="fa-solid fa-plus"></i></button>
+          </div>
+          <div id="ban-list" style="flex:1;background:rgba(0,0,0,0.2);border:1px solid var(--border-subtle);border-radius:4px;overflow-y:auto;padding:8px;"></div>
         </div>
       </div>
       <!-- Backups -->
@@ -624,7 +652,8 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
       domain_success: "Domain başarıyla bağlandı! SSL sertifikası için:",
       domain_note: "Nginx reverse proxy yapılandırması otomatik olarak oluşturulur.",
       chart_title: "Canlı Kaynak Tüketimi",
-      tab_files: "Dosyalar"
+      tab_files: "Dosyalar",
+      tab_players: "Oyuncular"
     },
     en: {
       page_title: "mcserver-installer | Web Dashboard",
@@ -668,7 +697,8 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
       domain_success: "Domain bound successfully! For SSL:",
       domain_note: "Nginx reverse proxy configuration will be automatically generated.",
       chart_title: "Real-time Resource Usage",
-      tab_files: "Files"
+      tab_files: "Files",
+      tab_players: "Players"
     }
   };
 
@@ -812,7 +842,7 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
   async function restartServer(n) { await apiFetch(`/api/servers/${n}/restart`,{method:'POST'}); fetchServers(); }
 
   function switchTab(tab) {
-    ['console','properties','files','backups'].forEach(t => {
+    ['console','properties','files','players','backups'].forEach(t => {
       document.getElementById(`tab-${t}`).classList.add('hidden');
       document.getElementById(`tab-${t}-btn`).classList.remove('active');
     });
@@ -820,6 +850,7 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     document.getElementById(`tab-${tab}-btn`).classList.add('active');
     if (tab==='properties') fetchProperties();
     if (tab==='files') loadFiles('/');
+    if (tab==='players') loadPlayers();
     if (tab==='backups') fetchBackups();
   }
 
@@ -961,6 +992,60 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     } else {
       alert('Error: ' + data.error);
     }
+  }
+
+  // --- Player Management ---
+  async function loadPlayers() {
+    const renderList = (id, data, deleteCmd) => {
+      const el = document.getElementById(id);
+      el.innerHTML = '';
+      if (!data || data.length === 0) {
+        el.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding:10px;">${currentLang==='tr'?'Boş liste':'Empty list'}</div>`;
+        return;
+      }
+      data.forEach(p => {
+        const d = document.createElement('div');
+        d.className = 'flex-between';
+        d.style.padding = '6px';
+        d.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+        d.innerHTML = `
+          <div class="flex-center gap-2">
+            <img src="https://minotar.net/helm/${p.name}/24.png" style="border-radius:4px;" onerror="this.src='https://minotar.net/helm/MHF_Steve/24.png'">
+            <span style="font-family:'Inter',sans-serif;font-size:13px;">${p.name}</span>
+          </div>
+          <button onclick="playerAction('${deleteCmd}', '${p.name}')" class="btn btn-ghost" style="color:var(--accent-rose);padding:4px 8px;"><i class="fa-solid fa-trash"></i></button>
+        `;
+        el.appendChild(d);
+      });
+    };
+
+    const opsRes = await apiFetch(`/api/servers/${currentServer.name}/players/ops`);
+    renderList('ops-list', await opsRes.json(), 'deop');
+
+    const wlRes = await apiFetch(`/api/servers/${currentServer.name}/players/whitelist`);
+    renderList('wl-list', await wlRes.json(), 'whitelist remove');
+
+    const banRes = await apiFetch(`/api/servers/${currentServer.name}/players/banned-players`);
+    renderList('ban-list', await banRes.json(), 'pardon');
+  }
+
+  async function playerAction(cmd, username) {
+    if (!username) return;
+    const res = await apiFetch(`/api/servers/${currentServer.name}/command`, { 
+      method: 'POST', 
+      body: JSON.stringify({ command: `${cmd} ${username}` }) 
+    });
+    const data = await res.json();
+    if (data.error) {
+      alert('Error: ' + data.error);
+      return;
+    }
+    document.getElementById('op-input').value = '';
+    document.getElementById('wl-input').value = '';
+    document.getElementById('ban-input').value = '';
+    
+    // Wait 1 second for the server to process the command and write to JSON
+    setTimeout(loadPlayers, 1000);
   }
 
   async function fetchBackups() {

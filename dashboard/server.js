@@ -539,6 +539,30 @@ app.put('/api/servers/:name/files/write', (req, res) => {
   }
 });
 
+// --- PLAYER MANAGEMENT ENDPOINTS ---
+app.get('/api/servers/:name/players/:list', (req, res) => {
+  const { name, list } = req.params;
+  // list can be: ops, whitelist, banned-players
+  const validLists = ['ops', 'whitelist', 'banned-players'];
+  if (!validLists.includes(list)) return res.status(400).json({ error: 'Invalid list type' });
+
+  const servers = getRegisteredServers();
+  const srv = servers.find(s => s.name === name);
+  if (!srv) return res.status(404).json({ error: 'Server not found' });
+
+  const filePath = path.join(srv.path, `${list}.json`);
+  if (!fs.existsSync(filePath)) {
+    return res.json([]);
+  }
+
+  try {
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/servers/install', async (req, res) => {
   const { name, software, version, port, ram } = req.body;
   if (!name || !software || !version || !port || !ram) {
