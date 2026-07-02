@@ -387,6 +387,7 @@
       <button onclick="switchTab('properties')" id="tab-properties-btn" class="tab-btn"><i class="fa-solid fa-sliders"></i> <span data-i18n="tab_properties">Properties</span></button>
       <button onclick="switchTab('files')" id="tab-files-btn" class="tab-btn"><i class="fa-solid fa-folder-open"></i> <span data-i18n="tab_files">Files</span></button>
       <button onclick="switchTab('players')" id="tab-players-btn" class="tab-btn"><i class="fa-solid fa-users"></i> <span data-i18n="tab_players">Players</span></button>
+      <button onclick="switchTab('plugins')" id="tab-plugins-btn" class="tab-btn"><i class="fa-solid fa-puzzle-piece"></i> <span data-i18n="tab_plugins">Plugins</span></button>
       <button onclick="switchTab('backups')" id="tab-backups-btn" class="tab-btn"><i class="fa-solid fa-box-archive"></i> <span data-i18n="tab_backups">Backups</span></button>
     </div>
     <div class="manager-content">
@@ -456,6 +457,18 @@
           </div>
           <div id="ban-list" style="flex:1;background:rgba(0,0,0,0.2);border:1px solid var(--border-subtle);border-radius:4px;overflow-y:auto;padding:8px;"></div>
         </div>
+      </div>
+      <!-- Plugins -->
+      <div id="tab-plugins" class="tab-panel hidden">
+        <div style="margin-bottom:16px;">
+          <div style="font-weight:700;font-size:14px;color:var(--accent-blue);"><i class="fa-solid fa-puzzle-piece"></i> Plugin Store</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Search and install plugins from SpigotMC directly to your server.</div>
+          <div class="flex-center gap-2">
+            <input type="text" id="plugin-search-input" class="input" placeholder="Search for plugins (e.g. EssentialsX)..." style="flex:1" onkeydown="if(event.key==='Enter')searchPlugins();" />
+            <button onclick="searchPlugins()" class="btn btn-primary"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+          </div>
+        </div>
+        <div id="plugins-list" style="flex:1;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-right:8px;"></div>
       </div>
       <!-- Backups -->
       <div id="tab-backups" class="tab-panel hidden">
@@ -653,7 +666,8 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
       domain_note: "Nginx reverse proxy yapılandırması otomatik olarak oluşturulur.",
       chart_title: "Canlı Kaynak Tüketimi",
       tab_files: "Dosyalar",
-      tab_players: "Oyuncular"
+      tab_players: "Oyuncular",
+      tab_plugins: "Eklentiler"
     },
     en: {
       page_title: "mcserver-installer | Web Dashboard",
@@ -698,7 +712,8 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
       domain_note: "Nginx reverse proxy configuration will be automatically generated.",
       chart_title: "Real-time Resource Usage",
       tab_files: "Files",
-      tab_players: "Players"
+      tab_players: "Players",
+      tab_plugins: "Plugins"
     }
   };
 
@@ -842,7 +857,7 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
   async function restartServer(n) { await apiFetch(`/api/servers/${n}/restart`,{method:'POST'}); fetchServers(); }
 
   function switchTab(tab) {
-    ['console','properties','files','players','backups'].forEach(t => {
+    ['console','properties','files','players','plugins','backups'].forEach(t => {
       document.getElementById(`tab-${t}`).classList.add('hidden');
       document.getElementById(`tab-${t}-btn`).classList.remove('active');
     });
@@ -851,6 +866,7 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     if (tab==='properties') fetchProperties();
     if (tab==='files') loadFiles('/');
     if (tab==='players') loadPlayers();
+    if (tab==='plugins') document.getElementById('plugins-list').innerHTML = `<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:40px;">${currentLang==='tr'?'Arama yaparak eklenti bulun.':'Search for a plugin.'}</div>`;
     if (tab==='backups') fetchBackups();
   }
 
@@ -1046,6 +1062,73 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     
     // Wait 1 second for the server to process the command and write to JSON
     setTimeout(loadPlayers, 1000);
+  }
+
+  // --- Plugin Store ---
+  async function searchPlugins() {
+    const q = document.getElementById('plugin-search-input').value.trim();
+    if (!q) return;
+    const container = document.getElementById('plugins-list');
+    container.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--accent-teal);">Searching...</div>`;
+    
+    const res = await apiFetch(`/api/plugins/search?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    if (data.error) {
+      container.innerHTML = `<div style="grid-column:1/-1;color:var(--accent-rose);text-align:center;">${data.error}</div>`;
+      return;
+    }
+    
+    container.innerHTML = '';
+    if (data.length === 0) {
+      container.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);">No results found.</div>`;
+      return;
+    }
+    
+    data.forEach(p => {
+      const isPremium = p.premium || p.price > 0;
+      const d = document.createElement('div');
+      d.className = 'card';
+      d.style.padding = '12px';
+      d.style.display = 'flex';
+      d.style.flexDirection = 'column';
+      d.style.gap = '8px';
+      
+      let installBtn = isPremium ? 
+        `<button class="btn btn-ghost" disabled style="width:100%;opacity:0.5;">Premium (Go to SpigotMC)</button>` :
+        `<button onclick="installPlugin(${p.id}, '${p.name.replace(/'/g, "\\'")}', this)" class="btn btn-success" style="width:100%;"><i class="fa-solid fa-download"></i> Install</button>`;
+        
+      d.innerHTML = `
+        <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+        <div style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.tag || 'No description'}</div>
+        <div class="flex-between" style="font-size:11px;color:#cbd5e1;margin-top:auto;">
+          <span><i class="fa-solid fa-download"></i> ${p.downloads}</span>
+          <span><i class="fa-solid fa-star" style="color:var(--accent-amber)"></i> ${p.rating ? p.rating.average.toFixed(1) : '0'}</span>
+        </div>
+        <div style="margin-top:8px;">${installBtn}</div>
+      `;
+      container.appendChild(d);
+    });
+  }
+
+  async function installPlugin(id, name, btnEl) {
+    btnEl.disabled = true;
+    btnEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Installing...';
+    
+    const res = await apiFetch(`/api/servers/${currentServer.name}/plugins/install`, {
+      method: 'POST',
+      body: JSON.stringify({ pluginId: id, pluginName: name })
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+      btnEl.className = 'btn btn-primary';
+      btnEl.innerHTML = '<i class="fa-solid fa-check"></i> Installed';
+    } else {
+      btnEl.disabled = false;
+      btnEl.className = 'btn btn-danger';
+      btnEl.innerHTML = 'Failed';
+      alert('Error: ' + data.error);
+    }
   }
 
   async function fetchBackups() {

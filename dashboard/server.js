@@ -6,7 +6,7 @@ const path = require('path');
 const os = require('os');
 const { exec, spawn } = require('child_process');
 const crypto = require('crypto');
-
+const https = require('https');
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -561,6 +561,61 @@ app.get('/api/servers/:name/players/:list', (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// --- PLUGIN STORE ENDPOINTS ---
+app.get('/api/plugins/search', (req, res) => {
+  const query = req.query.q;
+  if (!query) return res.status(400).json({ error: 'Query required' });
+  const url = `https://api.spiget.org/v2/search/resources/${encodeURIComponent(query)}?size=10&fields=id,name,tag,downloads,rating,icon,file`;
+  https.get(url, { headers: { 'User-Agent': 'mcserver-installer' } }, (spigetRes) => {
+    let data = '';
+    spigetRes.on('data', chunk => data += chunk);
+    spigetRes.on('end', () => {
+      try {
+        const json = JSON.parse(data);
+        res.json(json);
+      } catch (err) {
+        res.status(500).json({ error: 'Failed to parse Spiget API' });
+      }
+    });
+  }).on('error', (err) => res.status(500).json({ error: err.message }));
+});
+
+app.post('/api/servers/:name/plugins/install', (req, res) => {
+  const { name } = req.params;
+  const { pluginId, pluginName } = req.body;
+  if (!pluginId || !pluginName) return res.status(400).json({ error: 'Plugin info required' });
+
+  const servers = getRegisteredServers();
+  const srv = servers.find(s => s.name === name);
+  if (!srv) return res.status(404).json({ error: 'Server not found' });
+
+  const pluginsDir = path.join(srv.path, 'plugins');
+  if (!fs.existsSync(pluginsDir)) fs.mkdirSync(pluginsDir, { recursive: true });
+
+  // Clean filename
+  const safeName = pluginName.replace(/[^a-zA-Z0-9_-]/g, '_') + '.jar';
+  const destPath = path.join(pluginsDir, safeName);
+  
+  const url = `https://api.spiget.org/v2/resources/${pluginId}/download`;
+  const file = fs.createWriteStream(destPath);
+  
+  const request = https.get(url, { headers: { 'User-Agent': 'mcserver-installer' } }, (response) => {
+    if (response.statusCode === 301 || response.statusCode === 302) {
+      // Follow redirect
+      https.get(response.headers.location, { headers: { 'User-Agent': 'mcserver-installer' } }, (redirectRes) => {
+        redirectRes.pipe(file);
+        file.on('finish', () => { file.close(); res.json({ success: true, name: safeName }); });
+      }).on('error', (err) => { fs.unlinkSync(destPath); res.status(500).json({ error: err.message }); });
+    } else {
+      response.pipe(file);
+      file.on('finish', () => { file.close(); res.json({ success: true, name: safeName }); });
+    }
+  }).on('error', (err) => {
+    fs.unlinkSync(destPath);
+    res.status(500).json({ error: err.message });
+  });
 });
 
 app.post('/api/servers/install', async (req, res) => {
