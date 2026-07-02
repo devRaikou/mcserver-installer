@@ -385,6 +385,7 @@
     <div class="manager-tabs">
       <button onclick="switchTab('console')" id="tab-console-btn" class="tab-btn active"><i class="fa-solid fa-terminal"></i> <span data-i18n="tab_console">Console</span></button>
       <button onclick="switchTab('properties')" id="tab-properties-btn" class="tab-btn"><i class="fa-solid fa-sliders"></i> <span data-i18n="tab_properties">Properties</span></button>
+      <button onclick="switchTab('files')" id="tab-files-btn" class="tab-btn"><i class="fa-solid fa-folder-open"></i> <span data-i18n="tab_files">Files</span></button>
       <button onclick="switchTab('backups')" id="tab-backups-btn" class="tab-btn"><i class="fa-solid fa-box-archive"></i> <span data-i18n="tab_backups">Backups</span></button>
     </div>
     <div class="manager-content">
@@ -408,6 +409,25 @@
           <button onclick="saveProperties()" class="btn btn-success"><span data-i18n="prop_save_btn">Save Properties</span> <i class="fa-solid fa-floppy-disk" style="margin-left:6px;"></i></button>
         </div>
         <div id="properties-container" class="flex-col gap-2" style="overflow-y:auto;flex:1;padding-right:8px;"></div>
+      </div>
+      <!-- Files -->
+      <div id="tab-files" class="tab-panel hidden">
+        <div class="flex-between" style="margin-bottom:8px;">
+          <div class="flex-center gap-2">
+            <button onclick="loadFiles(currentFilePath.split('/').slice(0,-2).join('/')+'/')" class="btn btn-ghost" id="file-up-btn" disabled><i class="fa-solid fa-arrow-up"></i></button>
+            <div id="file-breadcrumb" style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text-muted);background:rgba(255,255,255,0.05);padding:6px 12px;border-radius:4px;">/</div>
+          </div>
+          <button id="file-save-btn" onclick="saveFile()" class="btn btn-success hidden"><span data-i18n="prop_save_btn">Save File</span> <i class="fa-solid fa-floppy-disk"></i></button>
+        </div>
+        <div id="file-explorer" style="flex:1;overflow-y:auto;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:rgba(0,0,0,0.2);">
+          <table class="backup-table">
+            <thead><tr><th>Name</th><th>Size</th><th>Date</th></tr></thead>
+            <tbody id="files-list-body"></tbody>
+          </table>
+        </div>
+        <div id="file-editor-container" class="hidden" style="flex:1;display:flex;flex-direction:column;">
+          <textarea id="file-editor" style="flex:1;width:100%;resize:none;font-family:'JetBrains Mono',monospace;font-size:13px;padding:12px;background:#0f1117;color:#e2e8f0;border:1px solid var(--border-subtle);border-radius:var(--radius-md);"></textarea>
+        </div>
       </div>
       <!-- Backups -->
       <div id="tab-backups" class="tab-panel hidden">
@@ -603,7 +623,8 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
       domain_bind_btn: "Alan Adını Bağla",
       domain_success: "Domain başarıyla bağlandı! SSL sertifikası için:",
       domain_note: "Nginx reverse proxy yapılandırması otomatik olarak oluşturulur.",
-      chart_title: "Canlı Kaynak Tüketimi"
+      chart_title: "Canlı Kaynak Tüketimi",
+      tab_files: "Dosyalar"
     },
     en: {
       page_title: "mcserver-installer | Web Dashboard",
@@ -646,7 +667,8 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
       domain_bind_btn: "Bind Domain",
       domain_success: "Domain bound successfully! For SSL:",
       domain_note: "Nginx reverse proxy configuration will be automatically generated.",
-      chart_title: "Real-time Resource Usage"
+      chart_title: "Real-time Resource Usage",
+      tab_files: "Files"
     }
   };
 
@@ -790,13 +812,14 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
   async function restartServer(n) { await apiFetch(`/api/servers/${n}/restart`,{method:'POST'}); fetchServers(); }
 
   function switchTab(tab) {
-    ['console','properties','backups'].forEach(t => {
+    ['console','properties','files','backups'].forEach(t => {
       document.getElementById(`tab-${t}`).classList.add('hidden');
       document.getElementById(`tab-${t}-btn`).classList.remove('active');
     });
     document.getElementById(`tab-${tab}`).classList.remove('hidden');
     document.getElementById(`tab-${tab}-btn`).classList.add('active');
     if (tab==='properties') fetchProperties();
+    if (tab==='files') loadFiles('/');
     if (tab==='backups') fetchBackups();
   }
 
@@ -867,6 +890,77 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     const data = await res.json();
     if (data.success) { alert(currentLang==='tr'?'Ayarlar kaydedildi!':'Properties saved!'); fetchProperties(); }
     else alert('Error: ' + data.error);
+  }
+
+  // --- File Manager ---
+  let currentFilePath = '/';
+  
+  function formatBytes(bytes) {
+    if(bytes === 0) return '0 Bytes';
+    const k = 1024, sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  async function loadFiles(path = '/') {
+    document.getElementById('file-explorer').classList.remove('hidden');
+    document.getElementById('file-editor-container').classList.add('hidden');
+    document.getElementById('file-save-btn').classList.add('hidden');
+    
+    currentFilePath = path;
+    document.getElementById('file-breadcrumb').innerText = path;
+    document.getElementById('file-up-btn').disabled = (path === '/');
+
+    const res = await apiFetch(`/api/servers/${currentServer.name}/files?path=${encodeURIComponent(path)}`);
+    const data = await res.json();
+    const body = document.getElementById('files-list-body');
+    body.innerHTML = '';
+    
+    if (data.items) {
+      data.items.forEach(item => {
+        const tr = document.createElement('tr');
+        const icon = item.isDir ? '<i class="fa-solid fa-folder" style="color:var(--accent-amber)"></i>' : '<i class="fa-solid fa-file" style="color:var(--text-muted)"></i>';
+        const action = item.isDir ? `loadFiles('${path}${item.name}/')` : `openFile('${path}${item.name}')`;
+        tr.innerHTML = `
+          <td style="cursor:pointer;" onclick="${action}">${icon} <span style="margin-left:8px;font-family:'Inter',sans-serif;">${item.name}</span></td>
+          <td>${item.isDir ? '-' : formatBytes(item.size)}</td>
+          <td>${new Date(item.mtime).toLocaleString()}</td>
+        `;
+        body.appendChild(tr);
+      });
+    } else {
+      body.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:20px;">Error loading files</td></tr>`;
+    }
+  }
+
+  async function openFile(path) {
+    const res = await apiFetch(`/api/servers/${currentServer.name}/files/read?path=${encodeURIComponent(path)}`);
+    const data = await res.json();
+    if (data.error) {
+      alert(data.error);
+      return;
+    }
+    currentFilePath = path;
+    document.getElementById('file-breadcrumb').innerText = path;
+    document.getElementById('file-explorer').classList.add('hidden');
+    document.getElementById('file-editor-container').classList.remove('hidden');
+    document.getElementById('file-save-btn').classList.remove('hidden');
+    document.getElementById('file-up-btn').disabled = false;
+    document.getElementById('file-editor').value = data.content;
+  }
+
+  async function saveFile() {
+    const content = document.getElementById('file-editor').value;
+    const res = await apiFetch(`/api/servers/${currentServer.name}/files/write`, {
+      method: 'PUT',
+      body: JSON.stringify({ path: currentFilePath, content })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert(currentLang === 'tr' ? 'Dosya kaydedildi!' : 'File saved!');
+    } else {
+      alert('Error: ' + data.error);
+    }
   }
 
   async function fetchBackups() {

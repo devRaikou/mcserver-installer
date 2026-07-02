@@ -456,6 +456,89 @@ app.get('/api/software-versions', (req, res) => {
   });
 });
 
+// --- FILE MANAGER ENDPOINTS ---
+app.get('/api/servers/:name/files', (req, res) => {
+  const { name } = req.params;
+  const relPath = req.query.path || '/';
+  const servers = getRegisteredServers();
+  const srv = servers.find(s => s.name === name);
+  if (!srv) return res.status(404).json({ error: 'Server not found' });
+
+  // Security: prevent path traversal outside server directory
+  const targetPath = path.normalize(path.join(srv.path, relPath));
+  if (!targetPath.startsWith(path.normalize(srv.path))) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  if (!fs.existsSync(targetPath)) return res.status(404).json({ error: 'Path not found' });
+
+  try {
+    const stats = fs.statSync(targetPath);
+    if (!stats.isDirectory()) return res.status(400).json({ error: 'Not a directory' });
+
+    const items = fs.readdirSync(targetPath).map(file => {
+      const fullPath = path.join(targetPath, file);
+      const s = fs.statSync(fullPath);
+      return {
+        name: file,
+        isDir: s.isDirectory(),
+        size: s.size,
+        mtime: s.mtime
+      };
+    });
+    // Sort dirs first, then alphabetically
+    items.sort((a, b) => {
+      if (a.isDir && !b.isDir) return -1;
+      if (!a.isDir && b.isDir) return 1;
+      return a.name.localeCompare(b.name);
+    });
+    res.json({ path: relPath, items });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/servers/:name/files/read', (req, res) => {
+  const { name } = req.params;
+  const relPath = req.query.path;
+  if (!relPath) return res.status(400).json({ error: 'Path required' });
+
+  const servers = getRegisteredServers();
+  const srv = servers.find(s => s.name === name);
+  if (!srv) return res.status(404).json({ error: 'Server not found' });
+
+  const targetPath = path.normalize(path.join(srv.path, relPath));
+  if (!targetPath.startsWith(path.normalize(srv.path))) return res.status(403).json({ error: 'Access denied' });
+  if (!fs.existsSync(targetPath)) return res.status(404).json({ error: 'File not found' });
+
+  try {
+    const content = fs.readFileSync(targetPath, 'utf8');
+    res.json({ content });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/servers/:name/files/write', (req, res) => {
+  const { name } = req.params;
+  const { path: relPath, content } = req.body;
+  if (!relPath) return res.status(400).json({ error: 'Path required' });
+
+  const servers = getRegisteredServers();
+  const srv = servers.find(s => s.name === name);
+  if (!srv) return res.status(404).json({ error: 'Server not found' });
+
+  const targetPath = path.normalize(path.join(srv.path, relPath));
+  if (!targetPath.startsWith(path.normalize(srv.path))) return res.status(403).json({ error: 'Access denied' });
+
+  try {
+    fs.writeFileSync(targetPath, content, 'utf8');
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/servers/install', async (req, res) => {
   const { name, software, version, port, ram } = req.body;
   if (!name || !software || !version || !port || !ram) {
