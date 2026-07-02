@@ -696,13 +696,22 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
         return;
       }
       servers.forEach(srv => {
-        const online = srv.running;
-        const statusBadge = online
-          ? `<span class="badge badge-online"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent-emerald);display:inline-block;"></span> ${translations[currentLang].status_running}</span>`
-          : `<span class="badge badge-offline"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent-rose);display:inline-block;"></span> ${translations[currentLang].status_stopped}</span>`;
-        const actionBtn = online
-          ? `<button onclick="stopServer('${srv.name}')" class="btn btn-danger">${translations[currentLang].btn_stop}</button>`
-          : `<button onclick="startServer('${srv.name}')" class="btn btn-success">${translations[currentLang].btn_start}</button>`;
+        let statusBadge, actionBtn, manageBtn;
+        
+        if (srv.isInstalling) {
+          statusBadge = `<span class="badge" style="background:rgba(251,191,36,0.1);color:var(--accent-amber);border:1px solid rgba(251,191,36,0.2);"><div class="spinner" style="width:10px;height:10px;border-width:2px;margin-right:6px;border-top-color:var(--accent-amber);"></div> ${currentLang === 'tr' ? 'Kuruluyor...' : 'Installing...'}</span>`;
+          actionBtn = `<button disabled class="btn btn-ghost" style="flex:1;opacity:0.5;">${currentLang === 'tr' ? 'Bekleniyor' : 'Waiting'}</button>`;
+          manageBtn = `<button disabled class="btn btn-solid-teal" style="opacity:0.5;cursor:not-allowed;">${translations[currentLang].btn_manage}</button>`;
+        } else {
+          const online = srv.running;
+          statusBadge = online
+            ? `<span class="badge badge-online"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent-emerald);display:inline-block;"></span> ${translations[currentLang].status_running}</span>`
+            : `<span class="badge badge-offline"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent-rose);display:inline-block;"></span> ${translations[currentLang].status_stopped}</span>`;
+          actionBtn = online
+            ? `<button onclick="stopServer('${srv.name}')" class="btn btn-danger">${translations[currentLang].btn_stop}</button>`
+            : `<button onclick="startServer('${srv.name}')" class="btn btn-success">${translations[currentLang].btn_start}</button>`;
+          manageBtn = `<button onclick="openManager(${JSON.stringify(srv).replace(/"/g,'&quot;')})" class="btn btn-solid-teal">${translations[currentLang].btn_manage}</button>`;
+        }
 
         const card = document.createElement('div');
         card.className = 'card server-card';
@@ -718,7 +727,7 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
           </div>
           <div class="server-actions">
             ${actionBtn}
-            <button onclick="openManager(${JSON.stringify(srv).replace(/"/g,'&quot;')})" class="btn btn-solid-teal">${translations[currentLang].btn_manage}</button>
+            ${manageBtn}
           </div>`;
         container.appendChild(card);
       });

@@ -15,6 +15,27 @@ app.use(express.static(path.join(__dirname, 'public')));
 const PORT = process.env.PORT || 3000;
 const REGISTRY_FILE = path.join(os.homedir(), '.mcserver-installer', 'registry.txt');
 
+// Track currently installing servers
+const activeInstalls = [];
+
+function isPortFree(port) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        resolve(false);
+      } else {
+        resolve(true); // Ignore other errors, assume free
+      }
+    });
+    server.once('listening', () => {
+      server.close();
+      resolve(true);
+    });
+    server.listen(port);
+  });
+}
+
 // Helper to resolve screen session name
 function getSessionName(serverPath) {
   const hash = crypto.createHash('md5').update(serverPath).digest('hex').substring(0, 8);
@@ -183,7 +204,8 @@ app.get('/api/servers', async (req, res) => {
         port
       };
     }));
-    res.json(result);
+    // Append actively installing servers to the result
+    res.json([...result, ...activeInstalls]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -434,11 +456,50 @@ app.get('/api/software-versions', (req, res) => {
   });
 });
 
-app.post('/api/servers/install', (req, res) => {
+app.post('/api/servers/install', async (req, res) => {
   const { name, software, version, port, ram } = req.body;
   if (!name || !software || !version || !port || !ram) {
     return res.status(400).json({ error: 'Missing arguments' });
   }
+
+  // 1. Check if name is already in use by a registered server or active install
+  const servers = getRegisteredServers();
+  if (servers.find(s => s.name === name) || activeInstalls.find(s => s.name === name)) {
+    return res.status(400).json({ error: 'Server name is already in use' });
+  }
+
+  // 2. Check if port is in use by a registered server
+  const portUsedByRegistered = servers.some(srv => {
+    const propPath = path.join(srv.path, 'server.properties');
+    if (fs.existsSync(propPath)) {
+      const props = fs.readFileSync(propPath, 'utf8');
+      const portMatch = props.match(/^server-port=(\d+)/m);
+      if (portMatch && portMatch[1] === port.toString()) return true;
+    }
+    return false;
+  });
+  
+  if (portUsedByRegistered || activeInstalls.find(s => s.port === port.toString())) {
+    return res.status(400).json({ error: 'Port is already assigned to another server' });
+  }
+
+  // 3. Check if port is currently in use by the OS
+  const portFree = await isPortFree(parseInt(port));
+  if (!portFree) {
+    return res.status(400).json({ error: 'Port is currently in use by another process' });
+  }
+
+  // Add to active installs
+  const installObj = {
+    name,
+    type: software,
+    version,
+    port: port.toString(),
+    path: path.join(os.homedir(), 'minecraft', name),
+    isInstalling: true,
+    running: false
+  };
+  activeInstalls.push(installObj);
 
   const mainScript = path.resolve(__dirname, '..', 'mcserver-installer');
   const installProcess = spawn(mainScript, ['--install', name, software, version, port, ram]);
@@ -448,6 +509,12 @@ app.post('/api/servers/install', (req, res) => {
   });
   installProcess.stderr.on('data', (data) => {
     console.error(`[Install ${name} Error]: ${data}`);
+  });
+  installProcess.on('close', (code) => {
+    console.log(`[Install ${name}] Process exited with code ${code}`);
+    // Remove from active installs once done (success or failure)
+    const index = activeInstalls.findIndex(s => s.name === name);
+    if (index !== -1) activeInstalls.splice(index, 1);
   });
   
   res.json({ success: true, message: 'Installation started' });
