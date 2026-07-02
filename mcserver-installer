@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.60
+# Version: 1.61
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.60"
+APP_VERSION="1.61"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -4399,10 +4399,32 @@ launch_web_dashboard() {
         case "$choice" in
             "Paneli Durdur"|"Stop Dashboard")
                 screen -S mc-dashboard -X quit &>/dev/null
+                
+                # Cleanup Nginx reverse proxy configuration if present
+                if [ -n "$running_domain" ]; then
+                    sudo rm -f "/etc/nginx/sites-available/${running_domain}"
+                    sudo rm -f "/etc/nginx/sites-enabled/${running_domain}"
+                    if command -v systemctl &>/dev/null; then
+                        sudo systemctl reload nginx &>/dev/null
+                    else
+                        sudo service nginx reload &>/dev/null
+                    fi
+                    if [[ "$OSTYPE" == "darwin"* ]]; then
+                        sed -i '' '/^DASHBOARD_DOMAIN=/d' "$SETTINGS_FILE"
+                    else
+                        sed -i '/^DASHBOARD_DOMAIN=/d' "$SETTINGS_FILE"
+                    fi
+                fi
+
+                # Delete all dashboard directory, port and OTP tracking files
+                rm -rf "${dashboard_dir}"
+                rm -f "${CONFIG_DIR}/.dashboard_otp"
+                rm -f "${CONFIG_DIR}/.dashboard_port"
+
                 if [ "$LANG_PREF" = "tr" ]; then
-                    log_success "Web paneli durduruldu."
+                    log_success "Web paneli durduruldu, tüm panel dosyaları ve kayıtları temizlendi."
                 else
-                    log_success "Web dashboard stopped."
+                    log_success "Web dashboard stopped and all related files/records have been cleared."
                 fi
                 sleep 2
                 return 0
