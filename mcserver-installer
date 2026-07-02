@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.55
+# Version: 1.56
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.55"
+APP_VERSION="1.56"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -32,18 +32,14 @@ SETTINGS_FILE="${CONFIG_DIR}/settings.conf"
 
 # --- Resolve Script Absolute Path ---
 get_script_absolute_path() {
-    if [[ "$0" == /* ]]; then
-        echo "$0"
-    elif [[ "$0" == */* ]]; then
-        echo "$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
-    else
-        local path_res; path_res=$(which "$0" 2>/dev/null)
-        if [ -n "$path_res" ]; then
-            echo "$path_res"
-        else
-            echo "$(pwd)/$0"
-        fi
-    fi
+    local source="${BASH_SOURCE[0]}"
+    while [ -h "$source" ]; do
+        local dir
+        dir="$(cd -P "$(dirname "$source")" && pwd)"
+        source="$(readlink "$source")"
+        [[ $source != /* ]] && source="$dir/$source"
+    done
+    echo "$(cd -P "$(dirname "$source")" && pwd)/$(basename "$source")"
 }
 SCRIPT_PATH=$(get_script_absolute_path)
 SCRIPT_DIR=$(dirname "$SCRIPT_PATH")
