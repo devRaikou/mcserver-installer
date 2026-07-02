@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.54
+# Version: 1.55
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.54"
+APP_VERSION="1.55"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -4553,6 +4553,12 @@ check_for_updates() {
 
             # Check shebang to ensure the downloaded file is a valid bash script
             if [ -f "$temp_file" ] && grep -q "#!/usr/bin/env bash" "$temp_file"; then
+                # Sync other global versions of the script if they exist to prevent update loops
+                local global_path; global_path=$(which mcserver-installer 2>/dev/null)
+                if [ -n "$global_path" ] && [ "$global_path" != "$SCRIPT_PATH" ]; then
+                    cp "$temp_file" "$global_path" 2>/dev/null && chmod +x "$global_path" 2>/dev/null
+                fi
+
                 if mv "$temp_file" "$SCRIPT_PATH" 2>/dev/null && chmod +x "$SCRIPT_PATH" 2>/dev/null; then
                     if [ "$LANG_PREF" = "tr" ]; then
                         log_success "mcserver-installer başarıyla güncellendi! Lütfen betiği yeniden başlatın."
