@@ -542,13 +542,28 @@ app.put('/api/servers/:name/files/write', (req, res) => {
 // --- PLAYER MANAGEMENT ENDPOINTS ---
 app.get('/api/servers/:name/players/:list', (req, res) => {
   const { name, list } = req.params;
-  // list can be: ops, whitelist, banned-players
-  const validLists = ['ops', 'whitelist', 'banned-players'];
+  // list can be: active, ops, whitelist, banned-players
+  const validLists = ['active', 'ops', 'whitelist', 'banned-players'];
   if (!validLists.includes(list)) return res.status(400).json({ error: 'Invalid list type' });
 
   const servers = getRegisteredServers();
   const srv = servers.find(s => s.name === name);
   if (!srv) return res.status(404).json({ error: 'Server not found' });
+
+  if (list === 'active') {
+    const util = require('minecraft-server-util');
+    const port = parseInt(srv.port || '25565');
+    util.status('127.0.0.1', port, { timeout: 2000 }).then(result => {
+      if (result.players && result.players.sample) {
+        res.json(result.players.sample.map(p => ({ name: p.name })));
+      } else {
+        res.json([]);
+      }
+    }).catch(err => {
+      res.json([]);
+    });
+    return;
+  }
 
   const filePath = path.join(srv.path, `${list}.json`);
   if (!fs.existsSync(filePath)) {
@@ -567,7 +582,7 @@ app.get('/api/servers/:name/players/:list', (req, res) => {
 app.get('/api/plugins/search', (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ error: 'Query required' });
-  const url = `https://api.spiget.org/v2/search/resources/${encodeURIComponent(query)}?size=10&fields=id,name,tag,downloads,rating,icon,file`;
+  const url = `https://api.spiget.org/v2/search/resources/${encodeURIComponent(query)}?size=10&sort=-downloads&fields=id,name,tag,downloads,rating,icon,file`;
   https.get(url, { headers: { 'User-Agent': 'mcserver-installer' } }, (spigetRes) => {
     let data = '';
     spigetRes.on('data', chunk => data += chunk);
