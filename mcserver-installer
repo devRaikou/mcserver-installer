@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.51
+# Version: 1.52
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.51"
+APP_VERSION="1.52"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -4384,10 +4384,14 @@ launch_web_dashboard() {
         log_info "Launching Web Dashboard in the background..."
     fi
 
-    # Clear old port file
+    # Clear old port file and always generate a fresh OTP on dashboard launch
     rm -f "${CONFIG_DIR}/.dashboard_port"
+    local otp_file="${CONFIG_DIR}/.dashboard_otp"
+    local otp_code
+    otp_code=$((100000 + RANDOM % 900000))
+    echo "$otp_code" > "$otp_file"
 
-    screen -dmS mc-dashboard bash -c "cd '${dashboard_dir}' && npm start"
+    screen -dmS mc-dashboard bash -c "cd '${dashboard_dir}' && CONFIG_DIR='${CONFIG_DIR}' npm start"
     
     # Wait for the backend to start and write the active port
     local count=0
@@ -4411,15 +4415,6 @@ launch_web_dashboard() {
             fi
             sudo ufw allow "${active_port}/tcp" &>/dev/null
         fi
-    fi
-
-    local otp_code="123456"
-    local otp_file="${CONFIG_DIR}/.dashboard_otp"
-    if [ -f "$otp_file" ]; then
-        otp_code=$(cat "$otp_file" | tr -d '[:space:]')
-    else
-        otp_code=$((100000 + RANDOM % 900000))
-        echo "$otp_code" > "$otp_file"
     fi
 
     local dashboard_domain=""
@@ -4464,6 +4459,30 @@ launch_web_dashboard() {
             echo -e "  ${COLOR_YELLOW}Note:${COLOR_RESET} If you are using a cloud provider (e.g. AWS, GCP, Hetzner, DigitalOcean),"
             echo -e "  please ensure that TCP port ${COLOR_GREEN}${active_port}${COLOR_RESET} is opened in your cloud firewall/security group.\n"
             echo -e "  You can return to this menu item at any time to stop or restart the dashboard."
+        fi
+
+        # Prompt to bind a domain if not already bound
+        if [ -z "$dashboard_domain" ]; then
+            echo -e ""
+            if [ "$LANG_PREF" = "tr" ]; then
+                if prompt_yes_no "Kontrol paneline bir domain (alan adı) bağlamak ister misiniz?" "n"; then
+                    echo -n -e "  ${COLOR_CYAN}Lütfen bağlamak istediğiniz domain adını girin (Örn: panel.raikou.dev):${COLOR_RESET} "
+                    local domain_input
+                    read -r domain_input
+                    if [ -n "$domain_input" ]; then
+                        bind_dashboard_domain "$domain_input"
+                    fi
+                fi
+            else
+                if prompt_yes_no "Would you like to bind a domain (subdomain) to this dashboard?" "n"; then
+                    echo -n -e "  ${COLOR_CYAN}Please enter the domain name you want to bind (e.g., panel.yourdomain.com):${COLOR_RESET} "
+                    local domain_input
+                    read -r domain_input
+                    if [ -n "$domain_input" ]; then
+                        bind_dashboard_domain "$domain_input"
+                    fi
+                fi
+            fi
         fi
     else
         if [ "$LANG_PREF" = "tr" ]; then

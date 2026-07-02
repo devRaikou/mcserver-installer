@@ -44,19 +44,14 @@ function getRegisteredServers() {
     });
 }
 
-const configDir = path.join(os.homedir(), '.mcserver-installer');
+const configDir = process.env.CONFIG_DIR || path.join(os.homedir(), '.mcserver-installer');
 const otpPath = path.join(configDir, '.dashboard_otp');
-let storedOtp = '';
 
-if (fs.existsSync(otpPath)) {
-  storedOtp = fs.readFileSync(otpPath, 'utf8').trim();
-}
-if (!storedOtp) {
-  storedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-  if (!fs.existsSync(configDir)) {
-    fs.mkdirSync(configDir, { recursive: true });
+function getStoredOtp() {
+  if (fs.existsSync(otpPath)) {
+    return fs.readFileSync(otpPath, 'utf8').trim();
   }
-  fs.writeFileSync(otpPath, storedOtp, 'utf8');
+  return '';
 }
 
 // Authentication Middleware
@@ -77,7 +72,8 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Unauthorized: Missing token' });
   }
 
-  if (token !== storedOtp) {
+  const storedOtp = getStoredOtp();
+  if (!storedOtp || token !== storedOtp) {
     return res.status(401).json({ error: 'Unauthorized: Invalid token' });
   }
 
@@ -412,7 +408,8 @@ app.post('/api/login', (req, res) => {
   if (!pin) {
     return res.status(400).json({ error: 'PIN code is required' });
   }
-  if (pin.toString().trim() === storedOtp) {
+  const storedOtp = getStoredOtp();
+  if (storedOtp && pin.toString().trim() === storedOtp) {
     return res.json({ success: true, token: storedOtp });
   }
   return res.status(401).json({ error: 'Invalid PIN code' });
