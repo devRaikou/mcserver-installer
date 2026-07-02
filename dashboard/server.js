@@ -56,7 +56,7 @@ function getStoredOtp() {
 
 // Authentication Middleware
 function requireAuth(req, res, next) {
-  if (req.path === '/api/login') {
+  if (req.path === '/login' || req.path === '/api/login') {
     return next();
   }
 
