@@ -178,6 +178,7 @@
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .flex-between { display: flex; align-items: center; justify-content: space-between; }
     .flex-center { display: flex; align-items: center; }
+    .flex-col { display: flex; flex-direction: column; }
     .gap-2 { gap: 8px; }
     .gap-3 { gap: 12px; }
     .gap-4 { gap: 16px; }
@@ -233,9 +234,10 @@
     .close-btn:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
 
     /* Properties */
-    .prop-item { padding: 14px; display: flex; flex-direction: column; gap: 6px; }
-    .prop-key { font-size: 12px; font-weight: 600; color: var(--accent-teal); font-family: 'JetBrains Mono', monospace; }
-    .prop-input { padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+    .prop-item { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: rgba(255,255,255,0.01); }
+    .prop-key { font-size: 13px; font-weight: 600; color: var(--text-primary); font-family: 'JetBrains Mono', monospace; min-width: 200px; flex-shrink: 0; }
+    .prop-input { flex: 1; padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-subtle); border-radius: 4px; color: var(--text-secondary); }
+    .prop-input:focus { border-color: var(--accent-teal); color: var(--text-primary); outline: none; }
 
     /* Backup table */
     .backup-table { width: 100%; text-align: left; border-collapse: collapse; font-size: 13px; }
@@ -391,11 +393,11 @@
       </div>
       <!-- Properties -->
       <div id="tab-properties" class="tab-panel hidden">
-        <div class="flex-between">
-          <input id="prop-search" type="text" class="input" data-i18n="prop_search_placeholder" placeholder="Search keys..." style="max-width:300px;" oninput="filterProperties()" />
-          <button onclick="saveProperties()" class="btn btn-solid-teal"><span data-i18n="prop_save_btn">Save Properties</span> <i class="fa-solid fa-floppy-disk"></i></button>
+        <div class="flex-between" style="margin-bottom:16px;">
+          <input type="text" id="prop-search" data-i18n="prop_search_placeholder" placeholder="Search keys..." class="input" style="max-width:260px;" onkeyup="filterProperties()" />
+          <button onclick="saveProperties()" class="btn btn-success"><span data-i18n="prop_save_btn">Save Properties</span> <i class="fa-solid fa-floppy-disk" style="margin-left:6px;"></i></button>
         </div>
-        <div id="properties-container" class="grid-2" style="overflow-y:auto;flex:1;"></div>
+        <div id="properties-container" class="flex-col gap-2" style="overflow-y:auto;flex:1;padding-right:8px;"></div>
       </div>
       <!-- Backups -->
       <div id="tab-backups" class="tab-panel hidden">
@@ -798,8 +800,8 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     c.innerHTML = '';
     props.forEach(p => {
       const w = document.createElement('div');
-      w.className = 'card prop-item';
-      w.innerHTML = `<span class="prop-key">${p.key}</span><input type="text" data-key="${p.key}" value="${p.value}" class="input prop-input" />`;
+      w.className = 'prop-item';
+      w.innerHTML = `<span class="prop-key">${p.key}</span><input type="text" data-key="${p.key}" value="${p.value}" class="prop-input" />`;
       c.appendChild(w);
     });
   }
