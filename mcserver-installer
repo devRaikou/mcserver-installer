@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.56
+# Version: 1.60
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.56"
+APP_VERSION="1.60"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -4343,13 +4343,57 @@ launch_web_dashboard() {
 
     # 3. Check if dashboard is already running
     if screen -list | grep -q "\.mc-dashboard"; then
+        local running_port="3000"
+        if [ -f "${CONFIG_DIR}/.dashboard_port" ]; then
+            running_port=$(cat "${CONFIG_DIR}/.dashboard_port" | tr -d '[:space:]')
+        fi
+        local running_otp=""
+        if [ -f "${CONFIG_DIR}/.dashboard_otp" ]; then
+            running_otp=$(cat "${CONFIG_DIR}/.dashboard_otp" | tr -d '[:space:]')
+        fi
+        local running_domain=""
+        if [ -f "$SETTINGS_FILE" ]; then
+            running_domain=$(grep '^DASHBOARD_DOMAIN=' "$SETTINGS_FILE" | cut -d'"' -f2 | tr -d '\r')
+        fi
+        local running_ip="127.0.0.1"
+        if command -v hostname &>/dev/null; then
+            running_ip=$(hostname -I | awk '{print $1}')
+        fi
+        if [ -z "$running_ip" ]; then
+            running_ip=$(ip route get 1 2>/dev/null | awk '{print $7}')
+        fi
+        if [ -z "$running_ip" ]; then
+            running_ip=$(ifconfig | grep "inet " | grep -v "127.0.0.1" | awk '{print $2}' | head -n 1)
+        fi
+        [ -z "$running_ip" ] && running_ip="127.0.0.1"
+
+        if [ "$LANG_PREF" = "tr" ]; then
+            echo -e "  ${COLOR_YELLOW}Web Kontrol Paneli şu anda arka planda aktif.${COLOR_RESET}"
+            echo -e "  ----------------------------------------------------------------"
+            echo -e "  - Yerel Erişim:  ${COLOR_CYAN}http://localhost:${running_port}${COLOR_RESET}"
+            echo -e "  - Ağ Üzerinden:  ${COLOR_CYAN}http://${running_ip}:${running_port}${COLOR_RESET}"
+            if [ -n "$running_domain" ]; then
+                echo -e "  - Domain Adresi: ${COLOR_CYAN}http://${running_domain}${COLOR_RESET}"
+            fi
+            echo -e "  - Giriş Şifresi (OTP PIN): ${COLOR_GREEN}${running_otp}${COLOR_RESET}"
+            echo -e "  ----------------------------------------------------------------\n"
+        else
+            echo -e "  ${COLOR_YELLOW}Web Dashboard is currently active in the background.${COLOR_RESET}"
+            echo -e "  ----------------------------------------------------------------"
+            echo -e "  - Local Link:    ${COLOR_CYAN}http://localhost:${running_port}${COLOR_RESET}"
+            echo -e "  - Network Link:  ${COLOR_CYAN}http://${running_ip}:${running_port}${COLOR_RESET}"
+            if [ -n "$running_domain" ]; then
+                echo -e "  - Domain Link:   ${COLOR_CYAN}http://${running_domain}${COLOR_RESET}"
+            fi
+            echo -e "  - Access PIN (OTP Code): ${COLOR_GREEN}${running_otp}${COLOR_RESET}"
+            echo -e "  ----------------------------------------------------------------\n"
+        fi
+
         local choice
         if [ "$LANG_PREF" = "tr" ]; then
-            echo -e "  ${COLOR_YELLOW}Web Kontrol Paneli şu anda arka planda çalışıyor.${COLOR_RESET}\n"
-            choice=$(prompt_selection "Lütfen bir işlem seçin:" "Paneli Durdur" "Paneli Yeniden Başlat" "Ana Menüye Dön")
+            choice=$(prompt_selection "Lütfen bir işlem seçin:" "Paneli Durdur" "Paneli Yeniden Başlat" "Domain Bağla / Değiştir" "Ana Menüye Dön")
         else
-            echo -e "  ${COLOR_YELLOW}Web Dashboard is currently running in the background.${COLOR_RESET}\n"
-            choice=$(prompt_selection "Please select an action:" "Stop Dashboard" "Restart Dashboard" "Return to Main Menu")
+            choice=$(prompt_selection "Please select an action:" "Stop Dashboard" "Restart Dashboard" "Bind / Change Domain" "Return to Main Menu")
         fi
 
         case "$choice" in
@@ -4366,6 +4410,31 @@ launch_web_dashboard() {
             "Paneli Yeniden Başlat"|"Restart Dashboard")
                 screen -S mc-dashboard -X quit &>/dev/null
                 sleep 1
+                ;;
+            "Domain Bağla / Değiştir"|"Bind / Change Domain")
+                echo -e ""
+                local prompt_msg="Kontrol paneline bir domain (alan adı) bağlamak ister misiniz?"
+                [ -n "$running_domain" ] && prompt_msg="Mevcut bağlı domain: ${COLOR_GREEN}${running_domain}${COLOR_RESET}. Değiştirmek veya yeni bir domain bağlamak ister misiniz?"
+                if [ "$LANG_PREF" = "tr" ]; then
+                    if prompt_yes_no "$prompt_msg" "n"; then
+                        echo -n -e "  ${COLOR_CYAN}Lütfen bağlamak istediğiniz domain adını girin (Boş bırakırsanız mevcut domain kaldırılır):${COLOR_RESET} "
+                        local domain_input
+                        read -r domain_input
+                        bind_dashboard_domain "$domain_input"
+                    fi
+                else
+                    local prompt_msg_en="Would you like to bind a domain (subdomain) to this dashboard?"
+                    [ -n "$running_domain" ] && prompt_msg_en="Current bound domain: ${COLOR_GREEN}${running_domain}${COLOR_RESET}. Would you like to change or bind a new one?"
+                    if prompt_yes_no "$prompt_msg_en" "n"; then
+                        echo -n -e "  ${COLOR_CYAN}Please enter the domain name you want to bind (leave empty to remove existing domain):${COLOR_RESET} "
+                        local domain_input
+                        read -r domain_input
+                        bind_dashboard_domain "$domain_input"
+                    fi
+                fi
+                echo -e -n "\n  $(t "press_enter" "Press [Enter] to continue: ")"
+                read -r _
+                return 0
                 ;;
             *)
                 return 0
@@ -4457,27 +4526,26 @@ launch_web_dashboard() {
             echo -e "  You can return to this menu item at any time to stop or restart the dashboard."
         fi
 
-        # Prompt to bind a domain if not already bound
-        if [ -z "$dashboard_domain" ]; then
-            echo -e ""
-            if [ "$LANG_PREF" = "tr" ]; then
-                if prompt_yes_no "Kontrol paneline bir domain (alan adı) bağlamak ister misiniz?" "n"; then
-                    echo -n -e "  ${COLOR_CYAN}Lütfen bağlamak istediğiniz domain adını girin (Örn: panel.raikou.dev):${COLOR_RESET} "
-                    local domain_input
-                    read -r domain_input
-                    if [ -n "$domain_input" ]; then
-                        bind_dashboard_domain "$domain_input"
-                    fi
-                fi
-            else
-                if prompt_yes_no "Would you like to bind a domain (subdomain) to this dashboard?" "n"; then
-                    echo -n -e "  ${COLOR_CYAN}Please enter the domain name you want to bind (e.g., panel.yourdomain.com):${COLOR_RESET} "
-                    local domain_input
-                    read -r domain_input
-                    if [ -n "$domain_input" ]; then
-                        bind_dashboard_domain "$domain_input"
-                    fi
-                fi
+        # Always prompt to bind/change domain on successful launch
+        echo -e ""
+        local prompt_launch_msg="Kontrol paneline bir domain (alan adı) bağlamak ister misiniz?"
+        [ -n "$dashboard_domain" ] && prompt_launch_msg="Mevcut bağlı domain: ${COLOR_GREEN}${dashboard_domain}${COLOR_RESET}. Değiştirmek veya yeni bir domain bağlamak ister misiniz?"
+        
+        if [ "$LANG_PREF" = "tr" ]; then
+            if prompt_yes_no "$prompt_launch_msg" "n"; then
+                echo -n -e "  ${COLOR_CYAN}Lütfen bağlamak istediğiniz domain adını girin (Boş bırakırsanız mevcut domain kaldırılır):${COLOR_RESET} "
+                local domain_input
+                read -r domain_input
+                bind_dashboard_domain "$domain_input"
+            fi
+        else
+            local prompt_launch_msg_en="Would you like to bind a domain (subdomain) to this dashboard?"
+            [ -n "$dashboard_domain" ] && prompt_launch_msg_en="Current bound domain: ${COLOR_GREEN}${dashboard_domain}${COLOR_RESET}. Would you like to change or bind a new one?"
+            if prompt_yes_no "$prompt_launch_msg_en" "n"; then
+                echo -n -e "  ${COLOR_CYAN}Please enter the domain name you want to bind (leave empty to remove existing domain):${COLOR_RESET} "
+                local domain_input
+                read -r domain_input
+                bind_dashboard_domain "$domain_input"
             fi
         fi
     else
@@ -4906,13 +4974,48 @@ EOF
 
 bind_dashboard_domain() {
     local domain="$1"
+
     if [ -z "$domain" ]; then
-        echo "Error: Missing domain name." >&2
-        return 1
+        # Remove existing domain
+        local existing_domain=""
+        if [ -f "$SETTINGS_FILE" ]; then
+            existing_domain=$(grep '^DASHBOARD_DOMAIN=' "$SETTINGS_FILE" | cut -d'"' -f2 | tr -d '\r')
+        fi
+        if [ -n "$existing_domain" ]; then
+            sudo rm -f "/etc/nginx/sites-available/${existing_domain}"
+            sudo rm -f "/etc/nginx/sites-enabled/${existing_domain}"
+            if command -v systemctl &>/dev/null; then
+                sudo systemctl reload nginx &>/dev/null
+            else
+                sudo service nginx reload &>/dev/null
+            fi
+            # Remove from settings.conf
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                sed -i '' '/^DASHBOARD_DOMAIN=/d' "$SETTINGS_FILE"
+            else
+                sed -i '/^DASHBOARD_DOMAIN=/d' "$SETTINGS_FILE"
+            fi
+            if [ "$LANG_PREF" = "tr" ]; then
+                log_success "BAŞARILI: Mevcut domain (${existing_domain}) kaldırıldı."
+            else
+                log_success "SUCCESS: Existing domain (${existing_domain}) has been removed."
+            fi
+        else
+            if [ "$LANG_PREF" = "tr" ]; then
+                log_error "Hata: Bağlanacak veya kaldırılacak bir domain belirtilmedi."
+            else
+                log_error "Error: No domain specified to bind or remove."
+            fi
+        fi
+        return 0
     fi
 
     if ! command -v nginx &>/dev/null; then
-        echo "Nginx is not installed. Installing nginx..."
+        if [ "$LANG_PREF" = "tr" ]; then
+            echo "Nginx kurulu değil. Nginx yükleniyor..."
+        else
+            echo "Nginx is not installed. Installing nginx..."
+        fi
         if command -v apt-get &>/dev/null; then
             sudo apt-get update &>/dev/null
             sudo apt-get install -y nginx &>/dev/null
@@ -4982,7 +5085,62 @@ EOF"
         fi
     fi
 
-    echo "SUCCESS: Domain ${domain} successfully bound to Web Dashboard on port ${port}!"
+    # Fetch Server Public IP
+    local public_ip="127.0.0.1"
+    if command -v hostname &>/dev/null; then
+        public_ip=$(hostname -I | awk '{print $1}')
+    fi
+    if [ -z "$public_ip" ]; then
+        public_ip=$(ip route get 1 2>/dev/null | awk '{print $7}')
+    fi
+    if [ -z "$public_ip" ]; then
+        public_ip=$(ifconfig | grep "inet " | grep -v "127.0.0.1" | awk '{print $2}' | head -n 1)
+    fi
+    [ -z "$public_ip" ] && public_ip="127.0.0.1"
+
+    # Extract host prefix
+    local host_part="@"
+    local dots
+    dots=$(echo "$domain" | tr -cd '.' | wc -c)
+    if [ "$dots" -ge 2 ]; then
+        host_part=$(echo "$domain" | cut -d'.' -f1)
+    fi
+
+    if [ "$LANG_PREF" = "tr" ]; then
+        log_success "BAŞARILI: ${domain} adresi port ${port} üzerindeki Web Paneline başarıyla bağlandı!"
+        echo -e "\n  ${COLOR_CYAN}================================================================${COLOR_RESET}"
+        echo -e "  ${COLOR_GREEN}DNS YAPILANDIRMASI / DNS CONFIGURATION${COLOR_RESET}"
+        echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
+        echo -e "  Alan adınızın bu sunucuya yönlenmesi için DNS sağlayıcınızda"
+        echo -e "  (Cloudflare, GoDaddy, Namecheap vb.) aşağıdaki DNS kaydını oluşturun:"
+        echo -e ""
+        echo -e "  Tür (Type)   | İsim (Name/Host)    | Değer (Value/IP)"
+        echo -e "  -------------|---------------------|------------------"
+        echo -e "  A            | ${COLOR_GREEN}${host_part}${COLOR_RESET}                  | ${COLOR_YELLOW}${public_ip}${COLOR_RESET}"
+        echo -e "  -------------|---------------------|------------------"
+        echo -e ""
+        echo -e "  * ${COLOR_YELLOW}Not:${COLOR_RESET} Cloudflare kullanılıyorsa 'Proxy' bulutu kapatılıp (DNS Only) yapılması önerilir."
+        echo -e "    Eğer '${domain}' gibi bir alt alan adı yönlendiriyorsanız Host kısmına '${COLOR_GREEN}${host_part}${COLOR_RESET}' yazın."
+        echo -e "    Eğer ana alan adını yönlendiriyorsanız Host kısmına '${COLOR_GREEN}@${COLOR_RESET}' yazın."
+        echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
+    else
+        log_success "SUCCESS: Domain ${domain} successfully bound to Web Dashboard on port ${port}!"
+        echo -e "\n  ${COLOR_CYAN}================================================================${COLOR_RESET}"
+        echo -e "  ${COLOR_GREEN}DNS CONFIGURATION / DNS YAPILANDIRMASI${COLOR_RESET}"
+        echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}"
+        echo -e "  To point your domain to this server, create the following DNS record"
+        echo -e "  in your DNS provider (Cloudflare, GoDaddy, Namecheap, etc.):"
+        echo -e ""
+        echo -e "  Type (Tür)   | Name (Host)         | Value (IP/Değer)"
+        echo -e "  -------------|---------------------|------------------"
+        echo -e "  A            | ${COLOR_GREEN}${host_part}${COLOR_RESET}                  | ${COLOR_YELLOW}${public_ip}${COLOR_RESET}"
+        echo -e "  -------------|---------------------|------------------"
+        echo -e ""
+        echo -e "  * ${COLOR_YELLOW}Note:${COLOR_RESET} It is recommended to turn off Proxy (DNS Only) on Cloudflare."
+        echo -e "    If you point a subdomain like '${domain}', write '${COLOR_GREEN}${host_part}${COLOR_RESET}' in Name/Host."
+        echo -e "    If you point the root domain directly, write '${COLOR_GREEN}@${COLOR_RESET}' in Name/Host."
+        echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
+    fi
     return 0
 }
 
