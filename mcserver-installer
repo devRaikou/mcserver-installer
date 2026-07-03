@@ -4385,7 +4385,6 @@ launch_web_dashboard() {
 
 
     if [ ! -d "${dashboard_dir}/node_modules" ] || [ "$force_npm_install" = "true" ]; then
-        set -x
         if [ "$LANG_PREF" = "tr" ]; then
             log_info "Web paneli bağımlılıkları yükleniyor (npm install)..."
             run_with_spinner "Bağımlılıklar yükleniyor" npm --prefix "$dashboard_dir" install
