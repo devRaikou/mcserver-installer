@@ -1049,7 +1049,7 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
       const res = await fetch(`/api/servers/${encodeURIComponent(currentServer.name)}/files/upload`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('mc_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('dashboard_token')}`
         },
         body: formData
       });

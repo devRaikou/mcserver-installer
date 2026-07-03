@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.67
+# Version: 1.68
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.67"
+APP_VERSION="1.68"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -497,16 +497,11 @@ draw_header() {
     ui_divider
     echo -ne "${COLOR_CYAN}" >&2
     cat <<'EOF' >&2
-  __  __  ___  ____                     
- |  \/  |/ __|/ ___|  ___ _ ____   _____ _ __
- | |\/| | (__ \___ \ / _ \ '__\ \ / / _ \ '__|
- | |  | |\___| ___) |  __/ |   \ V /  __/ |   
- |_|  |_|    |____/ \___|_|    \_/ \___|_|   
-  ___           _        _ _         
- |_ _|_ __  ___| |_ __ _| | | ___ _ __
-  | || '_ \/ __| __/ _` | | |/ _ \ '__|
-  | || | | \__ \ || (_| | | |  __/ |
- |___|_| |_|___/\__\__,_|_|_|\___|_|
+  __  __  ____ ____                             ___           _        _ _ 
+ |  \/  |/ ___/ ___|  ___ _ ____   _____ _ __  |_ _|_ __  ___| |_ __ _| | |
+ | |\/| | |   \___ \ / _ \ '__\ \ / / _ \ '__|  | || '_ \/ __| __/ _` | | |
+ | |  | | |___ ___) |  __/ |   \ V /  __/ |     | || | | \__ \ || (_| | | |
+ |_|  |_|\____|____/ \___|_|    \_/ \___|_|    |___|_| |_|___/\__\__,_|_|_|
 EOF
     echo -ne "${COLOR_RESET}" >&2
     echo -e "\n  ${COLOR_GRAY}Version:${COLOR_RESET} ${COLOR_WHITE}${APP_VERSION}${COLOR_RESET}  ${COLOR_GRAY}|${COLOR_RESET}  ${COLOR_GRAY}Developer:${COLOR_RESET} ${COLOR_CYAN}${COLOR_BOLD}${DEVELOPER}${COLOR_RESET}" >&2
