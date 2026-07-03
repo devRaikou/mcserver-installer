@@ -303,6 +303,7 @@
     <div class="header-actions">
       <span class="badge badge-online"><span class="pulse-dot green"></span> <span data-i18n="panel_online">Panel Online</span></span>
       <button id="lang-btn" onclick="toggleLanguage();" class="btn btn-ghost" style="border:none;background:rgba(255,255,255,0.05);"><i class="fa-solid fa-language" style="font-size:16px;"></i> TR</button>
+      <button id="users-btn" onclick="openUsersModal();" class="btn btn-ghost" style="border:none;background:rgba(255,255,255,0.05);"><i class="fa-solid fa-users"></i> Users</button>
       <button onclick="openDomainModal();" class="btn btn-ghost" style="border:none;background:rgba(255,255,255,0.05);"><i class="fa-solid fa-globe"></i> <span data-i18n="domain_btn">Bind Domain</span></button>
       <button onclick="openInstallModal();" class="btn btn-primary" style="box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);"><i class="fa-solid fa-server"></i> <span data-i18n="install_btn">Install Server</span></button>
       <button onclick="fetchStatus();fetchServers();" class="btn btn-ghost" style="border:none;background:rgba(255,255,255,0.05);"><i class="fa-solid fa-rotate-right"></i></button>
@@ -598,6 +599,31 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
   </div>
 </div>
 
+  <!-- Users Modal -->
+  <div id="users-modal" class="overlay hidden">
+    <div class="modal install-modal">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-users" style="color:var(--accent-teal);margin-right:8px;"></i> Manage Users</h3>
+        <button onclick="document.getElementById('users-modal').classList.add('hidden')" class="close-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">New User Name</label>
+          <input type="text" id="new-username" class="input" placeholder="e.g. Moderator1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Role</label>
+          <select id="new-user-role" class="input">
+            <option value="moderator">Moderator (Console, Players)</option>
+            <option value="admin">Admin (Full Access)</option>
+          </select>
+        </div>
+        <button onclick="createUser()" class="btn btn-solid-teal" style="width:100%;"><i class="fa-solid fa-plus"></i> Add User</button>
+        <div id="users-list" style="margin-top:20px; display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+    </div>
+  </div>
+
 <script>
   let currentServer = null;
   let consoleEventSource = null;
@@ -768,8 +794,10 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
       if (res.ok) {
         const data = await res.json();
         localStorage.setItem('dashboard_token', data.token);
+        localStorage.setItem('dashboard_role', data.role);
         document.getElementById('login-overlay').classList.add('hidden');
         input.value = '';
+        checkRoleUI();
         fetchStatus(); fetchServers();
         setInterval(fetchStatus, 4000);
         setInterval(fetchServers, 5000);
@@ -782,8 +810,21 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     initChart();
     const token = localStorage.getItem('dashboard_token');
     if (!token) { document.getElementById('login-overlay').classList.remove('hidden'); }
-    else { fetchStatus(); fetchServers(); setInterval(fetchStatus, 4000); setInterval(fetchServers, 5000); }
+    else { checkRoleUI(); fetchStatus(); fetchServers(); setInterval(fetchStatus, 4000); setInterval(fetchServers, 5000); }
   });
+
+  function checkRoleUI() {
+    const role = localStorage.getItem('dashboard_role');
+    if (role === 'moderator') {
+      document.getElementById('tab-properties-btn').style.display = 'none';
+      document.getElementById('tab-files-btn').style.display = 'none';
+      document.getElementById('tab-backups-btn').style.display = 'none';
+    } else {
+      document.getElementById('tab-properties-btn').style.display = 'inline-block';
+      document.getElementById('tab-files-btn').style.display = 'inline-block';
+      document.getElementById('tab-backups-btn').style.display = 'inline-block';
+    }
+  }
 
   async function fetchStatus() {
     try {
@@ -1341,6 +1382,56 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
         document.getElementById('current-domain-container').classList.remove('hidden');
       } else { alert('Error: ' + data.error); document.getElementById('domain-loader').classList.add('hidden'); document.getElementById('domain-submit-btn').disabled = false; }
     } catch (err) { document.getElementById('domain-loader').classList.add('hidden'); document.getElementById('domain-submit-btn').disabled = false; }
+  }
+
+  // --- USERS MANAGEMENT ---
+  async function openUsersModal() {
+    document.getElementById('users-modal').classList.remove('hidden');
+    loadUsers();
+  }
+  
+  async function loadUsers() {
+    const res = await apiFetch('/api/users');
+    if (!res.ok) return;
+    const users = await res.json();
+    const list = document.getElementById('users-list');
+    list.innerHTML = '';
+    users.forEach(u => {
+      const div = document.createElement('div');
+      div.style.display = 'flex';
+      div.style.justifyContent = 'space-between';
+      div.style.alignItems = 'center';
+      div.style.padding = '12px';
+      div.style.background = 'rgba(255,255,255,0.02)';
+      div.style.border = '1px solid var(--border-subtle)';
+      div.style.borderRadius = '8px';
+      div.innerHTML = `
+        <div><strong style="color:var(--text-primary);">${u.username}</strong> <span class="badge" style="margin-left:8px;font-size:10px;">${u.role.toUpperCase()}</span></div>
+        ${u.username === 'admin' ? '' : `<button onclick="deleteUser('${u.username}')" class="btn btn-ghost" style="color:var(--accent-rose)"><i class="fa-solid fa-trash"></i></button>`}
+      `;
+      list.appendChild(div);
+    });
+  }
+
+  async function createUser() {
+    const username = document.getElementById('new-username').value.trim();
+    const role = document.getElementById('new-user-role').value;
+    if (!username) return;
+    const res = await apiFetch('/api/users', { method: 'POST', body: JSON.stringify({ username, role }) });
+    const data = await res.json();
+    if (data.success) {
+      alert(`User created!\nUsername: ${username}\nPIN Code: ${data.pin}\n\nMake sure to copy this PIN, you won't see it again!`);
+      document.getElementById('new-username').value = '';
+      loadUsers();
+    } else {
+      alert(data.error);
+    }
+  }
+
+  async function deleteUser(username) {
+    if (!confirm(`Delete user ${username}?`)) return;
+    const res = await apiFetch(`/api/users/${username}`, { method: 'DELETE' });
+    if (res.ok) loadUsers();
   }
 </script>
 </body>

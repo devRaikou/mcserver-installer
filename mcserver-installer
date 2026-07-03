@@ -4382,6 +4382,8 @@ launch_web_dashboard() {
     fi
 
     # 2. Check if node_modules is installed
+
+
     if [ ! -d "${dashboard_dir}/node_modules" ] || [ "$force_npm_install" = "true" ]; then
         if [ "$LANG_PREF" = "tr" ]; then
             log_info "Web paneli bağımlılıkları yükleniyor (npm install)..."
@@ -4408,8 +4410,9 @@ launch_web_dashboard() {
             running_port=$(cat "${CONFIG_DIR}/.dashboard_port" | tr -d '[:space:]')
         fi
         local running_otp=""
-        if [ -f "${CONFIG_DIR}/.dashboard_otp" ]; then
-            running_otp=$(cat "${CONFIG_DIR}/.dashboard_otp" | tr -d '[:space:]')
+        local users_file="${CONFIG_DIR}/.users.json"
+        if [ -f "$users_file" ]; then
+            running_otp=$(jq -r '.[] | select(.username=="admin") | .pin' "$users_file" 2>/dev/null)
         fi
         local running_domain=""
         if [ -f "$SETTINGS_FILE" ]; then
@@ -4478,7 +4481,7 @@ launch_web_dashboard() {
 
                 # Delete all dashboard directory, port and OTP tracking files
                 rm -rf "${dashboard_dir}"
-                rm -f "${CONFIG_DIR}/.dashboard_otp"
+                rm -f "${CONFIG_DIR}/.users.json"
                 rm -f "${CONFIG_DIR}/.dashboard_port"
 
                 if [ "$LANG_PREF" = "tr" ]; then
@@ -4533,10 +4536,14 @@ launch_web_dashboard() {
 
     # Clear old port file and always generate a fresh OTP on dashboard launch
     rm -f "${CONFIG_DIR}/.dashboard_port"
-    local otp_file="${CONFIG_DIR}/.dashboard_otp"
-    local otp_code
-    otp_code=$((100000 + RANDOM % 900000))
-    echo "$otp_code" > "$otp_file"
+    local users_file="${CONFIG_DIR}/.users.json"
+    local otp_code=$((100000 + RANDOM % 900000))
+    
+    if [ ! -f "$users_file" ]; then
+        echo "[{\"username\":\"admin\",\"pin\":\"$otp_code\",\"role\":\"admin\"}]" > "$users_file"
+    else
+        jq "map(if .username == \"admin\" then .pin = \"$otp_code\" else . end)" "$users_file" > "${users_file}.tmp" && mv "${users_file}.tmp" "$users_file"
+    fi
 
     screen -dmS mc-dashboard bash -c "cd '${dashboard_dir}' && CONFIG_DIR='${CONFIG_DIR}' node server.js"
     

@@ -73,13 +73,17 @@ function getRegisteredServers() {
 }
 
 const configDir = process.env.CONFIG_DIR || path.join(os.homedir(), '.mcserver-installer');
-const otpPath = path.join(configDir, '.dashboard_otp');
+const usersPath = path.join(configDir, '.users.json');
 
-function getStoredOtp() {
-  if (fs.existsSync(otpPath)) {
-    return fs.readFileSync(otpPath, 'utf8').trim();
+function getUsers() {
+  if (fs.existsSync(usersPath)) {
+    try {
+      return JSON.parse(fs.readFileSync(usersPath, 'utf8'));
+    } catch (e) {
+      return [];
+    }
   }
-  return '';
+  return [];
 }
 
 // Authentication Middleware
@@ -100,11 +104,21 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Unauthorized: Missing token' });
   }
 
-  const storedOtp = getStoredOtp();
-  if (!storedOtp || token !== storedOtp) {
+  const users = getUsers();
+  const user = users.find(u => u.pin === token);
+
+  if (!user) {
     return res.status(401).json({ error: 'Unauthorized: Invalid token' });
   }
 
+  req.user = user;
+  next();
+}
+
+function requireAdmin(req, res, next) {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden: Admin access required' });
+  }
   next();
 }
 
@@ -188,7 +202,36 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-// 2. Get All Servers
+// --- USER MANAGEMENT API ---
+app.get('/api/users', requireAdmin, (req, res) => {
+  res.json(getUsers().map(u => ({ username: u.username, role: u.role })));
+});
+
+app.post('/api/users', requireAdmin, (req, res) => {
+  const { username, role } = req.body;
+  if (!username || !role) return res.status(400).json({ error: 'Missing username or role' });
+  
+  const users = getUsers();
+  if (users.find(u => u.username === username)) return res.status(400).json({ error: 'Username already exists' });
+  
+  const pin = Math.floor(100000 + Math.random() * 900000).toString();
+  users.push({ username, pin, role });
+  fs.writeFileSync(usersPath, JSON.stringify(users, null, 2));
+  res.json({ success: true, pin });
+});
+
+app.delete('/api/users/:username', requireAdmin, (req, res) => {
+  const username = req.params.username;
+  if (username === 'admin') return res.status(400).json({ error: 'Cannot delete admin' });
+  
+  let users = getUsers();
+  users = users.filter(u => u.username !== username);
+  fs.writeFileSync(usersPath, JSON.stringify(users, null, 2));
+  res.json({ success: true });
+});
+
+// --- API ROUTES ---
+// 1. Get all servers
 app.get('/api/servers', async (req, res) => {
   try {
     const servers = getRegisteredServers();
@@ -359,7 +402,7 @@ app.get('/api/servers/:name/properties', (req, res) => {
 });
 
 // 9. Update properties
-app.put('/api/servers/:name/properties', (req, res) => {
+app.put('/api/servers/:name/properties', requireAdmin, (req, res) => {
   const { properties } = req.body; // Array of {key, value}
   if (!properties || !Array.isArray(properties)) return res.status(400).json({ error: 'Invalid properties array' });
 
@@ -380,7 +423,7 @@ app.put('/api/servers/:name/properties', (req, res) => {
 });
 
 // 10. List backups
-app.get('/api/servers/:name/backups', (req, res) => {
+app.get('/api/servers/:name/backups', requireAdmin, (req, res) => {
   const servers = getRegisteredServers();
   const srv = servers.find(s => s.name === req.params.name);
   if (!srv) return res.status(404).json({ error: 'Server not found' });
@@ -404,7 +447,7 @@ app.get('/api/servers/:name/backups', (req, res) => {
 });
 
 // 11. Download backup
-app.get('/api/servers/:name/backups/:file', (req, res) => {
+app.get('/api/servers/:name/backups/:file', requireAdmin, (req, res) => {
   const servers = getRegisteredServers();
   const srv = servers.find(s => s.name === req.params.name);
   if (!srv) return res.status(404).json({ error: 'Server not found' });
@@ -416,7 +459,7 @@ app.get('/api/servers/:name/backups/:file', (req, res) => {
 });
 
 // 12. Create backup
-app.post('/api/servers/:name/backup', (req, res) => {
+app.post('/api/servers/:name/backup', requireAdmin, (req, res) => {
   const servers = getRegisteredServers();
   const srv = servers.find(s => s.name === req.params.name);
   if (!srv) return res.status(404).json({ error: 'Server not found' });
@@ -436,9 +479,12 @@ app.post('/api/login', (req, res) => {
   if (!pin) {
     return res.status(400).json({ error: 'PIN code is required' });
   }
-  const storedOtp = getStoredOtp();
-  if (storedOtp && pin.toString().trim() === storedOtp) {
-    return res.json({ success: true, token: storedOtp });
+  
+  const users = getUsers();
+  const user = users.find(u => u.pin === pin.toString().trim());
+  
+  if (user) {
+    return res.json({ success: true, token: user.pin, role: user.role, username: user.username });
   }
   return res.status(401).json({ error: 'Invalid PIN code' });
 });
@@ -525,7 +571,7 @@ app.get('/api/servers/:name/files/read', (req, res) => {
   }
 });
 
-app.put('/api/servers/:name/files/write', (req, res) => {
+app.put('/api/servers/:name/files/write', requireAdmin, (req, res) => {
   const { name } = req.params;
   const { path: relPath, content } = req.body;
   if (!relPath) return res.status(400).json({ error: 'Path required' });
@@ -548,7 +594,7 @@ app.put('/api/servers/:name/files/write', (req, res) => {
 const multer = require('multer');
 const upload = multer({ dest: '/tmp/mcserver-uploads/' });
 
-app.post('/api/servers/:name/files/upload', upload.single('file'), (req, res) => {
+app.post('/api/servers/:name/files/upload', requireAdmin, upload.single('file'), (req, res) => {
   const { name } = req.params;
   const relPath = req.body.path;
   if (!relPath) return res.status(400).json({ error: 'Path required' });
