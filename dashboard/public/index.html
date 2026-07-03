@@ -969,42 +969,59 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
         container.innerHTML = `<div class="card" style="padding:40px;text-align:center;grid-column:1/-1;"><i class="fa-solid fa-inbox" style="font-size:32px;color:var(--text-muted);margin-bottom:12px;display:block;"></i><p style="color:var(--text-muted);font-size:13px;">${currentLang==='tr'?'Henüz kurulu sunucu yok.':'No servers installed yet.'}</p></div>`;
         return;
       }
-      servers.forEach(srv => {
-        let statusBadge, actionBtn, manageBtn;
+      const backendServers = servers.filter(s => !['velocity', 'waterfall'].includes(s.type));
+      const proxyServers = servers.filter(s => ['velocity', 'waterfall'].includes(s.type));
+      
+      const renderServerGrid = (serverList, title) => {
+        if (serverList.length === 0) return '';
         
-        if (srv.isInstalling) {
-          statusBadge = `<span class="badge" style="background:rgba(251,191,36,0.1);color:var(--accent-amber);border:1px solid rgba(251,191,36,0.2);"><div class="spinner" style="width:10px;height:10px;border-width:2px;margin-right:6px;border-top-color:var(--accent-amber);"></div> ${currentLang === 'tr' ? 'Kuruluyor...' : 'Installing...'}</span>`;
-          actionBtn = `<button disabled class="btn btn-ghost" style="flex:1;opacity:0.5;">${currentLang === 'tr' ? 'Bekleniyor' : 'Waiting'}</button>`;
-          manageBtn = `<button disabled class="btn btn-solid-teal" style="opacity:0.5;cursor:not-allowed;">${translations[currentLang].btn_manage}</button>`;
-        } else {
-          const online = srv.running;
-          statusBadge = online
-            ? `<span class="badge badge-online"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent-emerald);display:inline-block;"></span> ${translations[currentLang].status_running}</span>`
-            : `<span class="badge badge-offline"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent-rose);display:inline-block;"></span> ${translations[currentLang].status_stopped}</span>`;
-          actionBtn = online
-            ? `<button onclick="stopServer('${srv.name}')" class="btn btn-danger">${translations[currentLang].btn_stop}</button>`
-            : `<button onclick="startServer('${srv.name}')" class="btn btn-success">${translations[currentLang].btn_start}</button>`;
-          manageBtn = `<button onclick="openManager(${JSON.stringify(srv).replace(/"/g,'&quot;')})" class="btn btn-solid-teal">${translations[currentLang].btn_manage}</button>`;
-        }
+        let html = `<div style="grid-column:1/-1;margin-top:16px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+          <h3 style="margin:0;font-size:16px;color:var(--text-main);">${title}</h3>
+          <div style="flex:1;height:1px;background:var(--border-subtle);"></div>
+        </div>`;
+        
+        serverList.forEach(srv => {
+          let statusBadge, actionBtn, manageBtn;
+          if (srv.isInstalling) {
+            statusBadge = `<span class="badge" style="background:rgba(251,191,36,0.1);color:var(--accent-amber);border:1px solid rgba(251,191,36,0.2);"><div class="spinner" style="width:10px;height:10px;border-width:2px;margin-right:6px;border-top-color:var(--accent-amber);"></div> ${currentLang === 'tr' ? 'Kuruluyor...' : 'Installing...'}</span>`;
+            actionBtn = `<button disabled class="btn btn-ghost" style="flex:1;opacity:0.5;">${currentLang === 'tr' ? 'Bekleniyor' : 'Waiting'}</button>`;
+            manageBtn = `<button disabled class="btn btn-solid-teal" style="opacity:0.5;cursor:not-allowed;">${translations[currentLang].btn_manage}</button>`;
+          } else {
+            const online = srv.running;
+            statusBadge = online
+              ? `<span class="badge badge-online"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent-emerald);display:inline-block;"></span> ${translations[currentLang].status_running}</span>`
+              : `<span class="badge badge-offline"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent-rose);display:inline-block;"></span> ${translations[currentLang].status_stopped}</span>`;
+            actionBtn = online
+              ? `<button onclick="stopServer('${srv.name}')" class="btn btn-danger">${translations[currentLang].btn_stop}</button>`
+              : `<button onclick="startServer('${srv.name}')" class="btn btn-success">${translations[currentLang].btn_start}</button>`;
+            manageBtn = `<button onclick='openManager(${JSON.stringify(srv).replace(/'/g, "&#39;")})' class="btn btn-solid-teal">${translations[currentLang].btn_manage}</button>`;
+          }
+          
+          let icon = '🟢';
+          if(srv.type==='paper') icon='📄'; else if(srv.type==='purpur') icon='🟣'; else if(srv.type==='folia') icon='🌿'; else if(srv.type==='velocity') icon='⚡'; else if(srv.type==='waterfall') icon='💧';
 
-        const card = document.createElement('div');
-        card.className = 'card server-card';
-        card.innerHTML = `
-          <div>
-            <div class="server-header">
-              <span class="badge badge-type">${srv.type.toUpperCase()}</span>
-              ${statusBadge}
+          html += `
+          <div class="card server-card">
+            <div>
+              <div class="server-header">
+                <span class="badge badge-type">${srv.type.toUpperCase()}</span>
+                ${statusBadge}
+              </div>
+              <div class="server-name">${srv.name}</div>
+              <div class="server-meta"><i class="fa-solid fa-code-branch" style="margin-right:4px;"></i>${srv.version} &nbsp;·&nbsp; <i class="fa-solid fa-network-wired" style="margin-right:4px;"></i>Port ${srv.port}</div>
+              <div class="server-meta truncate"><i class="fa-solid fa-folder" style="margin-right:4px;"></i>${srv.path}</div>
             </div>
-            <div class="server-name">${srv.name}</div>
-            <div class="server-meta"><i class="fa-solid fa-code-branch" style="margin-right:4px;"></i>${srv.version} &nbsp;·&nbsp; <i class="fa-solid fa-network-wired" style="margin-right:4px;"></i>Port ${srv.port}</div>
-            <div class="server-meta truncate"><i class="fa-solid fa-folder" style="margin-right:4px;"></i>${srv.path}</div>
-          </div>
-          <div class="server-actions">
-            ${actionBtn}
-            ${manageBtn}
+            <div class="server-actions">
+              ${actionBtn}
+              ${manageBtn}
+            </div>
           </div>`;
-        container.appendChild(card);
-      });
+        });
+        return html;
+      };
+
+      container.innerHTML = renderServerGrid(backendServers, currentLang === 'tr' ? 'Backend Sunucular' : 'Backend Servers') + 
+                            renderServerGrid(proxyServers, currentLang === 'tr' ? 'Proxy Sunucular' : 'Proxy Servers');
     } catch (err) { console.error(err); }
   }
 

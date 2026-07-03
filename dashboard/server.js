@@ -1077,7 +1077,7 @@ findFreePort(PORT).then((freePort) => {
     const destPath = path.join(srv.path, 'server.jar');
     
     let fetchUrlPromise = new Promise((resolve, reject) => {
-      if (srv.type === 'paper' || srv.type === 'folia') {
+      if (srv.type === 'paper' || srv.type === 'folia' || srv.type === 'velocity' || srv.type === 'waterfall') {
         https.get(`https://api.papermc.io/v2/projects/${srv.type}/versions/${version}`, (res) => {
           let d = ''; res.on('data', c => d+=c);
           res.on('end', () => {
@@ -1125,10 +1125,10 @@ findFreePort(PORT).then((freePort) => {
               file.close();
               const lines = fs.readFileSync(registryFile, 'utf8').split('\n');
               const newLines = lines.map(line => {
-                const parts = line.split('|');
+                const parts = line.split(':');
                 if (parts[0] === srv.name) {
                   parts[3] = version;
-                  return parts.join('|');
+                  return parts.join(':');
                 }
                 return line;
               });
