@@ -875,7 +875,7 @@ app.post('/api/servers/:name/plugins/install', (req, res) => {
 });
 
 app.post('/api/servers/install', async (req, res) => {
-  const { name, software, version, port, ram } = req.body;
+  const { name, software, version, port, ram, backendNames, backendVersion } = req.body;
   if (!name || !software || !version || !port || !ram) {
     return res.status(400).json({ error: 'Missing arguments' });
   }
@@ -920,7 +920,11 @@ app.post('/api/servers/install', async (req, res) => {
   activeInstalls.push(installObj);
 
   const mainScript = path.resolve(__dirname, '..', 'mcserver-installer');
-  const installProcess = spawn(mainScript, ['--install', name, software, version, port, ram]);
+  const spawnArgs = ['--install', name, software, version, port, ram];
+  if (backendNames && backendVersion) {
+    spawnArgs.push(backendNames, backendVersion);
+  }
+  const installProcess = spawn(mainScript, spawnArgs);
   
   installProcess.stdout.on('data', (data) => {
     console.log(`[Install ${name}]: ${data}`);
