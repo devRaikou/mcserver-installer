@@ -5368,4 +5368,4 @@ fi
 # Launch Application
 HEADLESS_MODE="false"
 check_for_updates
-show_main_menu
+main_menu
