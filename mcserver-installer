@@ -551,7 +551,6 @@ run_with_spinner() {
 
     if [ $status -eq 0 ]; then
         echo -e "  ${COLOR_GREEN}${ICON_SUCCESS} ${msg} - Done!${COLOR_RESET}"
-        cat "$tmp_out"
         rm -f "$tmp_out" "$tmp_err"
         return 0
     else
