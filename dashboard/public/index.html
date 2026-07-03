@@ -395,6 +395,7 @@
       <button onclick="switchTab('plugins')" id="tab-plugins-btn" class="tab-btn"><i class="fa-solid fa-puzzle-piece"></i> <span data-i18n="tab_plugins">Plugins</span></button>
       <button onclick="switchTab('backups')" id="tab-backups-btn" class="tab-btn"><i class="fa-solid fa-box-archive"></i> <span data-i18n="tab_backups">Backups</span></button>
       <button onclick="switchTab('tasks')" id="tab-tasks-btn" class="tab-btn"><i class="fa-solid fa-clock"></i> <span data-i18n="tab_tasks">Tasks</span></button>
+      <button onclick="switchTab('worlds')" id="tab-worlds-btn" class="tab-btn"><i class="fa-solid fa-earth-americas"></i> <span data-i18n="tab_worlds">Worlds</span></button>
     </div>
     <div class="manager-content">
       <!-- Console -->
@@ -540,6 +541,26 @@
               </tr>
             </thead>
             <tbody id="tasks-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <!-- Worlds -->
+      <div id="tab-worlds" class="tab-panel hidden">
+        <div class="flex-between" style="margin-bottom:16px;">
+          <h4 style="font-size:14px;color:var(--accent-teal);font-weight:700;"><i class="fa-solid fa-earth-americas"></i> World Manager</h4>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Active worlds are marked in <span style="color:var(--accent-teal);font-weight:bold;">green</span>. Switch active world by clicking the activate button (requires restart).</div>
+        <div style="border:1px solid var(--border-subtle);border-radius:var(--radius-md);overflow:hidden;">
+          <table class="backup-table">
+            <thead>
+              <tr>
+                <th>World Name</th>
+                <th>Type</th>
+                <th>Size</th>
+                <th style="width:100px;text-align:right;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="worlds-list-body"></tbody>
           </table>
         </div>
       </div>
@@ -993,7 +1014,7 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
   async function restartServer(n) { await apiFetch(`/api/servers/${n}/restart`,{method:'POST'}); fetchServers(); }
 
   function switchTab(tab) {
-    ['console','properties','files','players','plugins','backups','tasks'].forEach(t => {
+    ['console','properties','files','players','plugins','backups','tasks','worlds'].forEach(t => {
       document.getElementById(`tab-${t}`).classList.add('hidden');
       document.getElementById(`tab-${t}-btn`).classList.remove('active');
     });
@@ -1005,6 +1026,7 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     if (tab==='plugins') document.getElementById('plugins-list').innerHTML = `<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:40px;">${currentLang==='tr'?'Arama yaparak eklenti bulun.':'Search for a plugin.'}</div>`;
     if (tab==='backups') fetchBackups();
     if (tab==='tasks') fetchTasks();
+    if (tab==='worlds') fetchWorlds();
   }
 
   function openManager(srv) {
@@ -1667,6 +1689,54 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
       document.getElementById('version-modal').classList.add('hidden');
       closeManager();
       fetchServers();
+    } else {
+      const data = await res.json();
+      alert('Error: ' + data.error);
+    }
+  }
+
+  // --- WORLD MANAGER ---
+  async function fetchWorlds() {
+    if (!currentServer) return;
+    const res = await apiFetch(`/api/servers/${currentServer.name}/worlds`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const tbody = document.getElementById('worlds-list-body');
+    tbody.innerHTML = '';
+    
+    if (data.worlds.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">No worlds found. Start the server once to generate a world.</td></tr>`;
+      return;
+    }
+
+    data.worlds.forEach(w => {
+      const isActive = (w.name === data.activeWorld);
+      let typeLabel = 'Overworld';
+      if (w.isNether) typeLabel = 'Nether';
+      else if (w.isTheEnd) typeLabel = 'The End';
+      
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong style="color:${isActive ? 'var(--accent-teal)' : 'var(--text-main)'};">${w.name}</strong> ${isActive ? '<span class="badge badge-success" style="font-size:9px;padding:2px 4px;margin-left:4px;">Active</span>' : ''}</td>
+        <td><span class="badge" style="background:rgba(255,255,255,0.05);">${typeLabel}</span></td>
+        <td style="font-family:'JetBrains Mono',monospace;">${(w.size / (1024*1024)).toFixed(2)} MB</td>
+        <td style="text-align:right;">
+          ${!isActive && !w.isNether && !w.isTheEnd ? `<button onclick="setActiveWorld('${w.name}')" class="btn btn-primary" style="padding:4px 8px;font-size:10px;"><i class="fa-solid fa-play"></i> Activate</button>` : ''}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function setActiveWorld(name) {
+    if (!currentServer || !confirm(`Set ${name} as the active world? (Requires server restart)`)) return;
+    const res = await apiFetch(`/api/servers/${currentServer.name}/worlds/active`, {
+      method: 'POST',
+      body: JSON.stringify({ worldName: name })
+    });
+    if (res.ok) {
+      fetchWorlds();
+      alert(`Active world updated to ${name}. Restart the server to apply changes.`);
     } else {
       const data = await res.json();
       alert('Error: ' + data.error);

@@ -1143,7 +1143,71 @@ findFreePort(PORT).then((freePort) => {
     });
   });
 
-  app.listen(freePort, () => {
+// --- WORLD MANAGER ---
+app.get('/api/servers/:name/worlds', requireAdmin, (req, res) => {
+  const { name } = req.params;
+  const servers = getRegisteredServers();
+  const srv = servers.find(s => s.name === name);
+  if (!srv) return res.status(404).json({ error: 'Server not found' });
+
+  const worlds = [];
+  try {
+    const items = fs.readdirSync(srv.path);
+    for (const item of items) {
+      const fullPath = path.join(srv.path, item);
+      if (fs.statSync(fullPath).isDirectory()) {
+        if (fs.existsSync(path.join(fullPath, 'level.dat'))) {
+          // get size
+          let size = 0;
+          try {
+            const out = require('child_process').execSync(`du -sb "${fullPath}"`).toString();
+            size = parseInt(out.split('\t')[0]);
+          } catch(e) {}
+          worlds.push({ name: item, size, isNether: item.endsWith('_nether'), isTheEnd: item.endsWith('_the_end') });
+        }
+      }
+    }
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to read worlds' });
+  }
+  
+  // Find active world
+  let activeWorld = 'world';
+  const propsPath = path.join(srv.path, 'server.properties');
+  if (fs.existsSync(propsPath)) {
+    const props = fs.readFileSync(propsPath, 'utf8');
+    const match = props.match(/^level-name=(.*)$/m);
+    if (match) activeWorld = match[1].trim();
+  }
+
+  res.json({ activeWorld, worlds });
+});
+
+app.post('/api/servers/:name/worlds/active', requireAdmin, (req, res) => {
+  const { name } = req.params;
+  const { worldName } = req.body;
+  if (!worldName) return res.status(400).json({ error: 'World name required' });
+
+  const servers = getRegisteredServers();
+  const srv = servers.find(s => s.name === name);
+  if (!srv) return res.status(404).json({ error: 'Server not found' });
+
+  const propsPath = path.join(srv.path, 'server.properties');
+  if (fs.existsSync(propsPath)) {
+    let props = fs.readFileSync(propsPath, 'utf8');
+    if (/^level-name=/m.test(props)) {
+      props = props.replace(/^level-name=.*$/m, `level-name=${worldName}`);
+    } else {
+      props += `\nlevel-name=${worldName}\n`;
+    }
+    fs.writeFileSync(propsPath, props);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'server.properties not found' });
+  }
+});
+
+app.listen(freePort, () => {
     console.log(`mcserver-installer Dashboard server listening on port ${freePort}`);
     const configDir = path.join(os.homedir(), '.mcserver-installer');
     if (!fs.existsSync(configDir)) {
