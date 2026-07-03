@@ -1052,7 +1052,8 @@ findFreePort(PORT).then((freePort) => {
     const srv = servers.find(s => s.name === req.params.name);
     if (!srv) return res.status(404).json({ error: 'Server not found' });
     
-    exec(`"${scriptPath}" --get-versions "${srv.type}"`, (err, stdout, stderr) => {
+    const mainScript = path.resolve(__dirname, '..', 'mcserver-installer');
+    exec(`"${mainScript}" --get-versions "${srv.type}"`, (err, stdout, stderr) => {
       if (err) return res.status(500).json({ error: 'Failed to fetch versions' });
       try {
         const versions = stdout.split('\n').map(v => v.trim()).filter(v => v);
@@ -1152,23 +1153,35 @@ app.get('/api/servers/:name/worlds', requireAdmin, (req, res) => {
 
   const worlds = [];
   try {
-    const items = fs.readdirSync(srv.path);
-    for (const item of items) {
-      const fullPath = path.join(srv.path, item);
-      if (fs.statSync(fullPath).isDirectory()) {
-        if (fs.existsSync(path.join(fullPath, 'level.dat'))) {
-          // get size
-          let size = 0;
-          try {
-            const out = require('child_process').execSync(`du -sb "${fullPath}"`).toString();
-            size = parseInt(out.split('\t')[0]);
-          } catch(e) {}
-          worlds.push({ name: item, size, isNether: item.endsWith('_nether'), isTheEnd: item.endsWith('_the_end') });
+    if (fs.existsSync(srv.path)) {
+      const items = fs.readdirSync(srv.path);
+      for (const item of items) {
+        const fullPath = path.join(srv.path, item);
+        try {
+          if (fs.lstatSync(fullPath).isDirectory()) {
+            if (fs.existsSync(path.join(fullPath, 'level.dat'))) {
+              let size = 0;
+              try {
+                // 'du -sb' works on Linux, on Mac we can fallback to 'du -sm' or just ignore
+                try {
+                  const out = require('child_process').execSync(`du -sb "${fullPath}" 2>/dev/null`).toString();
+                  size = parseInt(out.split('\t')[0]);
+                } catch(e2) {
+                  const out = require('child_process').execSync(`du -sk "${fullPath}" 2>/dev/null`).toString();
+                  size = parseInt(out.split('\t')[0]) * 1024; // kbytes to bytes
+                }
+              } catch(e) {}
+              worlds.push({ name: item, size, isNether: item.endsWith('_nether'), isTheEnd: item.endsWith('_the_end') });
+            }
+          }
+        } catch(err) {
+          // Ignore individual file errors (like broken symlinks or permission denied)
         }
       }
     }
   } catch (err) {
-    return res.status(500).json({ error: 'Failed to read worlds' });
+    console.error('[Worlds API] Failed to read worlds:', err);
+    return res.status(500).json({ error: 'Failed to read worlds: ' + err.message });
   }
   
   // Find active world
