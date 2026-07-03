@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.69
+# Version: 1.71
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -11,7 +11,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.70"
+APP_VERSION="1.71"
 DEVELOPER="devRaikou"
 CONFIG_DIR="${HOME}/.mcserver-installer"
 REGISTRY_FILE="${CONFIG_DIR}/registry.txt"
@@ -504,7 +504,7 @@ draw_header() {
  |_|  |_|\____|____/ \___|_|    \_/ \___|_|    |___|_| |_|___/\__\__,_|_|_|
 EOF
     echo -ne "${COLOR_RESET}" >&2
-    echo -e "\n  ${COLOR_GRAY}Version:${COLOR_RESET} ${COLOR_WHITE}1.70${COLOR_RESET}  ${COLOR_GRAY}|${COLOR_RESET}  ${COLOR_GRAY}Developer:${COLOR_RESET} ${COLOR_CYAN}${COLOR_BOLD}${DEVELOPER}${COLOR_RESET}" >&2
+    echo -e "\n  ${COLOR_GRAY}Version:${COLOR_RESET} ${COLOR_WHITE}1.71${COLOR_RESET}  ${COLOR_GRAY}|${COLOR_RESET}  ${COLOR_GRAY}Developer:${COLOR_RESET} ${COLOR_CYAN}${COLOR_BOLD}${DEVELOPER}${COLOR_RESET}" >&2
     echo -e "  ${COLOR_GRAY}GitHub:${COLOR_RESET} ${COLOR_BLUE}https://github.com/devRaikou/mcserver-installer${COLOR_RESET}" >&2
     ui_divider
 }

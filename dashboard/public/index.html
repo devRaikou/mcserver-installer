@@ -1292,16 +1292,9 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
   // --- Plugin Store ---
   async function searchPlugins() {
     const q = document.getElementById('plugin-search-input').value.trim();
+    const source = document.getElementById('plugin-source').value;
     if (!q) return;
     const container = document.getElementById('plugins-list');
-    container.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--accent-teal);">Searching...</div>`;
-    
-    try {
-      const res = await apiFetch(`/api/plugins/search?q=${encodeURIComponent(q)}`);
-      
-      // Handle HTML or non-JSON responses gracefully
-      const contentType = res.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
     container.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:20px;"><div class="spinner" style="margin:0 auto 12px;border-color:var(--border-subtle);border-top-color:var(--accent-blue);"></div><span style="font-size:12px;color:var(--text-muted);">Searching...</span></div>`;
     
     try {
