@@ -802,7 +802,7 @@ app.get('/api/plugins/search', (req, res) => {
 
 app.post('/api/servers/:name/plugins/install', (req, res) => {
   const { name } = req.params;
-  const { pluginId, pluginName } = req.body;
+  const { pluginId, pluginName, source } = req.body;
   if (!pluginId || !pluginName) return res.status(400).json({ error: 'Plugin info required' });
 
   const servers = getRegisteredServers();
@@ -812,28 +812,66 @@ app.post('/api/servers/:name/plugins/install', (req, res) => {
   const pluginsDir = path.join(srv.path, 'plugins');
   if (!fs.existsSync(pluginsDir)) fs.mkdirSync(pluginsDir, { recursive: true });
 
-  // Clean filename
   const safeName = pluginName.replace(/[^a-zA-Z0-9_-]/g, '_') + '.jar';
   const destPath = path.join(pluginsDir, safeName);
-  
-  const url = `https://api.spiget.org/v2/resources/${pluginId}/download`;
   const file = fs.createWriteStream(destPath);
-  
-  const request = https.get(url, { headers: { 'User-Agent': 'mcserver-installer' } }, (response) => {
-    if (response.statusCode === 301 || response.statusCode === 302) {
-      // Follow redirect
-      https.get(response.headers.location, { headers: { 'User-Agent': 'mcserver-installer' } }, (redirectRes) => {
-        redirectRes.pipe(file);
+
+  if (source === 'modrinth') {
+    // Fetch Modrinth versions
+    const versionUrl = `https://api.modrinth.com/v2/project/${pluginId}/version`;
+    https.get(versionUrl, { headers: { 'User-Agent': 'mcserver-installer' } }, (response) => {
+      let data = '';
+      response.on('data', chunk => data += chunk);
+      response.on('end', () => {
+        try {
+          const versions = JSON.parse(data);
+          if (!versions || versions.length === 0) throw new Error('No versions found');
+          // Find the first valid jar file
+          let downloadUrl = null;
+          for (const v of versions) {
+            const f = v.files.find(file => file.url.endsWith('.jar'));
+            if (f) { downloadUrl = f.url; break; }
+          }
+          if (!downloadUrl) throw new Error('No .jar files found in releases');
+          
+          https.get(downloadUrl, { headers: { 'User-Agent': 'mcserver-installer' } }, (dlRes) => {
+            if (dlRes.statusCode === 301 || dlRes.statusCode === 302) {
+              https.get(dlRes.headers.location, { headers: { 'User-Agent': 'mcserver-installer' } }, (redirectRes) => {
+                redirectRes.pipe(file);
+                file.on('finish', () => { file.close(); res.json({ success: true, name: safeName }); });
+              }).on('error', (err) => { fs.unlinkSync(destPath); res.status(500).json({ error: err.message }); });
+            } else {
+              dlRes.pipe(file);
+              file.on('finish', () => { file.close(); res.json({ success: true, name: safeName }); });
+            }
+          }).on('error', (err) => { fs.unlinkSync(destPath); res.status(500).json({ error: err.message }); });
+        } catch (e) {
+          fs.unlinkSync(destPath);
+          res.status(500).json({ error: e.message });
+        }
+      });
+    }).on('error', (err) => {
+      fs.unlinkSync(destPath);
+      res.status(500).json({ error: err.message });
+    });
+  } else {
+    // Spiget logic
+    const url = `https://api.spiget.org/v2/resources/${pluginId}/download`;
+    https.get(url, { headers: { 'User-Agent': 'mcserver-installer' } }, (response) => {
+      if (response.statusCode === 301 || response.statusCode === 302) {
+        https.get(response.headers.location, { headers: { 'User-Agent': 'mcserver-installer' } }, (redirectRes) => {
+          redirectRes.pipe(file);
+          file.on('finish', () => { file.close(); res.json({ success: true, name: safeName }); });
+        }).on('error', (err) => { fs.unlinkSync(destPath); res.status(500).json({ error: err.message }); });
+      } else {
+        response.pipe(file);
         file.on('finish', () => { file.close(); res.json({ success: true, name: safeName }); });
-      }).on('error', (err) => { fs.unlinkSync(destPath); res.status(500).json({ error: err.message }); });
-    } else {
-      response.pipe(file);
-      file.on('finish', () => { file.close(); res.json({ success: true, name: safeName }); });
-    }
-  }).on('error', (err) => {
-    fs.unlinkSync(destPath);
-    res.status(500).json({ error: err.message });
-  });
+      }
+    }).on('error', (err) => {
+      fs.unlinkSync(destPath);
+      res.status(500).json({ error: err.message });
+    });
+  }
 });
 
 app.post('/api/servers/install', async (req, res) => {

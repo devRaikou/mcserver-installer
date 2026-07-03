@@ -476,8 +476,12 @@
       <div id="tab-plugins" class="tab-panel hidden">
         <div style="margin-bottom:16px;">
           <div style="font-weight:700;font-size:14px;color:var(--accent-blue);"><i class="fa-solid fa-puzzle-piece"></i> Plugin Store</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Search and install plugins from SpigotMC directly to your server.</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Search and install plugins from SpigotMC or Modrinth directly to your server.</div>
           <div class="flex-center gap-2">
+            <select id="plugin-source" class="input" style="width:120px;">
+              <option value="spigot">SpigotMC</option>
+              <option value="modrinth">Modrinth</option>
+            </select>
             <input type="text" id="plugin-search-input" class="input" placeholder="Search for plugins (e.g. EssentialsX)..." style="flex:1" onkeydown="if(event.key==='Enter')searchPlugins();" />
             <button onclick="searchPlugins()" class="btn btn-primary"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
           </div>
@@ -1251,67 +1255,93 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
       // Handle HTML or non-JSON responses gracefully
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server returned an invalid response (not JSON).");
-      }
-      
-      const data = await res.json();
-      if (data.error) {
-        container.innerHTML = `<div style="grid-column:1/-1;color:var(--accent-rose);text-align:center;">${data.error}</div>`;
-        return;
-      }
-      
-      container.innerHTML = '';
-      if (!Array.isArray(data) || data.length === 0) {
-        container.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);">No results found.</div>`;
-        return;
-      }
-      
-      container.style.display = 'flex';
-      container.style.flexDirection = 'column';
-      container.style.gap = '10px';
-      
-      data.forEach(p => {
-        const isPremium = p.premium || p.price > 0;
-        const isExternal = p.file && p.file.type === 'external';
-        const cannotInstall = isPremium || isExternal;
-        const d = document.createElement('div');
-        d.className = 'card';
-        d.style.padding = '12px 16px';
-        d.style.display = 'flex';
-        d.style.flexDirection = 'row';
-        d.style.alignItems = 'center';
-        d.style.gap = '16px';
-        
-        let installBtn = cannotInstall ? 
-          `<a href="https://www.spigotmc.org/resources/${p.id}" target="_blank" class="btn btn-ghost" style="opacity:0.8;white-space:nowrap;text-decoration:none;">${isPremium ? 'Premium' : 'External'} Link <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px;margin-left:4px;"></i></a>` :
-          `<button onclick="installPlugin(${p.id}, '${p.name.replace(/'/g, "\\'")}', this)" class="btn btn-success" style="white-space:nowrap;"><i class="fa-solid fa-download"></i> Install</button>`;
+    container.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:20px;"><div class="spinner" style="margin:0 auto 12px;border-color:var(--border-subtle);border-top-color:var(--accent-blue);"></div><span style="font-size:12px;color:var(--text-muted);">Searching...</span></div>`;
+    
+    try {
+      if (source === 'spigot') {
+        const res = await fetch(`https://api.spiget.org/v2/search/resources/${encodeURIComponent(q)}?field=name&size=20&sort=-downloads`);
+        const plugins = await res.json();
+        container.innerHTML = '';
+        if (plugins.length === 0) {
+          container.innerHTML = `<div style="grid-column:1/-1;color:var(--text-muted);text-align:center;">No results found.</div>`;
+          return;
+        }
+        plugins.forEach(p => {
+          const isPremium = p.premium;
+          const isExternal = p.external;
+          const cannotInstall = isPremium || isExternal;
           
-        d.innerHTML = `
-          <img src="${p.icon && p.icon.url ? 'https://www.spigotmc.org/'+p.icon.url : 'https://static.spigotmc.org/img/spigot.png'}" style="width:48px;height:48px;border-radius:8px;object-fit:cover;" onerror="this.src='https://static.spigotmc.org/img/spigot.png'">
-          <div style="flex:1;min-width:0;">
-            <div style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-main);">${p.name}</div>
-            <div style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.tag || 'No description'}</div>
-            <div class="flex-center gap-2" style="font-size:11px;color:#cbd5e1;margin-top:4px;">
-              <span><i class="fa-solid fa-download"></i> ${p.downloads}</span>
-              <span><i class="fa-solid fa-star" style="color:var(--accent-amber)"></i> ${p.rating ? p.rating.average.toFixed(1) : '0'}</span>
+          const d = document.createElement('div');
+          d.className = 'card';
+          d.style.padding = '12px';
+          d.style.display = 'flex';
+          d.style.flexDirection = 'row';
+          d.style.alignItems = 'center';
+          d.style.gap = '16px';
+          
+          let installBtn = cannotInstall ? 
+            `<a href="https://www.spigotmc.org/resources/${p.id}" target="_blank" class="btn btn-ghost" style="opacity:0.8;white-space:nowrap;text-decoration:none;">${isPremium ? 'Premium' : 'External'} Link <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px;margin-left:4px;"></i></a>` :
+            `<button onclick="installPlugin('${p.id}', '${p.name.replace(/'/g, "\\'")}', this, 'spigot')" class="btn btn-success" style="white-space:nowrap;"><i class="fa-solid fa-download"></i> Install</button>`;
+            
+          d.innerHTML = `
+            <img src="${p.icon && p.icon.url ? 'https://www.spigotmc.org/'+p.icon.url : 'https://static.spigotmc.org/img/spigot.png'}" style="width:48px;height:48px;border-radius:8px;object-fit:cover;" onerror="this.src='https://static.spigotmc.org/img/spigot.png'">
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-main);">${p.name}</div>
+              <div style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.tag || 'No description'}</div>
+              <div class="flex-center gap-2" style="font-size:11px;color:#cbd5e1;margin-top:4px;">
+                <span><i class="fa-solid fa-download"></i> ${p.downloads}</span>
+                <span><i class="fa-solid fa-star" style="color:var(--accent-amber)"></i> ${p.rating ? p.rating.average.toFixed(1) : '0'}</span>
+              </div>
             </div>
-          </div>
-          <div>${installBtn}</div>
-        `;
-        container.appendChild(d);
-      });
+            <div>${installBtn}</div>
+          `;
+          container.appendChild(d);
+        });
+      } else if (source === 'modrinth') {
+        const res = await fetch(`https://api.modrinth.com/v2/search?query=${encodeURIComponent(q)}&facets=[["project_type:plugin"]]&limit=20`);
+        const data = await res.json();
+        container.innerHTML = '';
+        if (data.hits.length === 0) {
+          container.innerHTML = `<div style="grid-column:1/-1;color:var(--text-muted);text-align:center;">No results found.</div>`;
+          return;
+        }
+        data.hits.forEach(p => {
+          const d = document.createElement('div');
+          d.className = 'card';
+          d.style.padding = '12px';
+          d.style.display = 'flex';
+          d.style.flexDirection = 'row';
+          d.style.alignItems = 'center';
+          d.style.gap = '16px';
+          
+          let installBtn = `<button onclick="installPlugin('${p.project_id}', '${p.title.replace(/'/g, "\\'")}', this, 'modrinth')" class="btn btn-success" style="white-space:nowrap;"><i class="fa-solid fa-download"></i> Install</button>`;
+            
+          d.innerHTML = `
+            <img src="${p.icon_url || 'https://cdn.modrinth.com/modrinth.svg'}" style="width:48px;height:48px;border-radius:8px;object-fit:cover;" onerror="this.src='https://cdn.modrinth.com/modrinth.svg'">
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-main);">${p.title}</div>
+              <div style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.description || 'No description'}</div>
+              <div class="flex-center gap-2" style="font-size:11px;color:#cbd5e1;margin-top:4px;">
+                <span><i class="fa-solid fa-download"></i> ${p.downloads}</span>
+              </div>
+            </div>
+            <div>${installBtn}</div>
+          `;
+          container.appendChild(d);
+        });
+      }
     } catch (err) {
       container.innerHTML = `<div style="grid-column:1/-1;color:var(--accent-rose);text-align:center;">Error: ${err.message}</div>`;
     }
   }
 
-  async function installPlugin(id, name, btnEl) {
+  async function installPlugin(id, name, btnEl, source = 'spigot') {
     btnEl.disabled = true;
     btnEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Installing...';
     
     const res = await apiFetch(`/api/servers/${currentServer.name}/plugins/install`, {
       method: 'POST',
-      body: JSON.stringify({ pluginId: id, pluginName: name })
+      body: JSON.stringify({ pluginId: id, pluginName: name, source })
     });
     const data = await res.json();
     
