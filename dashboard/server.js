@@ -1055,7 +1055,7 @@ findFreePort(PORT).then((freePort) => {
     exec(`"${scriptPath}" --get-versions "${srv.type}"`, (err, stdout, stderr) => {
       if (err) return res.status(500).json({ error: 'Failed to fetch versions' });
       try {
-        const versions = JSON.parse(stdout);
+        const versions = stdout.split('\n').map(v => v.trim()).filter(v => v);
         res.json(versions);
       } catch (e) {
         res.status(500).json({ error: 'Failed to parse versions output' });
