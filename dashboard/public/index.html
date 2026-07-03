@@ -302,10 +302,10 @@
     </div>
     <div class="header-actions">
       <span class="badge badge-online"><span class="pulse-dot green"></span> <span data-i18n="panel_online">Panel Online</span></span>
-      <button id="lang-btn" onclick="toggleLanguage();" class="btn btn-ghost">🌐 TR</button>
-      <button onclick="openDomainModal();" class="btn btn-ghost"><i class="fa-solid fa-globe"></i> <span data-i18n="domain_btn">Bind Domain</span></button>
-      <button onclick="openInstallModal();" class="btn btn-primary"><i class="fa-solid fa-plus"></i> <span data-i18n="install_btn">Install Server</span></button>
-      <button onclick="fetchStatus();fetchServers();" class="btn btn-ghost"><i class="fa-solid fa-arrows-rotate"></i></button>
+      <button id="lang-btn" onclick="toggleLanguage();" class="btn btn-ghost" style="border:none;background:rgba(255,255,255,0.05);"><i class="fa-solid fa-language" style="font-size:16px;"></i> TR</button>
+      <button onclick="openDomainModal();" class="btn btn-ghost" style="border:none;background:rgba(255,255,255,0.05);"><i class="fa-solid fa-globe"></i> <span data-i18n="domain_btn">Bind Domain</span></button>
+      <button onclick="openInstallModal();" class="btn btn-primary" style="box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);"><i class="fa-solid fa-server"></i> <span data-i18n="install_btn">Install Server</span></button>
+      <button onclick="fetchStatus();fetchServers();" class="btn btn-ghost" style="border:none;background:rgba(255,255,255,0.05);"><i class="fa-solid fa-rotate-right"></i></button>
     </div>
   </header>
 
@@ -416,8 +416,11 @@
       <div id="tab-files" class="tab-panel hidden">
         <div class="flex-between" style="margin-bottom:8px;">
           <div class="flex-center gap-2">
-            <button onclick="loadFiles(currentFilePath.split('/').slice(0,-2).join('/')+'/')" class="btn btn-ghost" id="file-up-btn" disabled><i class="fa-solid fa-arrow-up"></i></button>
+            <button onclick="loadFiles(currentFilePath.split('/').slice(0,-2).join('/')+'/')" class="btn btn-ghost" id="file-up-btn" disabled><i class="fa-solid fa-level-up-alt"></i></button>
             <div id="file-breadcrumb" style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text-muted);background:rgba(255,255,255,0.05);padding:6px 12px;border-radius:4px;">/</div>
+            
+            <input type="file" id="file-upload-input" style="display:none;" onchange="uploadFile(this)" />
+            <button onclick="document.getElementById('file-upload-input').click()" class="btn btn-primary" id="file-upload-btn" style="margin-left:8px;"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
           </div>
           <button id="file-save-btn" onclick="saveFile()" class="btn btn-success hidden"><span data-i18n="prop_save_btn">Save File</span> <i class="fa-solid fa-floppy-disk"></i></button>
         </div>
@@ -1027,6 +1030,39 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     } catch (err) {
       alert('Error opening file: ' + err.message);
     }
+  }
+
+  async function uploadFile(input) {
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('path', currentFilePath);
+    
+    // Change button state
+    const btn = document.getElementById('file-upload-btn');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Uploading...`;
+    btn.disabled = true;
+    
+    try {
+      const res = await fetch(`/api/servers/${encodeURIComponent(currentServer.name)}/files/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('mc_token')}`
+        },
+        body: formData
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      loadFiles(currentFilePath);
+    } catch (err) {
+      alert('Upload failed: ' + err.message);
+    }
+    
+    input.value = '';
+    btn.innerHTML = originalHTML;
+    btn.disabled = false;
   }
 
   async function saveFile() {
