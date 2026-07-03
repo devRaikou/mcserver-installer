@@ -4328,7 +4328,7 @@ change_language_settings() {
 launch_web_dashboard() {
     clear_screen
     draw_header
-    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_web_dashboard" "WEB KONTROL PANELİ (WEB DASHBOARD)")${COLOR_RESET}"
+    echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "hdr_web_dashboard" "WEB DASHBOARD")${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
 
     # 1. Dependency checks
@@ -4349,7 +4349,7 @@ launch_web_dashboard() {
     local force_npm_install="false"
 
     # Auto-download dashboard files if missing or outdated compared to current APP_VERSION
-    if [ ! -f "${dashboard_dir}/package.json" ] || [ ! -f "${dashboard_dir}/server.js" ] || [ ! -f "${dashboard_dir}/public/index.html" ] || [ ! -f "${dashboard_dir}/.version" ] || [ "$(cat "${dashboard_dir}/.version" 2>/dev/null)" != "$APP_VERSION" ]; then
+    if [ ! -f "${dashboard_dir}/package.json" ] || [ ! -f "${dashboard_dir}/server.js" ] || [ ! -f "${dashboard_dir}/public/index.html" ] || [ ! -f "${dashboard_dir}/.version" ] || [ "$(cat "${dashboard_dir}/.version" 2>/dev/null || echo "")" != "$APP_VERSION" ]; then
         if [ "$LANG_PREF" = "tr" ]; then
             log_info "Web paneli dosyaları eksik veya eski sürüm. GitHub'dan güncelleniyor..."
         else
