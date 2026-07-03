@@ -9,7 +9,8 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.19.2",
-    "minecraft-server-util": "^5.4.4"
+    "minecraft-server-util": "^5.4.4",
+    "multer": "^2.2.0"
   },
   "author": "devRaikou",
   "license": "MIT"

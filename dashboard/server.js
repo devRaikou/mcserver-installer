@@ -539,6 +539,39 @@ app.put('/api/servers/:name/files/write', (req, res) => {
   }
 });
 
+const multer = require('multer');
+const upload = multer({ dest: '/tmp/mcserver-uploads/' });
+
+app.post('/api/servers/:name/files/upload', upload.single('file'), (req, res) => {
+  const { name } = req.params;
+  const relPath = req.body.path;
+  if (!relPath) return res.status(400).json({ error: 'Path required' });
+
+  const servers = getRegisteredServers();
+  const srv = servers.find(s => s.name === name);
+  if (!srv) {
+    if (req.file) fs.unlinkSync(req.file.path);
+    return res.status(404).json({ error: 'Server not found' });
+  }
+
+  const targetDir = path.normalize(path.join(srv.path, relPath));
+  if (!targetDir.startsWith(path.normalize(srv.path))) {
+    if (req.file) fs.unlinkSync(req.file.path);
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+  const destPath = path.join(targetDir, req.file.originalname);
+  try {
+    fs.renameSync(req.file.path, destPath);
+    res.json({ success: true });
+  } catch (err) {
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- PLAYER MANAGEMENT ENDPOINTS ---
 app.get('/api/servers/:name/players/:list', (req, res) => {
   const { name, list } = req.params;
