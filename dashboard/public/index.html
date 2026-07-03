@@ -391,6 +391,7 @@
       <button onclick="switchTab('players')" id="tab-players-btn" class="tab-btn"><i class="fa-solid fa-users"></i> <span data-i18n="tab_players">Players</span></button>
       <button onclick="switchTab('plugins')" id="tab-plugins-btn" class="tab-btn"><i class="fa-solid fa-puzzle-piece"></i> <span data-i18n="tab_plugins">Plugins</span></button>
       <button onclick="switchTab('backups')" id="tab-backups-btn" class="tab-btn"><i class="fa-solid fa-box-archive"></i> <span data-i18n="tab_backups">Backups</span></button>
+      <button onclick="switchTab('tasks')" id="tab-tasks-btn" class="tab-btn"><i class="fa-solid fa-clock"></i> <span data-i18n="tab_tasks">Tasks</span></button>
     </div>
     <div class="manager-content">
       <!-- Console -->
@@ -501,6 +502,37 @@
               <th style="text-align:right;" data-i18n="table_download">Download</th>
             </tr></thead>
             <tbody id="backups-list-body"></tbody>
+          </table>
+        </div>
+      </div>
+      </div>
+      <!-- Tasks -->
+      <div id="tab-tasks" class="tab-panel hidden">
+        <div class="flex-between" style="margin-bottom:16px;">
+          <h4 style="font-size:14px;color:var(--accent-blue);font-weight:700;"><i class="fa-solid fa-clock"></i> Scheduled Tasks (Cron)</h4>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:20px;">
+          <select id="task-action" class="input" style="flex:1;">
+            <option value="start">Start Server</option>
+            <option value="stop">Stop Server</option>
+            <option value="restart">Restart Server</option>
+            <option value="command">Execute Command</option>
+          </select>
+          <input type="text" id="task-cron" class="input" style="flex:1;" placeholder="* * * * * (Cron Expression)">
+          <input type="text" id="task-payload" class="input" style="flex:2;" placeholder="Command (if action is command)">
+          <button onclick="createTask()" class="btn btn-solid-teal"><i class="fa-solid fa-plus"></i> Add Task</button>
+        </div>
+        <div style="border:1px solid var(--border-subtle);border-radius:var(--radius-md);overflow:hidden;">
+          <table class="backup-table">
+            <thead>
+              <tr>
+                <th>Action</th>
+                <th>Cron Expression</th>
+                <th>Payload</th>
+                <th style="width:80px;text-align:right;">Remove</th>
+              </tr>
+            </thead>
+            <tbody id="tasks-table-body"></tbody>
           </table>
         </div>
       </div>
@@ -932,7 +964,7 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
   async function restartServer(n) { await apiFetch(`/api/servers/${n}/restart`,{method:'POST'}); fetchServers(); }
 
   function switchTab(tab) {
-    ['console','properties','files','players','plugins','backups'].forEach(t => {
+    ['console','properties','files','players','plugins','backups','tasks'].forEach(t => {
       document.getElementById(`tab-${t}`).classList.add('hidden');
       document.getElementById(`tab-${t}-btn`).classList.remove('active');
     });
@@ -943,6 +975,7 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     if (tab==='players') loadPlayers();
     if (tab==='plugins') document.getElementById('plugins-list').innerHTML = `<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:40px;">${currentLang==='tr'?'Arama yaparak eklenti bulun.':'Search for a plugin.'}</div>`;
     if (tab==='backups') fetchBackups();
+    if (tab==='tasks') fetchTasks();
   }
 
   function openManager(srv) {
@@ -1477,6 +1510,55 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
       const data = await res.json();
       alert('Error: ' + data.error);
     }
+  }
+
+  // --- TASK SCHEDULER ---
+  async function fetchTasks() {
+    if (!currentServer) return;
+    const res = await apiFetch(`/api/servers/${currentServer.name}/tasks`);
+    if (!res.ok) return;
+    const tasks = await res.json();
+    const tbody = document.getElementById('tasks-table-body');
+    tbody.innerHTML = '';
+    tasks.forEach(t => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong style="color:var(--accent-teal);">${t.action.toUpperCase()}</strong></td>
+        <td style="font-family:'JetBrains Mono',monospace;">${t.cronExp}</td>
+        <td>${t.payload || '-'}</td>
+        <td style="text-align:right;">
+          <button onclick="deleteTask('${t.id}')" class="btn btn-ghost" style="color:var(--accent-rose);"><i class="fa-solid fa-trash"></i></button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function createTask() {
+    if (!currentServer) return;
+    const action = document.getElementById('task-action').value;
+    const cronExp = document.getElementById('task-cron').value.trim();
+    const payload = document.getElementById('task-payload').value.trim();
+    if (!cronExp) return alert('Cron expression required!');
+    
+    const res = await apiFetch(`/api/servers/${currentServer.name}/tasks`, {
+      method: 'POST',
+      body: JSON.stringify({ action, cronExp, payload })
+    });
+    if (res.ok) {
+      document.getElementById('task-cron').value = '';
+      document.getElementById('task-payload').value = '';
+      fetchTasks();
+    } else {
+      const data = await res.json();
+      alert('Error: ' + data.error);
+    }
+  }
+
+  async function deleteTask(id) {
+    if (!currentServer || !confirm('Delete this scheduled task?')) return;
+    const res = await apiFetch(`/api/servers/${currentServer.name}/tasks/${id}`, { method: 'DELETE' });
+    if (res.ok) fetchTasks();
   }
 </script>
 </body>

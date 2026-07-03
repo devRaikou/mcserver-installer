@@ -10,7 +10,8 @@
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "minecraft-server-util": "^5.4.4",
-    "multer": "^2.2.0"
+    "multer": "^2.2.0",
+    "node-cron": "^4.5.0"
   },
   "author": "devRaikou",
   "license": "MIT"

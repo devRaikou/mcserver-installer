@@ -1,5 +1,6 @@
 const express = require('express');
 const net = require('net');
+const cron = require('node-cron');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
@@ -121,6 +122,65 @@ function requireAdmin(req, res, next) {
   }
   next();
 }
+
+const tasksFile = path.join(configDir, 'tasks.json');
+const activeCronJobs = {}; // Memory store for cron jobs
+
+function getTasks() {
+  if (fs.existsSync(tasksFile)) {
+    try { return JSON.parse(fs.readFileSync(tasksFile, 'utf8')); }
+    catch (e) { return []; }
+  }
+  return [];
+}
+
+function saveTasks(tasks) {
+  fs.writeFileSync(tasksFile, JSON.stringify(tasks, null, 2));
+}
+
+function loadCronJobs() {
+  const tasks = getTasks();
+  tasks.forEach(scheduleCronJob);
+}
+
+function scheduleCronJob(task) {
+  // If exists, stop it
+  if (activeCronJobs[task.id]) {
+    activeCronJobs[task.id].stop();
+  }
+  
+  activeCronJobs[task.id] = cron.schedule(task.cronExp, async () => {
+    const servers = getRegisteredServers();
+    const srv = servers.find(s => s.name === task.serverName);
+    if (!srv) return;
+    
+    if (task.action === 'start' || task.action === 'stop' || task.action === 'restart') {
+      const running = await isServerRunning(srv.sessionName);
+      if (task.action === 'start' && !running) {
+        exec(`screen -dmS "${srv.sessionName}" bash -c "cd '${srv.path}' && ./start.sh"`);
+        sendDiscordWebhook('Cron: Server Started', `Scheduled start for **${srv.name}** executed.`, 0x00FF00);
+      } else if (task.action === 'stop' && running) {
+        exec(`screen -S "${srv.sessionName}" -p 0 -X stuff "stop$(printf \\\\r)"`);
+        sendDiscordWebhook('Cron: Server Stopped', `Scheduled stop for **${srv.name}** executed.`, 0xFF0000);
+      } else if (task.action === 'restart' && running) {
+        exec(`screen -S "${srv.sessionName}" -p 0 -X stuff "stop$(printf \\\\r)"`);
+        setTimeout(() => {
+          exec(`screen -dmS "${srv.sessionName}" bash -c "cd '${srv.path}' && ./start.sh"`);
+          sendDiscordWebhook('Cron: Server Restarted', `Scheduled restart for **${srv.name}** executed.`, 0x0000FF);
+        }, 15000); // 15 seconds to stop
+      }
+    } else if (task.action === 'command') {
+      const running = await isServerRunning(srv.sessionName);
+      if (running) {
+        const escapedCmd = task.payload.replace(/'/g, "'\\''");
+        exec(`screen -S "${srv.sessionName}" -p 0 -X stuff "${escapedCmd}$(printf \\\\r)"`);
+      }
+    }
+  });
+}
+
+// Initialize on start
+loadCronJobs();
 
 const settingsFile = path.join(configDir, 'settings.conf');
 
@@ -877,6 +937,48 @@ app.put('/api/settings', requireAdmin, (req, res) => {
   const { key, value } = req.body;
   if (!key) return res.status(400).json({ error: 'Key missing' });
   updateSetting(key, value);
+  res.json({ success: true });
+});
+
+// --- TASK SCHEDULER ENDPOINTS ---
+app.get('/api/servers/:name/tasks', requireAdmin, (req, res) => {
+  const tasks = getTasks().filter(t => t.serverName === req.params.name);
+  res.json(tasks);
+});
+
+app.post('/api/servers/:name/tasks', requireAdmin, (req, res) => {
+  const { action, cronExp, payload } = req.body;
+  if (!action || !cronExp) return res.status(400).json({ error: 'Missing action or cron expression' });
+  
+  if (!cron.validate(cronExp)) return res.status(400).json({ error: 'Invalid cron expression' });
+
+  const tasks = getTasks();
+  const newTask = {
+    id: Date.now().toString(),
+    serverName: req.params.name,
+    action,
+    cronExp,
+    payload: payload || ''
+  };
+  
+  tasks.push(newTask);
+  saveTasks(tasks);
+  scheduleCronJob(newTask);
+  
+  res.json({ success: true, task: newTask });
+});
+
+app.delete('/api/servers/:name/tasks/:id', requireAdmin, (req, res) => {
+  let tasks = getTasks();
+  const index = tasks.findIndex(t => t.id === req.params.id);
+  if (index !== -1) {
+    if (activeCronJobs[req.params.id]) {
+      activeCronJobs[req.params.id].stop();
+      delete activeCronJobs[req.params.id];
+    }
+    tasks.splice(index, 1);
+    saveTasks(tasks);
+  }
   res.json({ success: true });
 });
 
