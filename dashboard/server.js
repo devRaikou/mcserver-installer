@@ -61,7 +61,14 @@ function getRegisteredServers() {
     .filter(line => line.trim() && line.includes(':'))
     .map(line => {
       const [name, serverPath, type, version] = line.split(':');
-      return { name, path: serverPath, type, version, sessionName: getSessionName(serverPath) };
+      let port = '25565';
+      const propPath = path.join(serverPath, 'server.properties');
+      if (fs.existsSync(propPath)) {
+        const props = fs.readFileSync(propPath, 'utf8');
+        const portMatch = props.match(/^server-port=(\d+)/m);
+        if (portMatch) port = portMatch[1];
+      }
+      return { name, path: serverPath, type, version, sessionName: getSessionName(serverPath), port };
     });
 }
 
@@ -187,21 +194,13 @@ app.get('/api/servers', async (req, res) => {
     const servers = getRegisteredServers();
     const result = await Promise.all(servers.map(async (srv) => {
       const running = await isServerRunning(srv.sessionName);
-      // Fetch server port from server.properties if available
-      let port = '25565';
-      const propPath = path.join(srv.path, 'server.properties');
-      if (fs.existsSync(propPath)) {
-        const props = fs.readFileSync(propPath, 'utf8');
-        const portMatch = props.match(/^server-port=(\d+)/m);
-        if (portMatch) port = portMatch[1];
-      }
       return {
         name: srv.name,
         path: srv.path,
         type: srv.type,
         version: srv.version,
         running,
-        port
+        port: srv.port
       };
     }));
     // Append actively installing servers to the result
@@ -280,6 +279,7 @@ app.get('/api/servers/:name/console', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
   const servers = getRegisteredServers();
@@ -303,6 +303,7 @@ app.get('/api/servers/:name/console', (req, res) => {
     lines.forEach((line) => {
       if (line.trim() !== '') {
         res.write(`data: ${JSON.stringify({ line })}\n\n`);
+        if (res.flush) res.flush();
       }
     });
   });
@@ -314,8 +315,13 @@ app.get('/api/servers/:name/console', (req, res) => {
 
 // 7. Send Command to Console
 app.post('/api/servers/:name/command', async (req, res) => {
-  const { command } = req.body;
+  let { command } = req.body;
   if (!command) return res.status(400).json({ error: 'Command missing' });
+  
+  command = command.trim();
+  if (command.startsWith('/')) {
+    command = command.substring(1);
+  }
 
   const servers = getRegisteredServers();
   const srv = servers.find(s => s.name === req.params.name);
