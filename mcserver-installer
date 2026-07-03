@@ -4386,6 +4386,7 @@ launch_web_dashboard() {
 
 
     if [ ! -d "${dashboard_dir}/node_modules" ] || [ "$force_npm_install" = "true" ]; then
+        set -x
         if [ "$LANG_PREF" = "tr" ]; then
             log_info "Web paneli bağımlılıkları yükleniyor (npm install)..."
             run_with_spinner "Bağımlılıklar yükleniyor" npm --prefix "$dashboard_dir" install
@@ -4413,11 +4414,11 @@ launch_web_dashboard() {
         local running_otp=""
         local users_file="${CONFIG_DIR}/.users.json"
         if [ -f "$users_file" ]; then
-            running_otp=$(jq -r '.[] | select(.username=="admin") | .pin' "$users_file" 2>/dev/null)
+            running_otp=$(jq -r '.[] | select(.username=="admin") | .pin' "$users_file" 2>/dev/null || true)
         fi
         local running_domain=""
         if [ -f "$SETTINGS_FILE" ]; then
-            running_domain=$(grep '^DASHBOARD_DOMAIN=' "$SETTINGS_FILE" | cut -d'"' -f2 | tr -d '\r')
+            running_domain=$(grep '^DASHBOARD_DOMAIN=' "$SETTINGS_FILE" | cut -d'"' -f2 | tr -d '\r' || true)
         fi
         local running_ip="127.0.0.1"
         if command -v hostname &>/dev/null; then
@@ -4543,7 +4544,8 @@ launch_web_dashboard() {
     if [ ! -f "$users_file" ]; then
         echo "[{\"username\":\"admin\",\"pin\":\"$otp_code\",\"role\":\"admin\"}]" > "$users_file"
     else
-        jq "map(if .username == \"admin\" then .pin = \"$otp_code\" else . end)" "$users_file" > "${users_file}.tmp" && mv "${users_file}.tmp" "$users_file"
+        jq "map(if .username == \"admin\" then .pin = \"$otp_code\" else . end)" "$users_file" > "${users_file}.tmp" 2>/dev/null || true
+        [ -s "${users_file}.tmp" ] && mv "${users_file}.tmp" "$users_file"
     fi
 
     screen -dmS mc-dashboard bash -c "cd '${dashboard_dir}' && CONFIG_DIR='${CONFIG_DIR}' node server.js"
@@ -4574,7 +4576,7 @@ launch_web_dashboard() {
 
     local dashboard_domain=""
     if [ -f "$SETTINGS_FILE" ]; then
-        dashboard_domain=$(grep '^DASHBOARD_DOMAIN=' "$SETTINGS_FILE" | cut -d'"' -f2 | tr -d '\r')
+        dashboard_domain=$(grep '^DASHBOARD_DOMAIN=' "$SETTINGS_FILE" | cut -d'"' -f2 | tr -d '\r' || true)
     fi
 
     if screen -list | grep -q "\.mc-dashboard"; then
@@ -5122,7 +5124,7 @@ bind_dashboard_domain() {
         # Remove existing domain
         local existing_domain=""
         if [ -f "$SETTINGS_FILE" ]; then
-            existing_domain=$(grep '^DASHBOARD_DOMAIN=' "$SETTINGS_FILE" | cut -d'"' -f2 | tr -d '\r')
+            existing_domain=$(grep '^DASHBOARD_DOMAIN=' "$SETTINGS_FILE" | cut -d'"' -f2 | tr -d '\r' || true)
         fi
         if [ -n "$existing_domain" ]; then
             sudo rm -f "/etc/nginx/sites-available/${existing_domain}"
@@ -5366,4 +5368,4 @@ fi
 # Launch Application
 HEADLESS_MODE="false"
 check_for_updates
-main_menu
+show_main_menu
