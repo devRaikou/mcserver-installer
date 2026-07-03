@@ -1,6 +1,6 @@
 # mcserver-installer
 
-![Version](https://img.shields.io/badge/version-1.73-2ea44f)
+![Version](https://img.shields.io/badge/version-1.74-2ea44f)
 ![Shell](https://img.shields.io/badge/shell-bash-4eaa25)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu-blue)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
