@@ -1046,6 +1046,103 @@ function findFreePort(startPort, maxPort = 3100) {
 }
 
 findFreePort(PORT).then((freePort) => {
+  // --- VERSION SWITCHER ---
+  app.get('/api/servers/:name/versions', requireAdmin, (req, res) => {
+    const servers = getRegisteredServers();
+    const srv = servers.find(s => s.name === req.params.name);
+    if (!srv) return res.status(404).json({ error: 'Server not found' });
+    
+    exec(`"${scriptPath}" --get-versions "${srv.type}"`, (err, stdout, stderr) => {
+      if (err) return res.status(500).json({ error: 'Failed to fetch versions' });
+      try {
+        const versions = JSON.parse(stdout);
+        res.json(versions);
+      } catch (e) {
+        res.status(500).json({ error: 'Failed to parse versions output' });
+      }
+    });
+  });
+
+  app.post('/api/servers/:name/switch-version', requireAdmin, (req, res) => {
+    const { name } = req.params;
+    const { version } = req.body;
+    if (!version) return res.status(400).json({ error: 'Version required' });
+
+    const servers = getRegisteredServers();
+    const srv = servers.find(s => s.name === name);
+    if (!srv) return res.status(404).json({ error: 'Server not found' });
+    
+    const https = require('https');
+    const destPath = path.join(srv.path, 'server.jar');
+    
+    let fetchUrlPromise = new Promise((resolve, reject) => {
+      if (srv.type === 'paper' || srv.type === 'folia') {
+        https.get(`https://api.papermc.io/v2/projects/${srv.type}/versions/${version}`, (res) => {
+          let d = ''; res.on('data', c => d+=c);
+          res.on('end', () => {
+            try {
+              const data = JSON.parse(d);
+              const build = data.builds[data.builds.length - 1];
+              resolve(`https://api.papermc.io/v2/projects/${srv.type}/versions/${version}/builds/${build}/downloads/${srv.type}-${version}-${build}.jar`);
+            } catch(e) { reject('Failed to parse PaperMC API'); }
+          });
+        }).on('error', reject);
+      } else if (srv.type === 'purpur') {
+        resolve(`https://api.purpurmc.org/v2/purpur/${version}/latest/download`);
+      } else if (srv.type === 'vanilla') {
+        https.get('https://launchermeta.mojang.com/mc/game/version_manifest.json', (res) => {
+          let d = ''; res.on('data', c => d+=c);
+          res.on('end', () => {
+            try {
+              const data = JSON.parse(d);
+              const v = data.versions.find(x => x.id === version);
+              if (!v) return reject('Version not found');
+              https.get(v.url, (r) => {
+                let d2 = ''; r.on('data', c => d2+=c);
+                r.on('end', () => {
+                  const j = JSON.parse(d2);
+                  resolve(j.downloads.server.url);
+                });
+              }).on('error', reject);
+            } catch(e) { reject('Failed to parse Mojang API'); }
+          });
+        }).on('error', reject);
+      } else {
+        reject(`Version switching for ${srv.type} is not supported yet.`);
+      }
+    });
+
+    fetchUrlPromise.then(url => {
+      const file = fs.createWriteStream(destPath);
+      const downloadFile = (downloadUrl) => {
+        https.get(downloadUrl, (dlRes) => {
+          if (dlRes.statusCode === 301 || dlRes.statusCode === 302) {
+            downloadFile(dlRes.headers.location);
+          } else {
+            dlRes.pipe(file);
+            file.on('finish', () => {
+              file.close();
+              const lines = fs.readFileSync(registryFile, 'utf8').split('\n');
+              const newLines = lines.map(line => {
+                const parts = line.split('|');
+                if (parts[0] === srv.name) {
+                  parts[3] = version;
+                  return parts.join('|');
+                }
+                return line;
+              });
+              fs.writeFileSync(registryFile, newLines.join('\n'));
+              res.json({ success: true });
+            });
+          }
+        }).on('error', (err) => res.status(500).json({ error: err.message }));
+      };
+      downloadFile(url);
+    }).catch(err => {
+      res.status(500).json({ error: err.toString() });
+    });
+  });
+
   app.listen(freePort, () => {
     console.log(`mcserver-installer Dashboard server listening on port ${freePort}`);
     const configDir = path.join(os.homedir(), '.mcserver-installer');

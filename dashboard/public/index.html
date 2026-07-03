@@ -379,7 +379,10 @@
         <div style="width:38px;height:38px;border-radius:var(--radius-sm);background:var(--accent-teal-dim);border:1px solid rgba(45,212,191,0.2);display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-cube" style="color:var(--accent-teal)"></i></div>
         <div>
           <div id="modal-server-title" style="font-weight:700;font-size:15px;">Server Name</div>
-          <div id="modal-server-subtitle" style="font-size:12px;color:var(--text-muted);">Vanilla | 1.20.4</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div id="modal-server-subtitle" style="font-size:12px;color:var(--text-muted);">Vanilla | 1.20.4</div>
+            <button onclick="openVersionSwitcher()" id="switch-version-btn" class="btn btn-ghost" style="padding:2px 6px;font-size:10px;height:auto;min-height:auto;"><i class="fa-solid fa-code-branch"></i> Switch Version</button>
+          </div>
         </div>
       </div>
       <button class="close-btn" onclick="closeManager();"><i class="fa-solid fa-xmark"></i></button>
@@ -632,6 +635,28 @@
         <pre style="background:#0a0c14;padding:10px;border-radius:var(--radius-sm);font-size:11px;color:var(--text-secondary);font-family:'JetBrains Mono',monospace;white-space:pre-wrap;">sudo apt-get install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight:700;color:var(--text-primary);">yourdomain.com</span></pre>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Switch Version Modal -->
+<div id="version-modal" class="overlay hidden">
+  <div class="modal install-modal">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-code-branch" style="color:var(--accent-teal);margin-right:8px;"></i> Switch Version</h3>
+      <button onclick="document.getElementById('version-modal').classList.add('hidden')" class="close-btn"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--accent-amber);margin-bottom:12px;display:flex;gap:8px;background:rgba(245,158,11,0.1);padding:10px;border-radius:4px;border:1px solid rgba(245,158,11,0.2);">
+        <i class="fa-solid fa-triangle-exclamation" style="margin-top:2px;"></i>
+        <span>WARNING: Server must be stopped! Downgrading versions can corrupt your world. Please create a backup first.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Select New Version</label>
+        <div id="version-loader" style="font-size:12px;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Fetching available versions...</div>
+        <select id="switch-version-select" class="input hidden"></select>
+      </div>
+      <button id="switch-submit-btn" onclick="triggerSwitchVersion()" class="btn btn-amber hidden" style="width:100%;"><i class="fa-solid fa-rotate"></i> Switch Now</button>
     </div>
   </div>
 </div>
@@ -1589,6 +1614,63 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     if (!currentServer || !confirm('Delete this scheduled task?')) return;
     const res = await apiFetch(`/api/servers/${currentServer.name}/tasks/${id}`, { method: 'DELETE' });
     if (res.ok) fetchTasks();
+  }
+
+  // --- VERSION SWITCHER ---
+  async function openVersionSwitcher() {
+    if (!currentServer) return;
+    document.getElementById('version-modal').classList.remove('hidden');
+    document.getElementById('version-loader').classList.remove('hidden');
+    const select = document.getElementById('switch-version-select');
+    select.classList.add('hidden');
+    document.getElementById('switch-submit-btn').classList.add('hidden');
+    select.innerHTML = '';
+
+    const res = await apiFetch(`/api/servers/${currentServer.name}/versions`);
+    if (res.ok) {
+      const versions = await res.json();
+      versions.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v; opt.textContent = v;
+        select.appendChild(opt);
+      });
+      select.value = currentServer.version;
+      document.getElementById('version-loader').classList.add('hidden');
+      select.classList.remove('hidden');
+      document.getElementById('switch-submit-btn').classList.remove('hidden');
+    } else {
+      document.getElementById('version-loader').innerText = 'Failed to fetch versions.';
+    }
+  }
+
+  async function triggerSwitchVersion() {
+    if (!currentServer) return;
+    const v = document.getElementById('switch-version-select').value;
+    if (!v || v === currentServer.version) {
+      alert('Please select a different version.');
+      return;
+    }
+    const btn = document.getElementById('switch-submit-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Switching...';
+
+    const res = await apiFetch(`/api/servers/${currentServer.name}/switch-version`, {
+      method: 'POST',
+      body: JSON.stringify({ version: v })
+    });
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Switch Now';
+
+    if (res.ok) {
+      alert('Version switched successfully! Please start the server to test.');
+      document.getElementById('version-modal').classList.add('hidden');
+      closeManager();
+      fetchServers();
+    } else {
+      const data = await res.json();
+      alert('Error: ' + data.error);
+    }
   }
 </script>
 </body>
