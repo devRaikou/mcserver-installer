@@ -122,6 +122,60 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+const settingsFile = path.join(configDir, 'settings.conf');
+
+function getSettings() {
+  const settings = {};
+  if (fs.existsSync(settingsFile)) {
+    const lines = fs.readFileSync(settingsFile, 'utf8').split('\n');
+    lines.forEach(line => {
+      if (line.includes('=')) {
+        const [k, v] = line.split('=');
+        settings[k.trim()] = v.replace(/"/g, '').trim();
+      }
+    });
+  }
+  return settings;
+}
+
+function updateSetting(key, value) {
+  let lines = [];
+  if (fs.existsSync(settingsFile)) {
+    lines = fs.readFileSync(settingsFile, 'utf8').split('\n');
+  }
+  let found = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith(key + '=')) {
+      lines[i] = `${key}="${value}"`;
+      found = true;
+      break;
+    }
+  }
+  if (!found) lines.push(`${key}="${value}"`);
+  fs.writeFileSync(settingsFile, lines.join('\n'));
+}
+
+async function sendDiscordWebhook(title, description, color) {
+  const webhookUrl = getSettings()['DISCORD_WEBHOOK'];
+  if (!webhookUrl) return;
+  try {
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        embeds: [{
+          title,
+          description,
+          color,
+          timestamp: new Date().toISOString()
+        }]
+      })
+    });
+  } catch (err) {
+    console.error('Failed to send Discord webhook:', err.message);
+  }
+}
+
 app.use('/api', requireAuth);
 
 // 1. Get System Status (CPU, RAM, Disk)
@@ -267,6 +321,7 @@ app.post('/api/servers/:name/start', async (req, res) => {
 
   exec(`screen -dmS "${srv.sessionName}" bash -c "cd '${srv.path}' && ./start.sh"`, (error) => {
     if (error) return res.status(500).json({ error: error.message });
+    sendDiscordWebhook('Server Starting', `Server **${srv.name}** is starting.`, 0x00FF00);
     res.json({ success: true, message: 'Server starting...' });
   });
 });
@@ -282,6 +337,7 @@ app.post('/api/servers/:name/stop', async (req, res) => {
 
   exec(`screen -S "${srv.sessionName}" -p 0 -X stuff "stop$(printf \\\\r)"`, (error) => {
     if (error) return res.status(500).json({ error: error.message });
+    sendDiscordWebhook('Server Stopped', `Server **${srv.name}** has been stopped.`, 0xFF0000);
     res.json({ success: true, message: 'Stop command sent' });
   });
 });
@@ -304,6 +360,7 @@ app.post('/api/servers/:name/restart', async (req, res) => {
           clearInterval(interval);
           exec(`screen -dmS "${srv.sessionName}" bash -c "cd '${srv.path}' && ./start.sh"`, (error) => {
             if (error) return res.status(500).json({ error: error.message });
+            sendDiscordWebhook('Server Restarted', `Server **${srv.name}** has been restarted.`, 0x0000FF);
             res.json({ success: true, message: 'Server restarted successfully' });
           });
         }
@@ -312,6 +369,7 @@ app.post('/api/servers/:name/restart', async (req, res) => {
   } else {
     exec(`screen -dmS "${srv.sessionName}" bash -c "cd '${srv.path}' && ./start.sh"`, (error) => {
       if (error) return res.status(500).json({ error: error.message });
+      sendDiscordWebhook('Server Started', `Server **${srv.name}** has been started.`, 0x00FF00);
       res.json({ success: true, message: 'Server started successfully' });
     });
   }
@@ -809,6 +867,17 @@ app.get('/api/dashboard/domain', (req, res) => {
     }
   }
   res.json({ domain });
+});
+
+app.get('/api/settings', requireAdmin, (req, res) => {
+  res.json(getSettings());
+});
+
+app.put('/api/settings', requireAdmin, (req, res) => {
+  const { key, value } = req.body;
+  if (!key) return res.status(400).json({ error: 'Key missing' });
+  updateSetting(key, value);
+  res.json({ success: true });
 });
 
 function findFreePort(startPort, maxPort = 3100) {

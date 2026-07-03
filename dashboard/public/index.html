@@ -304,6 +304,7 @@
       <span class="badge badge-online"><span class="pulse-dot green"></span> <span data-i18n="panel_online">Panel Online</span></span>
       <button id="lang-btn" onclick="toggleLanguage();" class="btn btn-ghost" style="border:none;background:rgba(255,255,255,0.05);"><i class="fa-solid fa-language" style="font-size:16px;"></i> TR</button>
       <button id="users-btn" onclick="openUsersModal();" class="btn btn-ghost" style="border:none;background:rgba(255,255,255,0.05);"><i class="fa-solid fa-users"></i> Users</button>
+      <button id="settings-btn" onclick="openSettingsModal();" class="btn btn-ghost" style="border:none;background:rgba(255,255,255,0.05);"><i class="fa-solid fa-gear"></i> Settings</button>
       <button onclick="openDomainModal();" class="btn btn-ghost" style="border:none;background:rgba(255,255,255,0.05);"><i class="fa-solid fa-globe"></i> <span data-i18n="domain_btn">Bind Domain</span></button>
       <button onclick="openInstallModal();" class="btn btn-primary" style="box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);"><i class="fa-solid fa-server"></i> <span data-i18n="install_btn">Install Server</span></button>
       <button onclick="fetchStatus();fetchServers();" class="btn btn-ghost" style="border:none;background:rgba(255,255,255,0.05);"><i class="fa-solid fa-rotate-right"></i></button>
@@ -624,6 +625,24 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     </div>
   </div>
 
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="overlay hidden">
+    <div class="modal install-modal">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-gear" style="color:var(--text-primary);margin-right:8px;"></i> Global Settings</h3>
+        <button onclick="document.getElementById('settings-modal').classList.add('hidden')" class="close-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Discord Webhook URL</label>
+          <input type="text" id="discord-webhook-input" class="input" placeholder="https://discord.com/api/webhooks/...">
+          <span style="font-size:11px;color:var(--text-muted);margin-top:4px;">Receives server start, stop, and restart alerts.</span>
+        </div>
+        <button onclick="saveSettings()" class="btn btn-solid-teal" style="width:100%;"><i class="fa-solid fa-save"></i> Save Settings</button>
+      </div>
+    </div>
+  </div>
+
 <script>
   let currentServer = null;
   let consoleEventSource = null;
@@ -819,10 +838,14 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
       document.getElementById('tab-properties-btn').style.display = 'none';
       document.getElementById('tab-files-btn').style.display = 'none';
       document.getElementById('tab-backups-btn').style.display = 'none';
+      document.getElementById('users-btn').style.display = 'none';
+      document.getElementById('settings-btn').style.display = 'none';
     } else {
       document.getElementById('tab-properties-btn').style.display = 'inline-block';
       document.getElementById('tab-files-btn').style.display = 'inline-block';
       document.getElementById('tab-backups-btn').style.display = 'inline-block';
+      document.getElementById('users-btn').style.display = 'inline-block';
+      document.getElementById('settings-btn').style.display = 'inline-block';
     }
   }
 
@@ -1432,6 +1455,28 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     if (!confirm(`Delete user ${username}?`)) return;
     const res = await apiFetch(`/api/users/${username}`, { method: 'DELETE' });
     if (res.ok) loadUsers();
+  }
+
+  // --- GLOBAL SETTINGS ---
+  async function openSettingsModal() {
+    document.getElementById('settings-modal').classList.remove('hidden');
+    const res = await apiFetch('/api/settings');
+    if (res.ok) {
+      const settings = await res.json();
+      document.getElementById('discord-webhook-input').value = settings['DISCORD_WEBHOOK'] || '';
+    }
+  }
+
+  async function saveSettings() {
+    const webhook = document.getElementById('discord-webhook-input').value.trim();
+    const res = await apiFetch('/api/settings', { method: 'PUT', body: JSON.stringify({ key: 'DISCORD_WEBHOOK', value: webhook }) });
+    if (res.ok) {
+      alert('Settings saved!');
+      document.getElementById('settings-modal').classList.add('hidden');
+    } else {
+      const data = await res.json();
+      alert('Error: ' + data.error);
+    }
   }
 </script>
 </body>
