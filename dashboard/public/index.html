@@ -1139,6 +1139,8 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
       
       data.forEach(p => {
         const isPremium = p.premium || p.price > 0;
+        const isExternal = p.file && p.file.type === 'external';
+        const cannotInstall = isPremium || isExternal;
         const d = document.createElement('div');
         d.className = 'card';
         d.style.padding = '12px 16px';
@@ -1147,8 +1149,8 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
         d.style.alignItems = 'center';
         d.style.gap = '16px';
         
-        let installBtn = isPremium ? 
-          `<button class="btn btn-ghost" disabled style="opacity:0.5;white-space:nowrap;">Premium (Go to SpigotMC)</button>` :
+        let installBtn = cannotInstall ? 
+          `<a href="https://www.spigotmc.org/resources/${p.id}" target="_blank" class="btn btn-ghost" style="opacity:0.8;white-space:nowrap;text-decoration:none;">${isPremium ? 'Premium' : 'External'} Link <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px;margin-left:4px;"></i></a>` :
           `<button onclick="installPlugin(${p.id}, '${p.name.replace(/'/g, "\\'")}', this)" class="btn btn-success" style="white-space:nowrap;"><i class="fa-solid fa-download"></i> Install</button>`;
           
         d.innerHTML = `
