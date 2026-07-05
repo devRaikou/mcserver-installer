@@ -75,13 +75,24 @@ chmod +x mcserver-installer
 
 ### Headless Commands
 
-Create a backup for a registered server without opening the interactive UI:
+The script can be executed in headless mode with command-line arguments, which is useful for `cron` jobs, remote automation, and external integrations:
 
-```bash
-./mcserver-installer --backup <server_name>
-```
-
-This is useful for `cron`, remote automation, and external dashboards.
+- **Create a Backup**:
+  ```bash
+  ./mcserver-installer --backup <server_name>
+  ```
+- **Fetch Software Versions**: Retrieve available versions from Mojang/Paper/Purpur APIs:
+  ```bash
+  ./mcserver-installer --get-versions <vanilla|paper|purpur|velocity|folia|waterfall>
+  ```
+- **Silent Installation**: Install and register a server non-interactively:
+  ```bash
+  ./mcserver-installer --install <name> <software> <version> <port> <ram> [backend_names] [backend_version]
+  ```
+- **Bind Web Dashboard Domain**: Binds a domain/subdomain with automated Nginx reverse proxy configuration:
+  ```bash
+  ./mcserver-installer --bind-domain <domain>
+  ```
 
 ### Main Menu
 
@@ -100,10 +111,11 @@ This is useful for `cron`, remote automation, and external dashboards.
     5. Restore Backup
     6. Remove Server / Registration
     7. Settings & System checks
-    8. About
-    9. Exit
+    8. Web Dashboard
+    9. About
+    10. Exit
   ================================================================
-  Select option (1-9):
+  Select option (1-10):
 ```
 
 ### Server Management
@@ -121,6 +133,28 @@ After a server is installed and registered, the management menu can:
 - Monitor live resource usage.
 - Install or remove plugins.
 - Enable or disable boot auto-start with `systemd`.
+
+### Web Dashboard
+
+Select option `8` (`Web Dashboard`) in the main menu to deploy the built-in Node-based Web Dashboard. 
+
+When launched for the first time, it downloads the web files, installs the required npm dependencies, and runs the backend service in a detached GNU `screen` session (`mc-dashboard`) on a dynamically allocated free port (defaults to starting from port `3000`). It generates a secure 6-digit PIN code for user authentication.
+
+Inside the CLI's Web Dashboard menu, you can:
+- **Stop / Restart** the dashboard service.
+- **Bind Domain**: Automatically bind a domain or subdomain using a local Nginx reverse proxy configuration and display recommended DNS A records.
+
+#### Features
+- **Real-Time Monitoring**: Live CPU, RAM, and Disk space statistics.
+- **Server Control**: Start, stop, and restart registered servers.
+- **Console Log Stream**: Live server terminal outputs via Server-Sent Events (SSE) and input commands directly to the server.
+- **File Manager**: Explore, view, edit, and upload files to the server folder securely.
+- **Player Manager**: Monitor active players, configure operators (ops), whitelists, and banned players.
+- **Plugin Store**: Live search through Spiget API and quick installation of Modrinth/Spiget plugins.
+- **Task Scheduler (Cron)**: Schedule automated server start, stop, restart, or arbitrary console commands.
+- **Version Switcher**: Switch the server jar version dynamically (downloads directly from official Mojang, PaperMC, or PurpurMC APIs).
+- **World Manager**: Manage worlds, calculate world folder sizes, and switch active levels in `server.properties`.
+- **User Management**: Create/delete web panel users with custom roles (Admin or User).
 
 ### Runtime Model
 
@@ -242,18 +276,29 @@ chmod +x mcserver-installer
 
 ### Etkilesimsiz Komutlar
 
-Kayitli bir sunucunun yedegini arayuzu acmadan almak icin:
+Script, arayüzü açmadan doğrudan komut satırı parametreleriyle de çalıştırılabilir. Bu özellik `cron` görevleri, uzak otomasyonlar ve harici paneller için kullanışlıdır:
 
-```bash
-./mcserver-installer --backup <sunucu_adi>
-```
-
-Bu ozellik `cron`, uzak otomasyonlar ve harici paneller icin kullanislidir.
+- **Yedek Oluşturma**:
+  ```bash
+  ./mcserver-installer --backup <sunucu_adi>
+  ```
+- **Sürüm Listesini Çekme**: Mojang/Paper/Purpur API'lerinden mevcut sürümleri alır:
+  ```bash
+  ./mcserver-installer --get-versions <vanilla|paper|purpur|velocity|folia|waterfall>
+  ```
+- **Sessiz Kurulum**: Sunucuyu etkileşimsiz olarak otomatik kurar:
+  ```bash
+  ./mcserver-installer --install <isim> <yazilim> <surum> <port> <ram> [backend_isimleri] [backend_surumu]
+  ```
+- **Web Kontrol Paneli Domain Bağlama**: Web Paneline otomatik Nginx reverse proxy yapılandırması ile alan adı/alt alan adı bağlar:
+  ```bash
+  ./mcserver-installer --bind-domain <domain>
+  ```
 
 ### Ana Menu
 
 ```text
-  Geliştirici: devRaikou | Sürüm: 1.73
+  Geliştirici: devRaikou | Sürüm: 1.75
   GitHub:      https://github.com/devRaikou/mcserver-installer
   ================================================================
 
@@ -267,10 +312,11 @@ Bu ozellik `cron`, uzak otomasyonlar ve harici paneller icin kullanislidir.
     5. Yedeği Geri Yükle
     6. Sunucuyu Kaldır / Kaydı Sil
     7. Ayarlar ve Sistem Kontrolleri
-    8. Hakkında
-    9. Çıkış
+    8. Web Kontrol Paneli
+    9. Hakkında
+    10. Çıkış
   ================================================================
-  Seçim yapın (1-9):
+  Seçim yapın (1-10):
 ```
 
 ### Sunucu Yonetimi
@@ -288,6 +334,28 @@ Bir sunucu kurulduktan ve kaydedildikten sonra yonetim menusu ile sunlari yapabi
 - Canli kaynak kullanimini izleme.
 - Eklenti kurma veya silme.
 - `systemd` ile sistem acilisinda otomatik baslatmayi acma veya kapatma.
+
+### Web Kontrol Paneli
+
+Ana menüde `8` (`Web Kontrol Paneli`) seçeneğini seçerek yerleşik Node.js tabanlı Web Kontrol Panelini başlatabilirsiniz.
+
+İlk kez başlatıldığında gerekli web dosyalarını indirir, npm bağımlılıklarını kurar ve arka planda bağımsız bir GNU `screen` oturumunda (`mc-dashboard`) çalışmaya başlar. Varsayılan olarak kullanılabilir boş bir portu otomatik bulur (3000 portundan başlayarak arar). Güvenlik için rastgele 6 haneli bir PIN kodu üretir ve bunu giriş şifresi (Token) olarak kullanır.
+
+CLI üzerindeki Web Kontrol Paneli menüsünden şunları yapabilirsiniz:
+- Paneli **Durdurabilir veya Yeniden Başlatabilirsiniz**.
+- **Domain Bağlama**: Nginx reverse proxy yapılandırmasını otomatik yaparak panelinize bir alan adı/alt alan adı yönlendirmenizi sağlar ve gerekli DNS A kayıtlarını gösterir.
+
+#### Özellikler
+- **Canlı Sistem İzleme**: Anlık CPU, RAM ve Disk alanı kullanımı grafikleri.
+- **Sunucu Yönetimi**: Kayıtlı sunucuları tek tıkla başlatma, durdurma ve yeniden başlatma.
+- **Konsol Akışı (SSE)**: Sunucu konsol çıktılarını canlı olarak tarayıcıdan izleme (Server-Sent Events) ve konsola komut gönderme.
+- **Dosya Yöneticisi**: Sunucu dizinindeki dosyaları listeleme, okuma, düzenleme ve tarayıcıdan dosya yükleme.
+- **Oyuncu Yönetimi**: Çevrimiçi oyuncuları izleme (Minecraft Query), yetkili (op), whitelist ve yasaklı oyuncuları yönetme.
+- **Eklenti Mağazası**: Spiget API entegrasyonu ile canlı eklenti arama, Modrinth veya Spiget üzerinden tek tıkla kurma.
+- **Görev Zamanlayıcı (Cron)**: Belirli saatlerde/günlerde sunucu başlatma, durdurma, yeniden başlatma veya özel konsol komutu çalıştırma görevleri planlama.
+- **Sürüm Değiştirici**: Sunucu jar sürümünü arayüz üzerinden dinamik olarak değiştirme (Mojang, PaperMC ve PurpurMC API'lerinden otomatik indirir).
+- **Dünya Yöneticisi**: Dünyaları listeleme, boyutlarını hesaplama, Nether/End dünyalarını görüntüleme ve aktif dünyayı (`level-name`) değiştirme.
+- **Kullanıcı Yönetimi**: Yönetici (Admin) veya Kullanıcı (User) rollerine sahip yeni web kullanıcıları oluşturma ve silme.
 
 ### Calisma Modeli
 
