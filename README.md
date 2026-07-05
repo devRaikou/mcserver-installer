@@ -1,7 +1,7 @@
 # mcserver-installer
 
-![Version](https://img.shields.io/badge/version-1.74-2ea44f)
-![Shell](https://img.shields.io/badge/shell-bash-4eaa25)
+![Version](https://img.shields.io/badge/version-1.75-2ea44f)
+![Bash](https://img.shields.io/badge/language-Bash-4EAA25)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu-blue)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
@@ -86,7 +86,7 @@ This is useful for `cron`, remote automation, and external dashboards.
 ### Main Menu
 
 ```text
-  Developer: devRaikou | Version: 1.73
+  Developer: devRaikou | Version: 1.75
   GitHub:    https://github.com/devRaikou/mcserver-installer
   ================================================================
 
