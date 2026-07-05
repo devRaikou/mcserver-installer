@@ -1193,8 +1193,7 @@ orchestrate_proxy_network() {
     echo -e "  ${COLOR_MAGENTA}${COLOR_BOLD}$(t "orch_title" "PROXY BACKEND ORCHESTRATION")${COLOR_RESET}"
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
 
-    prompt_yes_no "$(t "orch_prompt" "Would you like to automatically deploy backend servers (Lobby, Survival, etc.) behind this proxy?")" "y"
-    if [ $? -ne 0 ]; then
+    if ! prompt_yes_no "$(t "orch_prompt" "Would you like to automatically deploy backend servers (Lobby, Survival, etc.) behind this proxy?")" "y"; then
         return 0
     fi
 
@@ -1949,8 +1948,7 @@ run_installation_wizard() {
 
     if [ -d "$inst_dir" ] && [ "$(ls -A "$inst_dir" 2>/dev/null)" ]; then
         log_warn "Directory $inst_dir exists and is NOT empty."
-        prompt_yes_no "Do you want to overwrite files in this directory?" "n"
-        if [ $? -ne 0 ]; then
+        if ! prompt_yes_no "Do you want to overwrite files in this directory?" "n"; then
             log_error "Installation canceled."
             exit 1
         fi
@@ -2025,8 +2023,7 @@ run_installation_wizard() {
     if [ "$s_type" != "velocity" ] && [ "$s_type" != "waterfall" ] && [ "$s_type" != "bungeecord" ]; then
         # 8. Online Mode
         online_mode="true"
-        prompt_yes_no "Enable Online Mode (authenticate accounts via Mojang)?" "y"
-        [ $? -ne 0 ] && online_mode="false"
+        if ! prompt_yes_no "Enable Online Mode (authenticate accounts via Mojang)?" "y"; then online_mode="false"; fi
 
         # 9. MOTD
         motd=$(prompt_input "Enter Server MOTD" "Welcome to our devRaikou Server!")
@@ -2055,8 +2052,7 @@ run_installation_wizard() {
     fi
 
     # 14. EULA acceptance check
-    prompt_yes_no "Do you agree to Mojang's EULA (https://account.mojang.com/documents/minecraft_eula)?" "y"
-    if [ $? -ne 0 ]; then
+    if ! prompt_yes_no "Do you agree to Mojang's EULA (https://account.mojang.com/documents/minecraft_eula)?" "y"; then
         log_error "You must agree to the EULA to install the server."
         exit 1
     fi
@@ -2186,8 +2182,7 @@ EOF
 
     # Ask for Aikar Flags
     local include_aikar="false"
-    prompt_yes_no "Enable Aikar's optimized Garbage Collection Flags for JVM?" "y"
-    [ $? -eq 0 ] && include_aikar="true"
+    if prompt_yes_no "Enable Aikar's optimized Garbage Collection Flags for JVM?" "y"; then include_aikar="true"; fi
 
     local jvm_args=""
     if [ "$include_aikar" = "true" ]; then
@@ -2404,8 +2399,7 @@ run_properties_editor() {
                 ;;
             2)
                 local val="true"
-                prompt_yes_no "Enable Online Mode?" "y"
-                [ $? -ne 0 ] && val="false"
+                if ! prompt_yes_no "Enable Online Mode?" "y"; then val="false"; fi
                 set_property_val "$prop_file" "online-mode" "$val"
                 ;;
             3)
@@ -2426,20 +2420,17 @@ run_properties_editor() {
                 ;;
             7)
                 local val="true"
-                prompt_yes_no "Enable PVP?" "y"
-                [ $? -ne 0 ] && val="false"
+                if ! prompt_yes_no "Enable PVP?" "y"; then val="false"; fi
                 set_property_val "$prop_file" "pvp" "$val"
                 ;;
             8)
                 local val="true"
-                prompt_yes_no "Enable whitelist?" "n"
-                [ $? -ne 0 ] && val="false"
+                if ! prompt_yes_no "Enable whitelist?" "n"; then val="false"; fi
                 set_property_val "$prop_file" "white-list" "$val"
                 ;;
             9)
                 local val="true"
-                prompt_yes_no "Allow Flight?" "n"
-                [ $? -ne 0 ] && val="false"
+                if ! prompt_yes_no "Allow Flight?" "n"; then val="false"; fi
                 set_property_val "$prop_file" "allow-flight" "$val"
                 ;;
             10)
@@ -2619,8 +2610,7 @@ run_server_restore() {
         confirm_msg="Are you absolutely sure you want to restore ${chosen_backup}?"
     fi
 
-    prompt_yes_no "$confirm_msg" "n"
-    if [ $? -ne 0 ]; then
+    if ! prompt_yes_no "$confirm_msg" "n"; then
         log_info "$(t "restore_canceled" "Restore canceled.")"
         echo -e -n "\n  $(t "press_enter" "Press [Enter] to return: ")"
         read -r _
@@ -2981,8 +2971,7 @@ toggle_systemd_service() {
     echo -e "  ${COLOR_CYAN}================================================================${COLOR_RESET}\n"
 
     if [ "$active_raw" = "Enabled" ]; then
-        prompt_yes_no "$(t "prompt_systemd_disable" "Do you want to disable boot auto-start for this server?")" "n"
-        if [ $? -eq 0 ]; then
+        if prompt_yes_no "$(t "prompt_systemd_disable" "Do you want to disable boot auto-start for this server?")" "n"; then
             local disable_cmd="systemctl stop mc-${session_name} && systemctl disable mc-${session_name} && rm -f $service_file && systemctl daemon-reload"
             if [ "$EUID" -eq 0 ]; then
                 run_with_spinner "$(t "systemd_disabling" "Disabling systemd service")" bash -c "$disable_cmd"
@@ -2992,8 +2981,7 @@ toggle_systemd_service() {
             log_success "$(t "systemd_disabled_success" "Boot auto-start disabled successfully.")"
         fi
     else
-        prompt_yes_no "$(t "prompt_systemd_enable" "Do you want to enable boot auto-start for this server?")" "y"
-        if [ $? -eq 0 ]; then
+        if prompt_yes_no "$(t "prompt_systemd_enable" "Do you want to enable boot auto-start for this server?")" "y"; then
             local tmp_service
             tmp_service=$(mktemp)
             cat > "$tmp_service" <<EOF
@@ -3349,8 +3337,7 @@ search_and_install_plugin() {
     else
         echo -e ""
         log_warn "$(t "plugin_no_compat" "No exact compatible versions found for Minecraft") ${s_ver} on ${s_type}."
-        prompt_yes_no "$(t "plugin_ask_all" "Would you like to list all available versions instead?")" "y"
-        if [ $? -eq 0 ]; then
+        if prompt_yes_no "$(t "plugin_ask_all" "Would you like to list all available versions instead?")" "y"; then
             local all_names=()
             local all_ids=()
 
@@ -3441,8 +3428,7 @@ list_and_remove_plugins() {
         confirm_msg="Are you sure you want to delete ${chosen}?"
     fi
 
-    prompt_yes_no "$confirm_msg" "n"
-    if [ $? -eq 0 ]; then
+    if prompt_yes_no "$confirm_msg" "n"; then
         rm -f "${plugins_dir}/${chosen}"
 
         local success_msg
@@ -3454,6 +3440,8 @@ list_and_remove_plugins() {
         log_success "$success_msg"
         send_discord_notification "Plugin removed: ${chosen}" 15158332 "$server_path"
         sleep 2
+    else
+        log_info "$(t "delete_canceled" "Deletion canceled.")"
     fi
 }
 
@@ -3533,11 +3521,13 @@ install_geyser_floodgate() {
     echo -e ""
     local install_via="n"
     if [ "$LANG_PREF" = "tr" ]; then
-        prompt_yes_no "Farklı istemci sürümlerinin (daha yeni Bedrock sürümleri dahil) bağlanabilmesi için ViaVersion ve ViaBackwards kurmak ister misiniz?" "y"
-        [ $? -eq 0 ] && install_via="y"
+        if prompt_yes_no "Farklı istemci sürümlerinin (daha yeni Bedrock sürümleri dahil) bağlanabilmesi için ViaVersion ve ViaBackwards kurmak ister misiniz?" "y"; then
+            install_via="y"
+        fi
     else
-        prompt_yes_no "Would you like to install ViaVersion and ViaBackwards to support different client versions (including newer Bedrock clients)?" "y"
-        [ $? -eq 0 ] && install_via="y"
+        if prompt_yes_no "Would you like to install ViaVersion and ViaBackwards to support different client versions (including newer Bedrock clients)?" "y"; then
+            install_via="y"
+        fi
     fi
 
     if [ "$install_via" = "y" ]; then
@@ -3552,8 +3542,7 @@ install_geyser_floodgate() {
             if ! echo "$ufw_status" | grep -q "19132/udp"; then
                 echo -e ""
                 log_warn "UFW firewall is active, but Bedrock UDP port 19132 is NOT allowed!"
-                prompt_yes_no "Would you like to open UDP port 19132 in UFW automatically?" "y"
-                if [ $? -eq 0 ]; then
+                if prompt_yes_no "Would you like to open UDP port 19132 in UFW automatically?" "y"; then
                     if [ "$EUID" -ne 0 ]; then
                         run_with_spinner "Opening UDP port 19132 in UFW (via sudo)" sudo ufw allow 19132/udp
                     else
@@ -4092,11 +4081,14 @@ remove_server_registration() {
 
         local delete_files="false"
         if [ "$LANG_PREF" = "tr" ]; then
-            prompt_yes_no "Tüm sunucuların dosyalarını tamamen silmek istiyor musunuz?" "n"
+            if prompt_yes_no "Tüm sunucuların dosyalarını tamamen silmek istiyor musunuz?" "n"; then
+                delete_files="true"
+            fi
         else
-            prompt_yes_no "Do you want to completely erase files for all servers?" "n"
+            if prompt_yes_no "Do you want to completely erase files for all servers?" "n"; then
+                delete_files="true"
+            fi
         fi
-        [ $? -eq 0 ] && delete_files="true"
 
         for k in "${!paths[@]}"; do
             local path="${paths[$k]}"
@@ -4153,11 +4145,14 @@ remove_server_registration() {
 
     local delete_files="false"
     if [ "$LANG_PREF" = "tr" ]; then
-        prompt_yes_no "${sel_path} dizinindeki tüm dosyaları tamamen silmek istiyor musunuz?" "n"
+        if prompt_yes_no "${sel_path} dizinindeki tüm dosyaları tamamen silmek istiyor musunuz?" "n"; then
+            delete_files="true"
+        fi
     else
-        prompt_yes_no "Do you want to completely erase the files at ${sel_path}?" "n"
+        if prompt_yes_no "Do you want to completely erase the files at ${sel_path}?" "n"; then
+            delete_files="true"
+        fi
     fi
-    [ $? -eq 0 ] && delete_files="true"
 
     # Remove from registry
     if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -4429,12 +4424,10 @@ configure_discord_webhook() {
 
     if [ -n "$current_webhook" ]; then
         echo -e "  Active Webhook URL: ${COLOR_GREEN}${current_webhook:0:55}...${COLOR_RESET}"
-        prompt_yes_no "Do you want to disable or update the Discord webhook?" "n"
-        if [ $? -eq 0 ]; then
-            current_webhook=""
-        else
+        if ! prompt_yes_no "Do you want to disable or update the Discord webhook?" "n"; then
             return 0
         fi
+        current_webhook=""
     fi
 
     if [ -z "$current_webhook" ]; then
@@ -4925,19 +4918,20 @@ check_for_updates() {
     if [ -n "$latest" ] && version_gt "$latest" "$APP_VERSION"; then
         clear_screen
         draw_header
+        local update_choice="false"
         if [ "$LANG_PREF" = "tr" ]; then
             echo -e "  ${COLOR_YELLOW}================================================================${COLOR_RESET}"
             echo -e "  🚀 Yeni bir mcserver-installer sürümü mevcut: ${COLOR_GREEN}${latest}${COLOR_RESET} (Mevcut: ${APP_VERSION})"
             echo -e "  ${COLOR_YELLOW}================================================================${COLOR_RESET}\n"
-            prompt_yes_no "Otomatik olarak son sürüme güncellemek ister misiniz?" "y"
+            if prompt_yes_no "Otomatik olarak son sürüme güncellemek ister misiniz?" "y"; then update_choice="true"; fi
         else
             echo -e "  ${COLOR_YELLOW}================================================================${COLOR_RESET}"
             echo -e "  🚀 A new version of mcserver-installer is available: ${COLOR_GREEN}${latest}${COLOR_RESET} (Current: ${APP_VERSION})"
             echo -e "  ${COLOR_YELLOW}================================================================${COLOR_RESET}\n"
-            prompt_yes_no "Would you like to automatically update to the latest version?" "y"
+            if prompt_yes_no "Would you like to automatically update to the latest version?" "y"; then update_choice="true"; fi
         fi
 
-        if [ $? -eq 0 ]; then
+        if [ "$update_choice" = "true" ]; then
             local temp_file="${SCRIPT_PATH}.tmp"
             if [ "$LANG_PREF" = "tr" ]; then
                 run_with_spinner "Yeni sürüm indiriliyor" curl -s -L -H "Cache-Control: no-cache" -o "$temp_file" "${raw_script_url}?t=$(date +%s)"
