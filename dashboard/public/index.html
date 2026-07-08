@@ -396,6 +396,8 @@
       <button onclick="switchTab('backups')" id="tab-backups-btn" class="tab-btn"><i class="fa-solid fa-box-archive"></i> <span data-i18n="tab_backups">Backups</span></button>
       <button onclick="switchTab('tasks')" id="tab-tasks-btn" class="tab-btn"><i class="fa-solid fa-clock"></i> <span data-i18n="tab_tasks">Tasks</span></button>
       <button onclick="switchTab('worlds')" id="tab-worlds-btn" class="tab-btn"><i class="fa-solid fa-earth-americas"></i> <span data-i18n="tab_worlds">Worlds</span></button>
+      <button onclick="switchTab('notes')" id="tab-notes-btn" class="tab-btn"><i class="fa-solid fa-sticky-note"></i> <span data-i18n="tab_notes">Notes</span></button>
+      <button onclick="switchTab('firewall')" id="tab-firewall-btn" class="tab-btn"><i class="fa-solid fa-shield-halved"></i> <span data-i18n="tab_firewall">Firewall</span></button>
     </div>
     <div class="manager-content">
       <!-- Console -->
@@ -560,6 +562,32 @@
               </tr>
             </thead>
             <tbody id="worlds-list-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <!-- Notes -->
+      <div id="tab-notes" class="tab-panel hidden">
+        <div class="flex-between" style="margin-bottom:16px;">
+          <h4 style="font-size:14px;color:var(--accent-teal);font-weight:700;"><i class="fa-solid fa-sticky-note"></i> Server Notes</h4>
+          <button onclick="saveNote()" class="btn btn-success"><i class="fa-solid fa-floppy-disk"></i> Save Note</button>
+        </div>
+        <textarea id="server-note-input" style="flex:1;width:100%;resize:none;font-family:'Inter',sans-serif;font-size:14px;padding:16px;background:rgba(255, 235, 59, 0.05);color:var(--text-primary);border:1px solid rgba(255, 235, 59, 0.2);border-radius:var(--radius-md);" placeholder="Write your sticky notes here..."></textarea>
+      </div>
+      <!-- Firewall -->
+      <div id="tab-firewall" class="tab-panel hidden">
+        <div class="flex-between" style="margin-bottom:16px;">
+          <h4 style="font-size:14px;color:var(--accent-blue);font-weight:700;"><i class="fa-solid fa-shield-halved"></i> UFW Firewall Rules (Port: <span id="fw-port-label"></span>)</h4>
+          <button onclick="loadFirewall()" class="btn btn-ghost"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+        </div>
+        <div class="flex-center gap-2" style="margin-bottom:16px;">
+          <input type="text" id="fw-ip-input" class="input" placeholder="IP Address (e.g., 192.168.1.5 or 10.0.0.0/24)" style="flex:1;max-width:300px;" />
+          <button onclick="addFirewallRule('allow')" class="btn btn-success"><i class="fa-solid fa-check"></i> Allow IP</button>
+          <button onclick="addFirewallRule('deny')" class="btn btn-danger"><i class="fa-solid fa-ban"></i> Block IP</button>
+        </div>
+        <div style="border:1px solid var(--border-subtle);border-radius:var(--radius-md);overflow:hidden;">
+          <table class="backup-table">
+            <thead><tr><th>Action</th><th>From IP</th><th>To Port</th><th style="text-align:right;">Delete</th></tr></thead>
+            <tbody id="fw-rules-body"></tbody>
           </table>
         </div>
       </div>
@@ -1048,7 +1076,7 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
   async function restartServer(n) { await apiFetch(`/api/servers/${n}/restart`,{method:'POST'}); fetchServers(); }
 
   function switchTab(tab) {
-    ['console','properties','files','players','plugins','backups','tasks','worlds'].forEach(t => {
+    ['console','properties','files','players','plugins','backups','tasks','worlds','notes','firewall'].forEach(t => {
       document.getElementById(`tab-${t}`).classList.add('hidden');
       document.getElementById(`tab-${t}-btn`).classList.remove('active');
     });
@@ -1061,6 +1089,8 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     if (tab==='backups') fetchBackups();
     if (tab==='tasks') fetchTasks();
     if (tab==='worlds') fetchWorlds();
+    if (tab==='notes') loadNote();
+    if (tab==='firewall') loadFirewall();
   }
 
   function openManager(srv) {
@@ -1076,6 +1106,60 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     document.getElementById('manager-modal').classList.add('hidden');
     if (consoleEventSource) { consoleEventSource.close(); consoleEventSource = null; }
     currentServer = null;
+  }
+
+  async function loadNote() {
+    const res = await apiFetch(`/api/servers/${currentServer.name}/note`);
+    if (res.ok) {
+      const data = await res.json();
+      document.getElementById('server-note-input').value = data.note || '';
+    }
+  }
+
+  async function saveNote() {
+    const note = document.getElementById('server-note-input').value;
+    const res = await apiFetch(`/api/servers/${currentServer.name}/note`, { method: 'POST', body: JSON.stringify({ note }) });
+    if (res.ok) alert(currentLang==='tr'?'Not kaydedildi!':'Note saved!');
+  }
+
+  async function loadFirewall() {
+    document.getElementById('fw-port-label').innerText = currentServer.port || '25565';
+    const res = await apiFetch(`/api/servers/${currentServer.name}/firewall`);
+    if (res.ok) {
+      const rules = await res.json();
+      const tbody = document.getElementById('fw-rules-body');
+      tbody.innerHTML = '';
+      if (rules.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">No specific rules for port ${currentServer.port}</td></tr>`;
+      } else {
+        rules.forEach(r => {
+          tbody.innerHTML += `<tr>
+            <td><span style="color:${r.action==='ALLOW'?'var(--accent-teal)':'var(--accent-rose)'};font-weight:bold">${r.action}</span></td>
+            <td>${r.from}</td>
+            <td>${r.to}</td>
+            <td style="text-align:right"><button onclick="deleteFirewallRule('${r.num}')" class="btn btn-ghost" style="color:var(--accent-rose)"><i class="fa-solid fa-trash"></i></button></td>
+          </tr>`;
+        });
+      }
+    }
+  }
+
+  async function addFirewallRule(action) {
+    const ip = document.getElementById('fw-ip-input').value.trim();
+    if (!ip) return;
+    const res = await apiFetch(`/api/servers/${currentServer.name}/firewall`, { method: 'POST', body: JSON.stringify({ ip, action }) });
+    if (res.ok) {
+      document.getElementById('fw-ip-input').value = '';
+      loadFirewall();
+    } else {
+      alert('Error adding rule. Check terminal running the dashboard for sudo prompts.');
+    }
+  }
+
+  async function deleteFirewallRule(num) {
+    if (!confirm('Delete this rule?')) return;
+    const res = await apiFetch(`/api/servers/${currentServer.name}/firewall/${num}`, { method: 'DELETE' });
+    if (res.ok) loadFirewall();
   }
 
   function startConsoleStream(name) {

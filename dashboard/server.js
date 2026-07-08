@@ -592,6 +592,87 @@ app.post('/api/servers/:name/backup', requireAdmin, (req, res) => {
   res.json({ success: true, message: 'Backup job triggered in background' });
 });
 
+// 13. Get server note
+app.get('/api/servers/:name/note', requireAuth, (req, res) => {
+  const servers = getRegisteredServers();
+  const srv = servers.find(s => s.name === req.params.name);
+  if (!srv) return res.status(404).json({ error: 'Server not found' });
+
+  const notePath = path.join(srv.path, 'dashboard-note.txt');
+  if (!fs.existsSync(notePath)) return res.json({ note: '' });
+
+  const note = fs.readFileSync(notePath, 'utf8');
+  res.json({ note });
+});
+
+// 14. Update server note
+app.post('/api/servers/:name/note', requireAuth, (req, res) => {
+  const servers = getRegisteredServers();
+  const srv = servers.find(s => s.name === req.params.name);
+  if (!srv) return res.status(404).json({ error: 'Server not found' });
+
+  const notePath = path.join(srv.path, 'dashboard-note.txt');
+  const { note } = req.body;
+  
+  if (note === undefined) return res.status(400).json({ error: 'Note content required' });
+
+  fs.writeFileSync(notePath, note, 'utf8');
+  res.json({ success: true });
+});
+
+// 15. Get Firewall rules
+app.get('/api/servers/:name/firewall', requireAdmin, (req, res) => {
+  const servers = getRegisteredServers();
+  const srv = servers.find(s => s.name === req.params.name);
+  if (!srv) return res.status(404).json({ error: 'Server not found' });
+  
+  const port = srv.port || '25565';
+
+  exec('sudo ufw status numbered', (error, stdout) => {
+    if (error) return res.status(500).json({ error: 'Failed to list UFW rules. Make sure ufw is enabled and node runs with sudo.' });
+    const rules = [];
+    const lines = stdout.split('\n');
+    lines.forEach(line => {
+      const match = line.match(/^\[\s*(\d+)\]\s+(\S+)\s+(ALLOW|DENY|REJECT)\s+IN\s+(.+)$/i);
+      if (match) {
+        const [_, num, targetPort, action, fromIp] = match;
+        if (targetPort.startsWith(port)) {
+          rules.push({ num, action: action.toUpperCase(), from: fromIp.trim(), to: targetPort });
+        }
+      }
+    });
+    res.json(rules);
+  });
+});
+
+// 16. Add Firewall rule
+app.post('/api/servers/:name/firewall', requireAdmin, (req, res) => {
+  const servers = getRegisteredServers();
+  const srv = servers.find(s => s.name === req.params.name);
+  if (!srv) return res.status(404).json({ error: 'Server not found' });
+  
+  const port = srv.port || '25565';
+  const { ip, action } = req.body;
+  
+  if (!ip || !['allow', 'deny'].includes(action)) {
+    return res.status(400).json({ error: 'Invalid parameters' });
+  }
+
+  exec(`sudo ufw ${action} from ${ip} to any port ${port}`, (error, stdout, stderr) => {
+    if (error) return res.status(500).json({ error: stderr || error.message });
+    res.json({ success: true });
+  });
+});
+
+// 17. Delete Firewall rule
+app.delete('/api/servers/:name/firewall/:num', requireAdmin, (req, res) => {
+  const { num } = req.params;
+  exec(`sudo ufw --force delete ${num}`, (error, stdout, stderr) => {
+    if (error) return res.status(500).json({ error: stderr || error.message });
+    res.json({ success: true });
+  });
+});
+
 app.post('/api/login', (req, res) => {
   const { pin } = req.body;
   if (!pin) {
