@@ -955,6 +955,29 @@ app.post('/api/servers/:name/plugins/install', (req, res) => {
   }
 });
 
+app.post('/api/servers/import-ptero', requireAdmin, (req, res) => {
+  const { archivePath, serverName } = req.body;
+  if (!archivePath || !serverName) return res.status(400).json({ error: 'Missing arguments' });
+  
+  const mainScript = path.resolve(__dirname, '..', 'mcserver-installer');
+  exec(`"${mainScript}" --import-ptero "${archivePath}" "${serverName}"`, (error, stdout, stderr) => {
+    if (error) return res.status(500).json({ error: stderr || error.message });
+    res.json({ success: true, message: stdout });
+  });
+});
+
+app.post('/api/servers/build-network', requireAdmin, (req, res) => {
+  const { netName, proxyPort } = req.body;
+  if (!netName || !proxyPort) return res.status(400).json({ error: 'Missing arguments' });
+  
+  const mainScript = path.resolve(__dirname, '..', 'mcserver-installer');
+  exec(`"${mainScript}" --build-network "${netName}" "${proxyPort}"`, (error) => {
+    if (error) console.error(`Network build failed: ${error.message}`);
+  });
+  
+  res.json({ success: true, message: 'Network building started in background' });
+});
+
 app.post('/api/servers/install', async (req, res) => {
   const { name, software, version, port, ram, backendNames, backendVersion } = req.body;
   if (!name || !software || !version || !port || !ram) {

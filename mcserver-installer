@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.76
+# Version: 1.77
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -12,7 +12,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.76"
+APP_VERSION="1.77"
 DEVELOPER="devRaikou"
 APP_REPO="devRaikou/mcserver-installer"
 CONFIG_DIR="${HOME}/.mcserver-installer"
@@ -5120,6 +5120,94 @@ main_menu() {
     done
 }
 
+import_pterodactyl() {
+    local tarball="$1"
+    local srv_name="$2"
+    if [ -z "$tarball" ] || [ -z "$srv_name" ]; then
+        echo "Usage: --import-ptero <tarball_path> <new_server_name>" >&2
+        return 1
+    fi
+    if [ ! -f "$tarball" ]; then
+        echo "Error: Archive not found at $tarball" >&2
+        return 1
+    fi
+    srv_name=$(echo "$srv_name" | tr -cd 'a-zA-Z0-9_-')
+    local srv_path="${HOME}/minecraft/$srv_name"
+    if [ -d "$srv_path" ]; then
+        echo "Error: Server directory $srv_path already exists." >&2
+        return 1
+    fi
+    mkdir -p "$srv_path"
+    echo "Extracting archive to $srv_path..."
+    tar -xzf "$tarball" -C "$srv_path" || { echo "Error extracting archive"; rm -rf "$srv_path"; return 1; }
+    
+    local port="25565"
+    if [ -f "$srv_path/server.properties" ]; then
+        local extracted_port
+        extracted_port=$(grep "^server-port=" "$srv_path/server.properties" | cut -d= -f2 | tr -d '\r')
+        [ -n "$extracted_port" ] && port="$extracted_port"
+    fi
+    
+    local srv_type="vanilla"
+    if [ -f "$srv_path/velocity.jar" ]; then srv_type="velocity";
+    elif [ -f "$srv_path/bungeecord.jar" ] || [ -f "$srv_path/waterfall.jar" ]; then srv_type="waterfall";
+    elif [ -f "$srv_path/purpur.jar" ]; then srv_type="purpur";
+    elif ls "$srv_path"/*.jar 1> /dev/null 2>&1; then srv_type="paper"; fi
+    
+    if [ ! -f "$srv_path/start.sh" ]; then
+        local jar_name="server.jar"
+        if ls "$srv_path"/*.jar 1> /dev/null 2>&1; then jar_name=$(ls "$srv_path"/*.jar | head -n 1 | awk -F/ '{print $NF}'); fi
+        cat > "$srv_path/start.sh" <<EOF
+#!/bin/bash
+java -Xms1G -Xmx2G -jar $jar_name nogui
+EOF
+        chmod +x "$srv_path/start.sh"
+    fi
+    
+    echo "${srv_name}:${srv_path}:${srv_type}:imported" >> "$REGISTRY_FILE"
+    echo "Successfully imported Pterodactyl backup '$srv_name' (Type: $srv_type, Port: $port)."
+}
+
+build_proxy_network() {
+    local net_name="$1"
+    local proxy_port="$2"
+    if [ -z "$net_name" ] || [ -z "$proxy_port" ]; then
+        echo "Usage: --build-network <network_name> <proxy_port>" >&2
+        return 1
+    fi
+    
+    local proxy_name="${net_name}-proxy"
+    local lobby_name="${net_name}-lobby"
+    local surv_name="${net_name}-survival"
+    
+    local lobby_port=$((proxy_port + 1))
+    local surv_port=$((proxy_port + 2))
+    
+    echo "Building Proxy Network '$net_name' starting at port $proxy_port..."
+    
+    headless_install_server "$proxy_name" "velocity" "latest" "$proxy_port" "1"
+    headless_install_server "$lobby_name" "paper" "latest" "$lobby_port" "2"
+    headless_install_server "$surv_name" "paper" "latest" "$surv_port" "3"
+    
+    local proxy_dir="${HOME}/minecraft/${proxy_name}"
+    if [ -f "$proxy_dir/velocity.toml" ]; then
+        sed -i 's/^\[servers\]/[servers]\nlobby = "127.0.0.1:'"$lobby_port"'"\nsurvival = "127.0.0.1:'"$surv_port"'"/' "$proxy_dir/velocity.toml"
+        sed -i 's/^try = \[.*\]/try = ["lobby"]/' "$proxy_dir/velocity.toml"
+    else
+        mkdir -p "$proxy_dir"
+        cat > "$proxy_dir/velocity.toml" <<EOF
+[servers]
+lobby = "127.0.0.1:$lobby_port"
+survival = "127.0.0.1:$surv_port"
+try = ["lobby"]
+[advanced]
+bungee-plugin-message-channel = true
+EOF
+    fi
+
+    echo "Network '$net_name' built successfully."
+}
+
 headless_install_server() {
     local name="$1"
     local software="$2"
@@ -5599,9 +5687,17 @@ if [ $# -gt 0 ]; then
         HEADLESS_MODE="true"
         bind_dashboard_domain "$2"
         exit $?
+    elif [ "$1" = "--import-ptero" ]; then
+        HEADLESS_MODE="true"
+        import_pterodactyl "$2" "$3"
+        exit $?
+    elif [ "$1" = "--build-network" ]; then
+        HEADLESS_MODE="true"
+        build_proxy_network "$2" "$3"
+        exit $?
     else
         echo "Unknown argument: $1" >&2
-        echo "Usage: $0 [--backup <server_name>] [--get-versions <software>] [--install <name> <software> <version> <port> <ram>] [--bind-domain <domain>]" >&2
+        echo "Usage: $0 [--backup <server_name>] [--get-versions <software>] [--install <name> <software> <version> <port> <ram>] [--bind-domain <domain>] [--import-ptero <tarball> <name>] [--build-network <net_name> <proxy_port>]" >&2
         exit 1
     fi
 fi

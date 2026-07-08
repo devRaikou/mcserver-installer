@@ -1,6 +1,6 @@
 # mcserver-installer
 
-![Version](https://img.shields.io/badge/version-1.76-2ea44f)
+![Version](https://img.shields.io/badge/version-1.77-2ea44f)
 ![Bash](https://img.shields.io/badge/language-Bash-4EAA25)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu-blue)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
@@ -97,7 +97,7 @@ The script can be executed in headless mode with command-line arguments, which i
 ### Main Menu
 
 ```text
-  Developer: devRaikou | Version: 1.76
+  Developer: devRaikou | Version: 1.77
   GitHub:    https://github.com/devRaikou/mcserver-installer
   ================================================================
 
