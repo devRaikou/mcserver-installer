@@ -730,22 +730,79 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
 
 <!-- Network Modal -->
 <div id="network-modal" class="overlay hidden">
-  <div class="modal install-modal">
+  <div class="modal install-modal" style="max-width:560px;">
     <div class="modal-header">
       <h3><i class="fa-solid fa-network-wired"></i> 1-Click Proxy Network Builder</h3>
       <button class="close-btn" onclick="closeNetworkModal();"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="modal-body">
-      <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Automatically builds a Velocity proxy, a Lobby, and a Survival server connected together.</p>
-      <div class="form-group">
-        <label class="form-label">Network Name (Base)</label>
-        <input id="net-name" type="text" class="input" placeholder="play" />
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Automatically builds a proxy and backend servers connected together.</p>
+      
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Network Name</label>
+          <input id="net-name" type="text" class="input" placeholder="play" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Proxy Port</label>
+          <input id="net-port" type="number" class="input" value="25565" />
+        </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Proxy Port</label>
-        <input id="net-port" type="number" class="input" value="25565" />
+
+      <div style="border:1px solid rgba(139,92,246,0.2);border-radius:var(--radius-sm);padding:12px;margin-bottom:12px;background:rgba(139,92,246,0.04);">
+        <div style="font-weight:700;font-size:13px;color:#a78bfa;margin-bottom:8px;"><i class="fa-solid fa-satellite-dish" style="margin-right:4px;"></i> Proxy Server</div>
+        <div class="grid-2">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Software</label>
+            <select id="net-proxy-sw" class="input" onchange="loadNetVersions('proxy')">
+              <option value="velocity" selected>⚡ Velocity</option>
+              <option value="waterfall">💧 Waterfall</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Version</label>
+            <select id="net-proxy-ver" class="input"><option>Loading...</option></select>
+          </div>
+        </div>
       </div>
-      <button onclick="triggerNetworkBuild()" class="btn btn-primary" style="width:100%;padding:12px;margin-top:4px;">
+
+      <div style="border:1px solid rgba(45,212,191,0.2);border-radius:var(--radius-sm);padding:12px;margin-bottom:12px;background:rgba(45,212,191,0.04);">
+        <div style="font-weight:700;font-size:13px;color:var(--accent-teal);margin-bottom:8px;"><i class="fa-solid fa-server" style="margin-right:4px;"></i> Backend Servers</div>
+        <div class="grid-2">
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label">Software</label>
+            <select id="net-backend-sw" class="input" onchange="loadNetVersions('backend')">
+              <option value="paper" selected>📄 Paper</option>
+              <option value="purpur">🟣 Purpur</option>
+              <option value="folia">🌿 Folia</option>
+              <option value="vanilla">🟢 Vanilla</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label">Version</label>
+            <select id="net-backend-ver" class="input"><option>Loading...</option></select>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Server Names (comma separated)</label>
+            <input id="net-backend-names" type="text" class="input" value="lobby,survival" placeholder="lobby,survival,skyblock" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">RAM per server</label>
+            <select id="net-ram" class="input">
+              <option value="1G">1 GB</option>
+              <option value="2G" selected>2 GB</option>
+              <option value="3G">3 GB</option>
+              <option value="4G">4 GB</option>
+              <option value="6G">6 GB</option>
+              <option value="8G">8 GB</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <button id="net-build-btn" onclick="triggerNetworkBuild()" class="btn btn-primary" style="width:100%;padding:12px;margin-top:4px;">
         <i class="fa-solid fa-bolt"></i> Build Network
       </button>
     </div>
@@ -1712,21 +1769,49 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     else { const err = await res.json(); alert('Error: ' + err.error); }
   }
 
-  function openNetworkModal() { document.getElementById('network-modal').classList.remove('hidden'); }
+  function openNetworkModal() {
+    document.getElementById('network-modal').classList.remove('hidden');
+    loadNetVersions('proxy');
+    loadNetVersions('backend');
+  }
   function closeNetworkModal() { document.getElementById('network-modal').classList.add('hidden'); }
+
+  async function loadNetVersions(which) {
+    const swId = which === 'proxy' ? 'net-proxy-sw' : 'net-backend-sw';
+    const verId = which === 'proxy' ? 'net-proxy-ver' : 'net-backend-ver';
+    const sw = document.getElementById(swId).value;
+    const sel = document.getElementById(verId);
+    sel.innerHTML = '<option>Loading...</option>';
+    try {
+      const res = await apiFetch(`/api/software-versions?type=${sw}`);
+      const list = await res.json();
+      if (!Array.isArray(list)) { sel.innerHTML = '<option value="">Error</option>'; return; }
+      sel.innerHTML = '';
+      list.forEach(v => { const o = document.createElement('option'); o.value = v; o.innerText = v; sel.appendChild(o); });
+    } catch(e) { sel.innerHTML = '<option value="">Error</option>'; }
+  }
+
   async function triggerNetworkBuild() {
     const name = document.getElementById('net-name').value.trim();
     const port = document.getElementById('net-port').value.trim();
-    if(!name || !port) return alert('Fill all fields');
-    const btn = event.target.closest('button');
+    const proxySw = document.getElementById('net-proxy-sw').value;
+    const proxyVer = document.getElementById('net-proxy-ver').value;
+    const backendSw = document.getElementById('net-backend-sw').value;
+    const backendVer = document.getElementById('net-backend-ver').value;
+    const backendNames = document.getElementById('net-backend-names').value.trim();
+    const ram = document.getElementById('net-ram').value;
+    if(!name || !port || !proxyVer || !backendVer || !backendNames) return alert(currentLang==='tr'?'Tüm alanları doldurun.':'Fill all fields.');
+    const btn = document.getElementById('net-build-btn');
     btn.disabled = true;
     btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;display:inline-block;vertical-align:middle;"></div> Building...';
     try {
-      const res = await apiFetch('/api/servers/build-network', { method:'POST', body: JSON.stringify({ netName: name, proxyPort: port }) });
+      const res = await apiFetch('/api/servers/build-network', { method:'POST', body: JSON.stringify({
+        netName: name, proxyPort: port, proxySoftware: proxySw, proxyVersion: proxyVer,
+        backendSoftware: backendSw, backendVersion: backendVer, backendNames, ram
+      })});
       if(res.ok) {
         alert(currentLang==='tr'?'Ağ kurulumu arka planda başlatıldı! Sunucular birkaç dakika içinde görünecek.':'Network build started in background! Servers will appear in a few minutes.');
         closeNetworkModal();
-        // Poll for new servers every 10s for 2 minutes
         let polls = 0;
         const poller = setInterval(() => { fetchServers(); polls++; if(polls >= 12) clearInterval(poller); }, 10000);
       } else {

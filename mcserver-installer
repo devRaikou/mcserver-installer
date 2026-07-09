@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.79
+# Version: 1.80
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -12,7 +12,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.79"
+APP_VERSION="1.80"
 DEVELOPER="devRaikou"
 APP_REPO="devRaikou/mcserver-installer"
 CONFIG_DIR="${HOME}/.mcserver-installer"
@@ -5171,73 +5171,99 @@ EOF
 build_proxy_network() {
     local net_name="$1"
     local proxy_port="$2"
+    local proxy_sw="${3:-velocity}"
+    local proxy_ver="$4"
+    local backend_sw="${5:-paper}"
+    local backend_ver="$6"
+    local backend_names_csv="${7:-lobby,survival}"
+    local ram="${8:-2G}"
+
     if [ -z "$net_name" ] || [ -z "$proxy_port" ]; then
-        echo "Usage: --build-network <network_name> <proxy_port>" >&2
+        echo "Usage: --build-network <net_name> <proxy_port> [proxy_sw] [proxy_ver] [backend_sw] [backend_ver] [backend_names] [ram]" >&2
         return 1
     fi
-    
+
+    # Resolve proxy version if not provided
+    if [ -z "$proxy_ver" ]; then
+        echo "Resolving latest ${proxy_sw} version..."
+        proxy_ver=$(fetch_papermc_versions "$proxy_sw" | tail -n 1)
+        if [ -z "$proxy_ver" ]; then
+            echo "Error: Could not resolve latest ${proxy_sw} version." >&2
+            return 1
+        fi
+    fi
+
+    # Resolve backend version if not provided
+    if [ -z "$backend_ver" ]; then
+        echo "Resolving latest ${backend_sw} version..."
+        backend_ver=$(fetch_papermc_versions "$backend_sw" | tail -n 1)
+        if [ -z "$backend_ver" ]; then
+            echo "Error: Could not resolve latest ${backend_sw} version." >&2
+            return 1
+        fi
+    fi
+
     local proxy_name="${net_name}-proxy"
-    local lobby_name="${net_name}-lobby"
-    local surv_name="${net_name}-survival"
-    
-    local lobby_port=$((proxy_port + 1))
-    local surv_port=$((proxy_port + 2))
-    
     echo "Building Proxy Network '$net_name' starting at port $proxy_port..."
-    
-    # Resolve latest Velocity version
-    echo "Resolving latest Velocity version..."
-    local velocity_version
-    velocity_version=$(fetch_papermc_versions "velocity" | tail -n 1)
-    if [ -z "$velocity_version" ]; then
-        echo "Error: Could not resolve latest Velocity version." >&2
-        return 1
-    fi
-    echo "Using Velocity version: $velocity_version"
-    
-    # Resolve latest Paper version
-    echo "Resolving latest Paper version..."
-    local paper_version
-    paper_version=$(fetch_papermc_versions "paper" | tail -n 1)
-    if [ -z "$paper_version" ]; then
-        echo "Error: Could not resolve latest Paper version." >&2
-        return 1
-    fi
-    echo "Using Paper version: $paper_version"
-    
-    # Install servers
-    echo "Installing Proxy ($proxy_name)..."
-    headless_install_server "$proxy_name" "velocity" "$velocity_version" "$proxy_port" "1"
-    
-    echo "Installing Lobby ($lobby_name)..."
-    headless_install_server "$lobby_name" "paper" "$paper_version" "$lobby_port" "2"
-    
-    echo "Installing Survival ($surv_name)..."
-    headless_install_server "$surv_name" "paper" "$paper_version" "$surv_port" "3"
-    
-    # Configure velocity.toml
+    echo "  Proxy: ${proxy_sw} ${proxy_ver}"
+    echo "  Backend: ${backend_sw} ${backend_ver}"
+
+    # Install proxy
+    echo "Installing Proxy (${proxy_name})..."
+    headless_install_server "$proxy_name" "$proxy_sw" "$proxy_ver" "$proxy_port" "1"
+
+    # Parse backend names and install each
+    local IFS=','
+    local backend_list=()
+    read -ra backend_list <<< "$backend_names_csv"
+    unset IFS
+
+    local current_port=$((proxy_port + 1))
+    local all_members="${proxy_name}"
+    local velocity_servers=""
+    local first_backend=""
+
+    for bname in "${backend_list[@]}"; do
+        bname=$(echo "$bname" | tr -cd 'a-zA-Z0-9_-')
+        [ -z "$bname" ] && continue
+        local full_name="${net_name}-${bname}"
+        echo "Installing Backend (${full_name}) on port ${current_port}..."
+        headless_install_server "$full_name" "$backend_sw" "$backend_ver" "$current_port" "$ram"
+        all_members="${all_members},${full_name}"
+        velocity_servers="${velocity_servers}${bname} = \"127.0.0.1:${current_port}\"\n"
+        [ -z "$first_backend" ] && first_backend="$bname"
+        current_port=$((current_port + 1))
+    done
+
+    # Configure proxy
     local proxy_dir="${HOME}/minecraft/${proxy_name}"
-    if [ -f "$proxy_dir/velocity.toml" ]; then
-        sed -i 's/^\[servers\]/[servers]\nlobby = "127.0.0.1:'"$lobby_port"'"\nsurvival = "127.0.0.1:'"$surv_port"'"/' "$proxy_dir/velocity.toml"
-        sed -i 's/^try = \[.*\]/try = ["lobby"]/' "$proxy_dir/velocity.toml"
-    else
-        mkdir -p "$proxy_dir"
-        cat > "$proxy_dir/velocity.toml" <<EOF
+    if [ "$proxy_sw" = "velocity" ]; then
+        if [ -f "$proxy_dir/velocity.toml" ]; then
+            local sed_insert=$(echo -e "$velocity_servers" | sed 's/"/\\"/g')
+            sed -i "/^\[servers\]/a\\${sed_insert}" "$proxy_dir/velocity.toml"
+            sed -i "s/^try = \[.*\]/try = [\"${first_backend}\"]/" "$proxy_dir/velocity.toml"
+        else
+            mkdir -p "$proxy_dir"
+            cat > "$proxy_dir/velocity.toml" <<EOF
 [servers]
-lobby = "127.0.0.1:$lobby_port"
-survival = "127.0.0.1:$surv_port"
-try = ["lobby"]
+$(echo -e "$velocity_servers")
+try = ["${first_backend}"]
 [advanced]
 bungee-plugin-message-channel = true
 EOF
+        fi
+    elif [ "$proxy_sw" = "waterfall" ] || [ "$proxy_sw" = "bungeecord" ]; then
+        if [ -f "$proxy_dir/config.yml" ]; then
+            echo "# Backend servers added by build-network" >> "$proxy_dir/config.yml"
+        fi
     fi
 
     # Save network metadata
     local meta_dir="${HOME}/.mcserver-installer"
     mkdir -p "$meta_dir"
-    echo "${net_name}:${proxy_name},${lobby_name},${surv_name}" >> "$meta_dir/networks.txt"
+    echo "${net_name}:${all_members}" >> "$meta_dir/networks.txt"
 
-    echo "Network '$net_name' built successfully."
+    echo "Network '$net_name' built successfully with servers: ${all_members}"
 }
 
 headless_install_server() {

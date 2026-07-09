@@ -1041,11 +1041,19 @@ app.post('/api/servers/import-ptero', requireAdmin, (req, res) => {
 });
 
 app.post('/api/servers/build-network', requireAdmin, (req, res) => {
-  const { netName, proxyPort } = req.body;
-  if (!netName || !proxyPort) return res.status(400).json({ error: 'Missing arguments' });
+  const { netName, proxyPort, proxySoftware, proxyVersion, backendSoftware, backendVersion, backendNames, ram } = req.body;
+  if (!netName || !proxyPort || !proxySoftware || !proxyVersion || !backendSoftware || !backendVersion || !backendNames) {
+    return res.status(400).json({ error: 'Missing arguments' });
+  }
   
   const mainScript = path.resolve(__dirname, '..', 'mcserver-installer');
-  const child = spawn(mainScript, ['--build-network', netName, proxyPort], {
+  const args = [
+    '--build-network', netName, proxyPort,
+    proxySoftware, proxyVersion,
+    backendSoftware, backendVersion,
+    backendNames, ram || '2G'
+  ];
+  const child = spawn(mainScript, args, {
     env: { ...process.env, HOME: os.homedir() },
     detached: true,
     stdio: ['ignore', 'pipe', 'pipe']
@@ -1056,7 +1064,7 @@ app.post('/api/servers/build-network', requireAdmin, (req, res) => {
   child.stderr.on('data', (data) => { output += data.toString(); });
   child.on('close', (code) => {
     console.log(`Network build '${netName}' finished with code ${code}`);
-    if (code !== 0) console.error(`Network build stderr: ${output}`);
+    if (code !== 0) console.error(`Network build output: ${output}`);
   });
   child.unref();
   
