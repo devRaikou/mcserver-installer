@@ -524,10 +524,17 @@ app.get('/api/servers/:name/console', (req, res) => {
     return res.end();
   }
 
-  const logFile = path.join(srv.path, 'logs', 'latest.log');
+  let logFile = path.join(srv.path, 'logs', 'latest.log');
+  if (srv.type === 'bungeecord' || srv.type === 'waterfall') {
+    logFile = path.join(srv.path, 'proxy.log.0');
+  }
+
   if (!fs.existsSync(logFile)) {
     // If directory doesn't exist, create it to prevent tail failure
-    fs.mkdirSync(path.join(srv.path, 'logs'), { recursive: true });
+    const logDir = path.dirname(logFile);
+    if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+    }
     fs.writeFileSync(logFile, '');
   }
 
