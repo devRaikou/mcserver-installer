@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.81
+# Version: 1.82
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -12,7 +12,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.81"
+APP_VERSION="1.82"
 DEVELOPER="devRaikou"
 APP_REPO="devRaikou/mcserver-installer"
 CONFIG_DIR="${HOME}/.mcserver-installer"

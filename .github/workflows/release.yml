@@ -48,7 +48,7 @@ jobs:
           # Write release notes to file
           cat > release_notes.md << 'HEADER'
           ## What's Changed
-          HEADER
+HEADER
           echo "" >> release_notes.md
           echo "$COMMITS" >> release_notes.md
           echo "" >> release_notes.md
