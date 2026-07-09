@@ -628,23 +628,12 @@
           <input id="ins-port" type="number" class="input" value="25565" />
         </div>
       </div>
-      <div id="backend-deployment-section" class="form-group hidden" style="background:var(--bg-lighter); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px; margin-bottom:16px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="toggleBackendDeployment()">
-          <label class="form-label" style="margin:0; cursor:pointer;"><i class="fa-solid fa-network-wired" style="margin-right:6px; color:var(--accent-teal);"></i> Auto-Deploy Backend Servers</label>
-          <input type="checkbox" id="deploy-backend-checkbox" style="cursor:pointer;" onclick="event.stopPropagation(); toggleBackendDeployment(event);" />
-        </div>
-        <div id="backend-deployment-details" class="hidden" style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.05);">
-          <div class="form-group">
-            <label class="form-label" style="font-size:11px;">Backend Names (comma-separated)</label>
-            <input id="backend-names" type="text" class="input" value="hub-1,survival-1" style="padding:8px; font-size:12px;" />
-          </div>
-          <div class="form-group" style="margin-bottom:0;">
-            <label class="form-label" style="font-size:11px;">Backend Version (Paper)</label>
-            <select id="backend-version" style="padding:8px; font-size:12px;">
-              <option value="loading">Loading versions...</option>
-            </select>
-          </div>
-        </div>
+      <div id="attach-network-section" class="form-group hidden" style="background:var(--bg-lighter); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px; margin-bottom:16px;">
+        <label class="form-label" style="margin:0; font-size:12px;"><i class="fa-solid fa-link" style="margin-right:6px; color:var(--accent-teal);"></i> Attach to Proxy Network (Optional)</label>
+        <select id="attach-network-select" class="input" style="margin-top:8px; padding:8px; font-size:12px;">
+          <option value="">None (Standalone)</option>
+        </select>
+        <p style="font-size:11px; color:var(--text-muted); margin-top:6px; margin-bottom:0;">Automatically configures the network's proxy to route to this server.</p>
       </div>
       <div class="form-group">
         <label class="form-label">RAM</label>
@@ -1113,6 +1102,7 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     try {
       const res = await apiFetch('/api/servers');
       const servers = await res.json();
+      window.cachedServers = servers;
       const container = document.getElementById('server-list');
       container.innerHTML = '';
       if (servers.length === 0) {
@@ -1731,10 +1721,48 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     } catch (err) { select.innerHTML = `<option value="">Err</option>`; }
   }
 
+  let selectedSoftware = 'vanilla';
+  function selectSoftware(sw) {
+    selectedSoftware = sw;
+    document.querySelectorAll('.sw-option').forEach(el => el.classList.remove('selected'));
+    document.querySelector(`.sw-option[data-sw="${sw}"]`).classList.add('selected');
+    loadSoftwareVersions();
+    
+    // Show attach to network for backend software
+    if (['vanilla', 'paper', 'purpur', 'folia'].includes(sw)) {
+      document.getElementById('attach-network-section').classList.remove('hidden');
+    } else {
+      document.getElementById('attach-network-section').classList.add('hidden');
+    }
+  }
+
   function openInstallModal() {
     document.getElementById('install-modal').classList.remove('hidden');
     loadSoftwareVersions();
+    
+    const attachSelect = document.getElementById('attach-network-select');
+    attachSelect.innerHTML = '<option value="">None (Standalone)</option>';
+    
+    if (window.cachedServers) {
+      const networks = new Set();
+      window.cachedServers.forEach(srv => {
+        if (srv.network) networks.add(srv.network);
+      });
+      networks.forEach(net => {
+        const opt = document.createElement('option');
+        opt.value = net;
+        opt.innerText = net;
+        attachSelect.appendChild(opt);
+      });
+    }
+    
+    if (['vanilla', 'paper', 'purpur', 'folia'].includes(selectedSoftware)) {
+      document.getElementById('attach-network-section').classList.remove('hidden');
+    } else {
+      document.getElementById('attach-network-section').classList.add('hidden');
+    }
   }
+
   function closeInstallModal() {
     document.getElementById('install-modal').classList.add('hidden');
     document.getElementById('install-loader').classList.add('hidden');
@@ -1852,20 +1880,15 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     const ram = document.getElementById('ins-ram').value;
     if (!name) { alert(currentLang==='tr'?'Lütfen sunucu adı girin.':'Please enter a server name.'); return; }
     
-    let backendNames = '';
-    let backendVersion = '';
-    if (document.getElementById('deploy-backend-checkbox') && document.getElementById('deploy-backend-checkbox').checked && (selectedSoftware === 'velocity' || selectedSoftware === 'waterfall' || selectedSoftware === 'bungeecord')) {
-      backendNames = document.getElementById('backend-names').value.trim();
-      backendVersion = document.getElementById('backend-version').value;
-      if (!backendNames) {
-        alert(currentLang==='tr'?'Lütfen backend sunucu isimlerini girin.':'Please enter backend server names.'); return;
-      }
+    let attachNetwork = '';
+    if (['vanilla', 'paper', 'purpur', 'folia'].includes(selectedSoftware)) {
+      attachNetwork = document.getElementById('attach-network-select').value;
     }
 
     document.getElementById('install-loader').classList.remove('hidden');
     document.getElementById('install-submit-btn').disabled = true;
     try {
-      const res = await apiFetch('/api/servers/install', { method:'POST', body: JSON.stringify({ name, software: selectedSoftware, version, port, ram, backendNames, backendVersion }) });
+      const res = await apiFetch('/api/servers/install', { method:'POST', body: JSON.stringify({ name, software: selectedSoftware, version, port, ram, attachNetwork }) });
       const data = await res.json();
       if (data.success) { alert(currentLang==='tr'?'Kurulum başlatıldı!':'Installation started!'); closeInstallModal(); setTimeout(fetchServers, 10000); }
       else { alert('Error: ' + data.error); document.getElementById('install-loader').classList.add('hidden'); document.getElementById('install-submit-btn').disabled = false; }

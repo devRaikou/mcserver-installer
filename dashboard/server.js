@@ -1041,17 +1041,22 @@ app.post('/api/servers/import-ptero', requireAdmin, (req, res) => {
 
 // Build Logs SSE clients
 const buildLogClients = new Set();
+let buildLogBuffer = "";
 
 app.get('/api/build-logs', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
+  if (buildLogBuffer) {
+    res.write(`data: ${JSON.stringify({ msg: buildLogBuffer })}\n\n`);
+  }
   buildLogClients.add(res);
   req.on('close', () => buildLogClients.delete(res));
 });
 
 function broadcastBuildLog(msg) {
+  buildLogBuffer += msg;
   for (const client of buildLogClients) {
     client.write(`data: ${JSON.stringify({ msg })}\n\n`);
   }
@@ -1084,6 +1089,9 @@ app.post('/api/servers/build-network', requireAdmin, (req, res) => {
   }));
   activeInstalls.push(...installs);
   
+  // Clear any previous logs
+  buildLogBuffer = "Starting build process...\n";
+  
   const mainScript = path.resolve(__dirname, '..', 'mcserver-installer');
   const args = [
     '--build-network', netName, proxyPort,
@@ -1108,6 +1116,8 @@ app.post('/api/servers/build-network', requireAdmin, (req, res) => {
   child.on('close', (code) => {
     console.log(`Network build '${netName}' finished with code ${code}`);
     broadcastBuildLog(`\nBuild process finished with code ${code}`);
+    // Clear buffer after a delay so late clients can still fetch
+    setTimeout(() => { buildLogBuffer = ""; }, 10000);
     // Remove from active installs
     installs.forEach(inst => {
       const idx = activeInstalls.findIndex(s => s.name === inst.name);
@@ -1120,7 +1130,7 @@ app.post('/api/servers/build-network', requireAdmin, (req, res) => {
 });
 
 app.post('/api/servers/install', async (req, res) => {
-  const { name, software, version, port, ram, backendNames, backendVersion } = req.body;
+  const { name, software, version, port, ram, attachNetwork } = req.body;
   if (!name || !software || !version || !port || !ram) {
     return res.status(400).json({ error: 'Missing arguments' });
   }
@@ -1166,9 +1176,6 @@ app.post('/api/servers/install', async (req, res) => {
 
   const mainScript = path.resolve(__dirname, '..', 'mcserver-installer');
   const spawnArgs = ['--install', name, software, version, port, ram];
-  if (backendNames && backendVersion) {
-    spawnArgs.push(backendNames, backendVersion);
-  }
   const installProcess = spawn(mainScript, spawnArgs);
   
   installProcess.stdout.on('data', (data) => {
@@ -1179,6 +1186,49 @@ app.post('/api/servers/install', async (req, res) => {
   });
   installProcess.on('close', (code) => {
     console.log(`[Install ${name}] Process exited with code ${code}`);
+    
+    if (code === 0 && attachNetwork) {
+      try {
+        // Update networks.txt
+        const netFile = path.join(os.homedir(), '.mcserver-installer', 'networks.txt');
+        if (fs.existsSync(netFile)) {
+          let lines = fs.readFileSync(netFile, 'utf8').split('\n');
+          for (let i = 0; i < lines.length; i++) {
+            if (lines[i].startsWith(attachNetwork + ':')) {
+              lines[i] += `,${name}`;
+              break;
+            }
+          }
+          fs.writeFileSync(netFile, lines.join('\n'));
+        }
+        
+        // Update Proxy Config
+        const allServers = getRegisteredServers();
+        const proxy = allServers.find(s => s.network === attachNetwork && ['velocity', 'waterfall', 'bungeecord'].includes(s.type));
+        if (proxy) {
+          if (proxy.type === 'velocity') {
+            const tomlPath = path.join(proxy.path, 'velocity.toml');
+            if (fs.existsSync(tomlPath)) {
+              let toml = fs.readFileSync(tomlPath, 'utf8');
+              toml = toml.replace('[servers]', `[servers]\n${name} = "127.0.0.1:${port}"`);
+              fs.writeFileSync(tomlPath, toml);
+            }
+          } else {
+            const ymlPath = path.join(proxy.path, 'config.yml');
+            if (fs.existsSync(ymlPath)) {
+              let yml = fs.readFileSync(ymlPath, 'utf8');
+              if (yml.includes('servers:')) {
+                yml = yml.replace('servers:', `servers:\n  ${name}:\n    motd: '&1${name}'\n    address: localhost:${port}\n    restricted: false`);
+                fs.writeFileSync(ymlPath, yml);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to attach network:', err);
+      }
+    }
+
     // Remove from active installs once done (success or failure)
     const index = activeInstalls.findIndex(s => s.name === name);
     if (index !== -1) activeInstalls.splice(index, 1);
