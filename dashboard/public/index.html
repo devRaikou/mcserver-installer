@@ -1062,38 +1062,24 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
         container.innerHTML = `<div class="card" style="padding:40px;text-align:center;grid-column:1/-1;"><i class="fa-solid fa-inbox" style="font-size:32px;color:var(--text-muted);margin-bottom:12px;display:block;"></i><p style="color:var(--text-muted);font-size:13px;">${currentLang==='tr'?'Henüz kurulu sunucu yok.':'No servers installed yet.'}</p></div>`;
         return;
       }
-      const backendServers = servers.filter(s => !['velocity', 'waterfall'].includes(s.type));
-      const proxyServers = servers.filter(s => ['velocity', 'waterfall'].includes(s.type));
-      
-      const renderServerGrid = (serverList, title) => {
-        if (serverList.length === 0) return '';
-        
-        let html = `<div style="grid-column:1/-1;margin-top:16px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
-          <h3 style="margin:0;font-size:16px;color:var(--text-main);">${title}</h3>
-          <div style="flex:1;height:1px;background:var(--border-subtle);"></div>
-        </div>`;
-        
-        serverList.forEach(srv => {
-          let statusBadge, actionBtn, manageBtn;
-          if (srv.isInstalling) {
-            statusBadge = `<span class="badge" style="background:rgba(251,191,36,0.1);color:var(--accent-amber);border:1px solid rgba(251,191,36,0.2);"><div class="spinner" style="width:10px;height:10px;border-width:2px;margin-right:6px;border-top-color:var(--accent-amber);"></div> ${currentLang === 'tr' ? 'Kuruluyor...' : 'Installing...'}</span>`;
-            actionBtn = `<button disabled class="btn btn-ghost" style="flex:1;opacity:0.5;">${currentLang === 'tr' ? 'Bekleniyor' : 'Waiting'}</button>`;
-            manageBtn = `<button disabled class="btn btn-solid-teal" style="opacity:0.5;cursor:not-allowed;">${translations[currentLang].btn_manage}</button>`;
-          } else {
-            const online = srv.running;
-            statusBadge = online
-              ? `<span class="badge badge-online"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent-emerald);display:inline-block;"></span> ${translations[currentLang].status_running}</span>`
-              : `<span class="badge badge-offline"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent-rose);display:inline-block;"></span> ${translations[currentLang].status_stopped}</span>`;
-            actionBtn = online
-              ? `<button onclick="stopServer('${srv.name}')" class="btn btn-danger">${translations[currentLang].btn_stop}</button>`
-              : `<button onclick="startServer('${srv.name}')" class="btn btn-success">${translations[currentLang].btn_start}</button>`;
-            manageBtn = `<button onclick='openManager(${JSON.stringify(srv).replace(/'/g, "&#39;")})' class="btn btn-solid-teal">${translations[currentLang].btn_manage}</button>`;
-          }
-          
-          let icon = '🟢';
-          if(srv.type==='paper') icon='📄'; else if(srv.type==='purpur') icon='🟣'; else if(srv.type==='folia') icon='🌿'; else if(srv.type==='velocity') icon='⚡'; else if(srv.type==='waterfall') icon='💧';
 
-          html += `
+      const renderServerCard = (srv) => {
+        let statusBadge, actionBtn, manageBtn;
+        if (srv.isInstalling) {
+          statusBadge = `<span class="badge" style="background:rgba(251,191,36,0.1);color:var(--accent-amber);border:1px solid rgba(251,191,36,0.2);"><div class="spinner" style="width:10px;height:10px;border-width:2px;margin-right:6px;border-top-color:var(--accent-amber);"></div> ${currentLang === 'tr' ? 'Kuruluyor...' : 'Installing...'}</span>`;
+          actionBtn = `<button disabled class="btn btn-ghost" style="flex:1;opacity:0.5;">${currentLang === 'tr' ? 'Bekleniyor' : 'Waiting'}</button>`;
+          manageBtn = `<button disabled class="btn btn-solid-teal" style="opacity:0.5;cursor:not-allowed;">${translations[currentLang].btn_manage}</button>`;
+        } else {
+          const online = srv.running;
+          statusBadge = online
+            ? `<span class="badge badge-online"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent-emerald);display:inline-block;"></span> ${translations[currentLang].status_running}</span>`
+            : `<span class="badge badge-offline"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent-rose);display:inline-block;"></span> ${translations[currentLang].status_stopped}</span>`;
+          actionBtn = online
+            ? `<button onclick="stopServer('${srv.name}')" class="btn btn-danger">${translations[currentLang].btn_stop}</button>`
+            : `<button onclick="startServer('${srv.name}')" class="btn btn-success">${translations[currentLang].btn_start}</button>`;
+          manageBtn = `<button onclick='openManager(${JSON.stringify(srv).replace(/'/g, "&#39;")})' class="btn btn-solid-teal">${translations[currentLang].btn_manage}</button>`;
+        }
+        return `
           <div class="card server-card">
             <div>
               <div class="server-header">
@@ -1109,12 +1095,57 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
               ${manageBtn}
             </div>
           </div>`;
-        });
-        return html;
       };
 
-      container.innerHTML = renderServerGrid(backendServers, currentLang === 'tr' ? 'Backend Sunucular' : 'Backend Servers') + 
-                            renderServerGrid(proxyServers, currentLang === 'tr' ? 'Proxy Sunucular' : 'Proxy Servers');
+      // Group servers: networks vs standalone
+      const networkGroups = {};
+      const standaloneServers = [];
+      servers.forEach(srv => {
+        if (srv.network) {
+          if (!networkGroups[srv.network]) networkGroups[srv.network] = [];
+          networkGroups[srv.network].push(srv);
+        } else {
+          standaloneServers.push(srv);
+        }
+      });
+
+      let html = '';
+
+      // Render network groups
+      const networkNames = Object.keys(networkGroups);
+      if (networkNames.length > 0) {
+        html += `<div style="grid-column:1/-1;margin-top:16px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+          <h3 style="margin:0;font-size:16px;color:var(--text-main);"><i class="fa-solid fa-network-wired" style="color:var(--accent-purple);margin-right:6px;"></i>${currentLang==='tr'?'Proxy Ağları':'Proxy Networks'}</h3>
+          <div style="flex:1;height:1px;background:var(--border-subtle);"></div>
+        </div>`;
+        networkNames.forEach(netName => {
+          const members = networkGroups[netName];
+          const proxy = members.find(s => ['velocity','waterfall'].includes(s.type));
+          const backends = members.filter(s => !['velocity','waterfall'].includes(s.type));
+          html += `<div style="grid-column:1/-1;border:1px solid rgba(139,92,246,0.25);border-radius:var(--radius-md);padding:16px;background:rgba(139,92,246,0.04);margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+              <i class="fa-solid fa-project-diagram" style="color:var(--accent-purple);font-size:18px;"></i>
+              <span style="font-weight:700;font-size:15px;color:var(--text-main);">${netName}</span>
+              <span class="badge" style="background:rgba(139,92,246,0.12);color:#a78bfa;border:1px solid rgba(139,92,246,0.25);font-size:11px;">${members.length} ${currentLang==='tr'?'sunucu':'servers'}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;">
+              ${proxy ? renderServerCard(proxy) : ''}
+              ${backends.map(s => renderServerCard(s)).join('')}
+            </div>
+          </div>`;
+        });
+      }
+
+      // Render standalone servers
+      if (standaloneServers.length > 0) {
+        html += `<div style="grid-column:1/-1;margin-top:16px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+          <h3 style="margin:0;font-size:16px;color:var(--text-main);"><i class="fa-solid fa-server" style="color:var(--accent-teal);margin-right:6px;"></i>${currentLang==='tr'?'Sunucular':'Servers'}</h3>
+          <div style="flex:1;height:1px;background:var(--border-subtle);"></div>
+        </div>`;
+        standaloneServers.forEach(srv => { html += renderServerCard(srv); });
+      }
+
+      container.innerHTML = html;
     } catch (err) { console.error(err); }
   }
 

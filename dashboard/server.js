@@ -349,6 +349,19 @@ app.delete('/api/users/:username', requireAdmin, (req, res) => {
 app.get('/api/servers', async (req, res) => {
   try {
     const servers = getRegisteredServers();
+    
+    // Read network metadata
+    const networksFile = path.join(os.homedir(), '.mcserver-installer', 'networks.txt');
+    let networks = {};
+    if (fs.existsSync(networksFile)) {
+      fs.readFileSync(networksFile, 'utf8').split('\n').filter(l => l.trim()).forEach(line => {
+        const [netName, members] = line.split(':');
+        if (netName && members) {
+          members.split(',').forEach(m => { networks[m.trim()] = netName.trim(); });
+        }
+      });
+    }
+    
     const result = await Promise.all(servers.map(async (srv) => {
       const running = await isServerRunning(srv.sessionName);
       return {
@@ -357,7 +370,8 @@ app.get('/api/servers', async (req, res) => {
         type: srv.type,
         version: srv.version,
         running,
-        port: srv.port
+        port: srv.port,
+        network: networks[srv.name] || null
       };
     }));
     // Append actively installing servers to the result
