@@ -772,22 +772,32 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
             <select id="net-backend-ver" class="input"><option>Loading...</option></select>
           </div>
         </div>
-        <div class="grid-2">
-          <div class="form-group" style="margin-bottom:0;">
-            <label class="form-label">Server Names (comma separated)</label>
-            <input id="net-backend-names" type="text" class="input" value="lobby,survival" placeholder="lobby,survival,skyblock" />
+        <div class="form-group" style="margin-bottom:8px;">
+          <label class="form-label" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>Backend Servers</span>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;background:rgba(255,255,255,0.05);" onclick="addNetBackendRow()">+ Add</button>
+          </label>
+          <div id="net-backends-list" style="display:flex;flex-direction:column;gap:8px;">
+            <div class="grid-2 net-backend-row">
+              <input type="text" class="input net-backend-name" value="lobby" placeholder="Name" />
+              <input type="number" class="input net-backend-port" value="" placeholder="Port (Auto)" />
+            </div>
+            <div class="grid-2 net-backend-row">
+              <input type="text" class="input net-backend-name" value="survival" placeholder="Name" />
+              <input type="number" class="input net-backend-port" value="" placeholder="Port (Auto)" />
+            </div>
           </div>
-          <div class="form-group" style="margin-bottom:0;">
-            <label class="form-label">RAM per server</label>
-            <select id="net-ram" class="input">
-              <option value="1G">1 GB</option>
-              <option value="2G" selected>2 GB</option>
-              <option value="3G">3 GB</option>
-              <option value="4G">4 GB</option>
-              <option value="6G">6 GB</option>
-              <option value="8G">8 GB</option>
-            </select>
-          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">RAM per server</label>
+          <select id="net-ram" class="input">
+            <option value="1G">1 GB</option>
+            <option value="2G" selected>2 GB</option>
+            <option value="3G">3 GB</option>
+            <option value="4G">4 GB</option>
+            <option value="6G">6 GB</option>
+            <option value="8G">8 GB</option>
+          </select>
         </div>
       </div>
 
@@ -1821,6 +1831,20 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
 
   let buildLogSource = null;
 
+  function addNetBackendRow() {
+    const list = document.getElementById('net-backends-list');
+    const row = document.createElement('div');
+    row.className = 'grid-2 net-backend-row';
+    row.innerHTML = `
+      <input type="text" class="input net-backend-name" placeholder="Name" />
+      <div style="display:flex;gap:4px;">
+        <input type="number" class="input net-backend-port" placeholder="Port (Auto)" style="flex:1;" />
+        <button class="btn btn-danger" style="padding:0 8px;" onclick="this.parentElement.parentElement.remove()"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    `;
+    list.appendChild(row);
+  }
+
   async function triggerNetworkBuild() {
     const name = document.getElementById('net-name').value.trim();
     const port = document.getElementById('net-port').value.trim();
@@ -1828,8 +1852,19 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     const proxyVer = document.getElementById('net-proxy-ver').value;
     const backendSw = document.getElementById('net-backend-sw').value;
     const backendVer = document.getElementById('net-backend-ver').value;
-    const backendNames = document.getElementById('net-backend-names').value.trim();
     const ram = document.getElementById('net-ram').value;
+    
+    const rows = document.querySelectorAll('.net-backend-row');
+    const backendNamesArray = [];
+    for (const row of rows) {
+      const bname = row.querySelector('.net-backend-name').value.trim();
+      const bport = row.querySelector('.net-backend-port').value.trim();
+      if (bname) {
+        backendNamesArray.push(bport ? `${bname}:${bport}` : bname);
+      }
+    }
+    const backendNames = backendNamesArray.join(',');
+
     if(!name || !port || !proxyVer || !backendVer || !backendNames) return alert(currentLang==='tr'?'Tüm alanları doldurun.':'Fill all fields.');
     const btn = document.getElementById('net-build-btn');
     btn.disabled = true;

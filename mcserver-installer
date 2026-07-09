@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.84
+# Version: 1.85
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -12,7 +12,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.84"
+APP_VERSION="1.85"
 DEVELOPER="devRaikou"
 APP_REPO="devRaikou/mcserver-installer"
 CONFIG_DIR="${HOME}/.mcserver-installer"
@@ -5223,16 +5223,23 @@ build_proxy_network() {
     local velocity_servers=""
     local first_backend=""
 
-    for bname in "${backend_list[@]}"; do
+    for bname_port in "${backend_list[@]}"; do
+        local bname="${bname_port%%:*}"
+        local bport="${bname_port##*:}"
+        # If no port provided (they are equal), fallback to current_port
+        if [ "$bname" = "$bport" ]; then
+            bport=$current_port
+            current_port=$((current_port + 1))
+        fi
+        
         bname=$(echo "$bname" | tr -cd 'a-zA-Z0-9_-')
         [ -z "$bname" ] && continue
         local full_name="${net_name}-${bname}"
-        echo "Installing Backend (${full_name}) on port ${current_port}..."
-        headless_install_server "$full_name" "$backend_sw" "$backend_ver" "$current_port" "$ram"
+        echo "Installing Backend (${full_name}) on port ${bport}..."
+        headless_install_server "$full_name" "$backend_sw" "$backend_ver" "$bport" "$ram"
         all_members="${all_members},${full_name}"
-        velocity_servers="${velocity_servers}${bname} = \"127.0.0.1:${current_port}\"\n"
+        velocity_servers="${velocity_servers}${bname} = \"127.0.0.1:${bport}\"\n"
         [ -z "$first_backend" ] && first_backend="$bname"
-        current_port=$((current_port + 1))
     done
 
     # Configure proxy

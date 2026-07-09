@@ -1047,6 +1047,7 @@ app.get('/api/build-logs', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
   if (buildLogBuffer) {
     res.write(`data: ${JSON.stringify({ msg: buildLogBuffer })}\n\n`);
@@ -1062,20 +1063,54 @@ function broadcastBuildLog(msg) {
   }
 }
 
-app.post('/api/servers/build-network', requireAdmin, (req, res) => {
+app.post('/api/servers/build-network', requireAdmin, async (req, res) => {
   const { netName, proxyPort, proxySoftware, proxyVersion, backendSoftware, backendVersion, backendNames, ram } = req.body;
   if (!netName || !proxyPort || !proxySoftware || !proxyVersion || !backendSoftware || !backendVersion || !backendNames) {
     return res.status(400).json({ error: 'Missing arguments' });
   }
 
-  // Add servers to activeInstalls
+  // Parse backendNames: "hub-1:25566,sg-1:25567" or fallback to auto-incrementing
   const backends = backendNames.split(',').map(b => b.trim()).filter(b => b);
+  let currentPort = parseInt(proxyPort) + 1;
   const serversToBuild = [
-    { name: `${netName}-proxy`, software: proxySoftware, version: proxyVersion, port: proxyPort },
-    ...backends.map((b, i) => ({
-      name: `${netName}-${b}`, software: backendSoftware, version: backendVersion, port: parseInt(proxyPort) + i + 1
-    }))
+    { name: `${netName}-proxy`, software: proxySoftware, version: proxyVersion, port: proxyPort }
   ];
+  
+  for (const b of backends) {
+    const parts = b.split(':');
+    let bname = parts[0];
+    let bport = parts[1];
+    if (!bport || bname === bport) {
+      bport = currentPort;
+      currentPort++;
+    }
+    serversToBuild.push({
+      name: `${netName}-${bname}`, software: backendSoftware, version: backendVersion, port: parseInt(bport)
+    });
+  }
+
+  // 1. Check if ports are already in use by OS or registered servers
+  const registered = getRegisteredServers();
+  for (const srv of serversToBuild) {
+    const portFree = await isPortFree(parseInt(srv.port));
+    if (!portFree) {
+      return res.status(400).json({ error: `Port ${srv.port} for ${srv.name} is currently in use by another process.` });
+    }
+    
+    // Check registered servers
+    const portUsedByRegistered = registered.some(r => {
+      const propPath = path.join(r.path, 'server.properties');
+      if (fs.existsSync(propPath)) {
+        const props = fs.readFileSync(propPath, 'utf8');
+        const portMatch = props.match(/^server-port=(\d+)/m);
+        if (portMatch && portMatch[1] === srv.port.toString()) return true;
+      }
+      return false;
+    });
+    if (portUsedByRegistered || activeInstalls.find(a => a.port === srv.port.toString())) {
+      return res.status(400).json({ error: `Port ${srv.port} for ${srv.name} is already assigned to another server.` });
+    }
+  }
 
   const installs = serversToBuild.map(s => ({
     name: s.name,
