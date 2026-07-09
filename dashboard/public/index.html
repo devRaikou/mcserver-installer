@@ -1666,9 +1666,23 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     const name = document.getElementById('net-name').value.trim();
     const port = document.getElementById('net-port').value.trim();
     if(!name || !port) return alert('Fill all fields');
-    const res = await apiFetch('/api/servers/build-network', { method:'POST', body: JSON.stringify({ netName: name, proxyPort: port }) });
-    if(res.ok) { alert('Network building started in background!'); closeNetworkModal(); setTimeout(fetchServers, 5000); }
-    else { const err = await res.json(); alert('Error: ' + err.error); }
+    const btn = event.target.closest('button');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;display:inline-block;vertical-align:middle;"></div> Building...';
+    try {
+      const res = await apiFetch('/api/servers/build-network', { method:'POST', body: JSON.stringify({ netName: name, proxyPort: port }) });
+      if(res.ok) {
+        alert(currentLang==='tr'?'Ağ kurulumu arka planda başlatıldı! Sunucular birkaç dakika içinde görünecek.':'Network build started in background! Servers will appear in a few minutes.');
+        closeNetworkModal();
+        // Poll for new servers every 10s for 2 minutes
+        let polls = 0;
+        const poller = setInterval(() => { fetchServers(); polls++; if(polls >= 12) clearInterval(poller); }, 10000);
+      } else {
+        const err = await res.json(); alert('Error: ' + err.error);
+      }
+    } catch(e) { alert('Error: ' + e.message); }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-bolt"></i> Build Network';
   }
 
   async function triggerInstall() {

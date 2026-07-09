@@ -971,9 +971,20 @@ app.post('/api/servers/build-network', requireAdmin, (req, res) => {
   if (!netName || !proxyPort) return res.status(400).json({ error: 'Missing arguments' });
   
   const mainScript = path.resolve(__dirname, '..', 'mcserver-installer');
-  exec(`"${mainScript}" --build-network "${netName}" "${proxyPort}"`, (error) => {
-    if (error) console.error(`Network build failed: ${error.message}`);
+  const child = spawn(mainScript, ['--build-network', netName, proxyPort], {
+    env: { ...process.env, HOME: os.homedir() },
+    detached: true,
+    stdio: ['ignore', 'pipe', 'pipe']
   });
+
+  let output = '';
+  child.stdout.on('data', (data) => { output += data.toString(); });
+  child.stderr.on('data', (data) => { output += data.toString(); });
+  child.on('close', (code) => {
+    console.log(`Network build '${netName}' finished with code ${code}`);
+    if (code !== 0) console.error(`Network build stderr: ${output}`);
+  });
+  child.unref();
   
   res.json({ success: true, message: 'Network building started in background' });
 });

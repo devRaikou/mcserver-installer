@@ -5185,10 +5185,37 @@ build_proxy_network() {
     
     echo "Building Proxy Network '$net_name' starting at port $proxy_port..."
     
-    headless_install_server "$proxy_name" "velocity" "latest" "$proxy_port" "1"
-    headless_install_server "$lobby_name" "paper" "latest" "$lobby_port" "2"
-    headless_install_server "$surv_name" "paper" "latest" "$surv_port" "3"
+    # Resolve latest Velocity version
+    echo "Resolving latest Velocity version..."
+    local velocity_version
+    velocity_version=$(fetch_papermc_versions "velocity" | tail -n 1)
+    if [ -z "$velocity_version" ]; then
+        echo "Error: Could not resolve latest Velocity version." >&2
+        return 1
+    fi
+    echo "Using Velocity version: $velocity_version"
     
+    # Resolve latest Paper version
+    echo "Resolving latest Paper version..."
+    local paper_version
+    paper_version=$(fetch_papermc_versions "paper" | tail -n 1)
+    if [ -z "$paper_version" ]; then
+        echo "Error: Could not resolve latest Paper version." >&2
+        return 1
+    fi
+    echo "Using Paper version: $paper_version"
+    
+    # Install servers
+    echo "Installing Proxy ($proxy_name)..."
+    headless_install_server "$proxy_name" "velocity" "$velocity_version" "$proxy_port" "1"
+    
+    echo "Installing Lobby ($lobby_name)..."
+    headless_install_server "$lobby_name" "paper" "$paper_version" "$lobby_port" "2"
+    
+    echo "Installing Survival ($surv_name)..."
+    headless_install_server "$surv_name" "paper" "$paper_version" "$surv_port" "3"
+    
+    # Configure velocity.toml
     local proxy_dir="${HOME}/minecraft/${proxy_name}"
     if [ -f "$proxy_dir/velocity.toml" ]; then
         sed -i 's/^\[servers\]/[servers]\nlobby = "127.0.0.1:'"$lobby_port"'"\nsurvival = "127.0.0.1:'"$surv_port"'"/' "$proxy_dir/velocity.toml"
@@ -5204,6 +5231,11 @@ try = ["lobby"]
 bungee-plugin-message-channel = true
 EOF
     fi
+
+    # Save network metadata
+    local meta_dir="${HOME}/.mcserver-installer"
+    mkdir -p "$meta_dir"
+    echo "${net_name}:${proxy_name},${lobby_name},${surv_name}" >> "$meta_dir/networks.txt"
 
     echo "Network '$net_name' built successfully."
 }
