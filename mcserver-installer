@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.86
+# Version: 1.87
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -12,7 +12,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.86"
+APP_VERSION="1.87"
 DEVELOPER="devRaikou"
 APP_REPO="devRaikou/mcserver-installer"
 CONFIG_DIR="${HOME}/.mcserver-installer"
@@ -5208,7 +5208,7 @@ build_proxy_network() {
 
     # Install proxy
     echo "Installing Proxy (${proxy_name})..."
-    headless_install_server "$proxy_name" "$proxy_sw" "$proxy_ver" "$proxy_port" "1"
+    headless_install_server "$proxy_name" "$proxy_sw" "$proxy_ver" "$proxy_port" "1G"
 
     # Parse backend names and install each
     local IFS=','
@@ -5257,7 +5257,10 @@ EOF
         fi
     elif [ "$proxy_sw" = "waterfall" ] || [ "$proxy_sw" = "bungeecord" ]; then
         if [ -f "$proxy_dir/config.yml" ]; then
-            echo "# Backend servers added by build-network" >> "$proxy_dir/config.yml"
+            cat >> "$proxy_dir/config.yml" <<EOF
+servers:
+$(echo -e "$bungee_servers")
+EOF
         fi
     fi
 
