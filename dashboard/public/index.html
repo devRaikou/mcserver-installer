@@ -1093,6 +1093,7 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
             <div class="server-actions">
               ${actionBtn}
               ${manageBtn}
+              ${!srv.isInstalling ? `<button onclick="deleteServer('${srv.name}')" class="btn btn-ghost" style="color:var(--accent-rose);padding:6px 10px;" title="Delete"><i class="fa-solid fa-trash"></i></button>` : ''}
             </div>
           </div>`;
       };
@@ -1152,6 +1153,26 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
   async function startServer(n) { await apiFetch(`/api/servers/${n}/start`,{method:'POST'}); fetchServers(); }
   async function stopServer(n) { await apiFetch(`/api/servers/${n}/stop`,{method:'POST'}); fetchServers(); }
   async function restartServer(n) { await apiFetch(`/api/servers/${n}/restart`,{method:'POST'}); fetchServers(); }
+  async function deleteServer(n) {
+    const msg = currentLang==='tr'
+      ? `'${n}' sunucusunu silmek istediğinize emin misiniz?\n\nDosyaları da silmek için OK'a basın.\nSadece kayıttan kaldırmak için Cancel'a basıp sonra tekrar silin.`
+      : `Are you sure you want to delete '${n}'?\n\nPress OK to also delete all server files.\nPress Cancel to keep files on disk.`;
+    const deleteFiles = confirm(msg);
+    const confirmMsg = currentLang==='tr'
+      ? `'${n}' sunucusu ${deleteFiles ? 've tüm dosyaları ' : ''}silinecek. Onaylıyor musunuz?`
+      : `Server '${n}' will be removed${deleteFiles ? ' and all files will be deleted' : ' from registry'}. Confirm?`;
+    if (!confirm(confirmMsg)) return;
+    try {
+      const res = await apiFetch(`/api/servers/${n}?deleteFiles=${deleteFiles}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok) {
+        alert(currentLang==='tr' ? 'Sunucu başarıyla silindi!' : 'Server deleted successfully!');
+        fetchServers();
+      } else {
+        alert('Error: ' + data.error);
+      }
+    } catch(e) { alert('Error: ' + e.message); }
+  }
 
   function switchTab(tab) {
     ['console','properties','files','players','plugins','backups','tasks','worlds','notes','firewall'].forEach(t => {

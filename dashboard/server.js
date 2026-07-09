@@ -449,6 +449,66 @@ app.post('/api/servers/:name/restart', async (req, res) => {
   }
 });
 
+// Delete Server
+app.delete('/api/servers/:name', requireAdmin, async (req, res) => {
+  const { name } = req.params;
+  const deleteFiles = req.query.deleteFiles === 'true';
+  const servers = getRegisteredServers();
+  const srv = servers.find(s => s.name === name);
+  if (!srv) return res.status(404).json({ error: 'Server not found' });
+
+  // Stop if running
+  const running = await isServerRunning(srv.sessionName);
+  if (running) {
+    try {
+      await new Promise((resolve, reject) => {
+        exec(`screen -S "${srv.sessionName}" -p 0 -X stuff "stop$(printf \\\\r)"`, (err) => {
+          if (err) reject(err); else resolve();
+        });
+      });
+      // Wait for it to stop
+      for (let i = 0; i < 15; i++) {
+        const still = await isServerRunning(srv.sessionName);
+        if (!still) break;
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    } catch (e) { /* continue anyway */ }
+  }
+
+  // Remove from registry
+  if (fs.existsSync(REGISTRY_FILE)) {
+    const lines = fs.readFileSync(REGISTRY_FILE, 'utf8').split('\n');
+    const filtered = lines.filter(l => !l.startsWith(name + ':'));
+    fs.writeFileSync(REGISTRY_FILE, filtered.join('\n'));
+  }
+
+  // Remove from networks.txt
+  const networksFile = path.join(os.homedir(), '.mcserver-installer', 'networks.txt');
+  if (fs.existsSync(networksFile)) {
+    const lines = fs.readFileSync(networksFile, 'utf8').split('\n');
+    const updated = lines.map(line => {
+      const [netName, members] = line.split(':');
+      if (!members) return line;
+      const filtered = members.split(',').filter(m => m.trim() !== name);
+      if (filtered.length === 0) return null; // remove empty network
+      return `${netName}:${filtered.join(',')}`;
+    }).filter(l => l !== null);
+    fs.writeFileSync(networksFile, updated.join('\n'));
+  }
+
+  // Optionally delete files
+  if (deleteFiles && srv.path && fs.existsSync(srv.path)) {
+    try {
+      fs.rmSync(srv.path, { recursive: true, force: true });
+    } catch (e) {
+      return res.status(500).json({ error: 'Server removed from registry but failed to delete files: ' + e.message });
+    }
+  }
+
+  sendDiscordWebhook('Server Deleted', `Server **${name}** has been deleted.`, 0xFF4444);
+  res.json({ success: true, message: `Server '${name}' deleted successfully` });
+});
+
 // 6. Console log stream (SSE)
 app.get('/api/servers/:name/console', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
