@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.88
+# Version: 1.89
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -12,7 +12,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.88"
+APP_VERSION="1.89"
 DEVELOPER="devRaikou"
 APP_REPO="devRaikou/mcserver-installer"
 CONFIG_DIR="${HOME}/.mcserver-installer"
@@ -5244,7 +5244,26 @@ build_proxy_network() {
     local proxy_dir="${HOME}/minecraft/${proxy_name}"
     if [ "$proxy_sw" = "velocity" ]; then
         if [ -f "$proxy_dir/velocity.toml" ]; then
-            INS="$(echo -e "$velocity_servers\ntry = [\"${first_backend}\"]")" awk '/^\[servers\]/{print; print ENVIRON["INS"]; next}1' "$proxy_dir/velocity.toml" > "$proxy_dir/tmp.toml" && mv "$proxy_dir/tmp.toml" "$proxy_dir/velocity.toml"
+            INS="$(echo -e "$velocity_servers\ntry = [\"${first_backend}\"]")" awk '
+BEGIN { in_servers = 0 }
+/^\[servers\]/ {
+    print "[servers]"
+    print ENVIRON["INS"]
+    in_servers = 1
+    next
+}
+/^servers = \{\}/ {
+    print "[servers]"
+    print ENVIRON["INS"]
+    next
+}
+/^\[.*\]/ {
+    if (in_servers) in_servers = 0
+}
+{
+    if (!in_servers) print
+}
+' "$proxy_dir/velocity.toml" > "$proxy_dir/tmp.toml" && mv "$proxy_dir/tmp.toml" "$proxy_dir/velocity.toml"
         else
             mkdir -p "$proxy_dir"
             cat > "$proxy_dir/velocity.toml" <<EOF
@@ -5368,6 +5387,8 @@ headless_install_server() {
         cat <<EOF > velocity.toml
 bind = "0.0.0.0:${port}"
 [servers]
+lobby = "127.0.0.1:25565"
+try = ["lobby"]
 [forced-hosts]
 [advanced]
 [query]
