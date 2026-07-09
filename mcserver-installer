@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.87
+# Version: 1.88
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -12,7 +12,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.87"
+APP_VERSION="1.88"
 DEVELOPER="devRaikou"
 APP_REPO="devRaikou/mcserver-installer"
 CONFIG_DIR="${HOME}/.mcserver-installer"
@@ -766,7 +766,7 @@ get_required_java_version() {
     local s_type="${2:-standard}"
 
     if [ "$s_type" = "velocity" ]; then
-        echo 21
+        echo 17
         return
     fi
 
@@ -5366,6 +5366,7 @@ headless_install_server() {
     # Configs
     if [ "$s_type" = "velocity" ]; then
         cat <<EOF > velocity.toml
+bind = "0.0.0.0:${port}"
 [servers]
 [forced-hosts]
 [advanced]
