@@ -1791,6 +1791,8 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     } catch(e) { sel.innerHTML = '<option value="">Error</option>'; }
   }
 
+  let buildLogSource = null;
+
   async function triggerNetworkBuild() {
     const name = document.getElementById('net-name').value.trim();
     const port = document.getElementById('net-port').value.trim();
@@ -1810,8 +1812,29 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
         backendSoftware: backendSw, backendVersion: backendVer, backendNames, ram
       })});
       if(res.ok) {
-        alert(currentLang==='tr'?'Ağ kurulumu arka planda başlatıldı! Sunucular birkaç dakika içinde görünecek.':'Network build started in background! Servers will appear in a few minutes.');
         closeNetworkModal();
+        fetchServers(); // Immediate refresh to show them as installing
+
+        // Show floating log window
+        const logWin = document.getElementById('floating-log-window');
+        const logContent = document.getElementById('floating-log-content');
+        logWin.classList.remove('hidden');
+        logContent.innerHTML = 'Starting build...\n';
+        
+        if (buildLogSource) buildLogSource.close();
+        buildLogSource = new EventSource('/api/build-logs');
+        buildLogSource.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            logContent.innerHTML += data.msg;
+            logContent.scrollTop = logContent.scrollHeight;
+            if (data.msg.includes('Build process finished')) {
+               buildLogSource.close();
+               setTimeout(() => { logWin.classList.add('hidden'); fetchServers(); }, 5000);
+            }
+          } catch(err) {}
+        };
+
         let polls = 0;
         const poller = setInterval(() => { fetchServers(); polls++; if(polls >= 12) clearInterval(poller); }, 10000);
       } else {
@@ -2115,5 +2138,17 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     }
   }
 </script>
+<!-- Floating Build Log Window -->
+<div id="floating-log-window" class="hidden" style="position:fixed;bottom:24px;right:24px;width:400px;max-width:calc(100vw - 48px);background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);box-shadow:0 10px 25px -5px rgba(0,0,0,0.5);z-index:9999;display:flex;flex-direction:column;overflow:hidden;">
+  <div style="background:var(--bg-body);padding:12px 16px;border-bottom:1px solid var(--border-subtle);display:flex;justify-content:space-between;align-items:center;">
+    <h4 style="margin:0;font-size:14px;color:var(--text-main);display:flex;align-items:center;gap:8px;">
+      <i class="fa-solid fa-terminal" style="color:var(--accent-teal);"></i> 
+      <span data-i18n="build_log">Build Logs</span>
+    </h4>
+    <button onclick="document.getElementById('floating-log-window').classList.add('hidden')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <pre id="floating-log-content" style="margin:0;padding:12px;height:250px;overflow-y:auto;background:#0d1117;color:#c9d1d9;font-family:monospace;font-size:12px;white-space:pre-wrap;"></pre>
+</div>
+
 </body>
 </html>

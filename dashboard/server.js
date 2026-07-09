@@ -1032,19 +1032,57 @@ app.post('/api/servers/:name/plugins/install', (req, res) => {
 app.post('/api/servers/import-ptero', requireAdmin, (req, res) => {
   const { archivePath, serverName } = req.body;
   if (!archivePath || !serverName) return res.status(400).json({ error: 'Missing arguments' });
-  
-  const mainScript = path.resolve(__dirname, '..', 'mcserver-installer');
-  exec(`"${mainScript}" --import-ptero "${archivePath}" "${serverName}"`, (error, stdout, stderr) => {
-    if (error) return res.status(500).json({ error: stderr || error.message });
-    res.json({ success: true, message: stdout });
+    const mainScript = path.resolve(__dirname, '..', 'mcserver-installer');
+    exec(`"${mainScript}" --import-ptero "${archivePath}" "${serverName}"`, (error, stdout, stderr) => {
+      if (error) return res.status(500).json({ error: stderr || error.message });
+      res.json({ success: true, message: stdout });
+    });
   });
+
+// Build Logs SSE clients
+const buildLogClients = new Set();
+
+app.get('/api/build-logs', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+  buildLogClients.add(res);
+  req.on('close', () => buildLogClients.delete(res));
 });
+
+function broadcastBuildLog(msg) {
+  for (const client of buildLogClients) {
+    client.write(`data: ${JSON.stringify({ msg })}\n\n`);
+  }
+}
 
 app.post('/api/servers/build-network', requireAdmin, (req, res) => {
   const { netName, proxyPort, proxySoftware, proxyVersion, backendSoftware, backendVersion, backendNames, ram } = req.body;
   if (!netName || !proxyPort || !proxySoftware || !proxyVersion || !backendSoftware || !backendVersion || !backendNames) {
     return res.status(400).json({ error: 'Missing arguments' });
   }
+
+  // Add servers to activeInstalls
+  const backends = backendNames.split(',').map(b => b.trim()).filter(b => b);
+  const serversToBuild = [
+    { name: `${netName}-proxy`, software: proxySoftware, version: proxyVersion, port: proxyPort },
+    ...backends.map((b, i) => ({
+      name: `${netName}-${b}`, software: backendSoftware, version: backendVersion, port: parseInt(proxyPort) + i + 1
+    }))
+  ];
+
+  const installs = serversToBuild.map(s => ({
+    name: s.name,
+    type: s.software,
+    version: s.version,
+    port: s.port.toString(),
+    path: path.join(os.homedir(), 'minecraft', s.name),
+    isInstalling: true,
+    running: false,
+    network: netName
+  }));
+  activeInstalls.push(...installs);
   
   const mainScript = path.resolve(__dirname, '..', 'mcserver-installer');
   const args = [
@@ -1059,12 +1097,22 @@ app.post('/api/servers/build-network', requireAdmin, (req, res) => {
     stdio: ['ignore', 'pipe', 'pipe']
   });
 
-  let output = '';
-  child.stdout.on('data', (data) => { output += data.toString(); });
-  child.stderr.on('data', (data) => { output += data.toString(); });
+  child.stdout.on('data', (data) => {
+    const text = data.toString();
+    broadcastBuildLog(text);
+  });
+  child.stderr.on('data', (data) => {
+    const text = data.toString();
+    broadcastBuildLog(`ERROR: ${text}`);
+  });
   child.on('close', (code) => {
     console.log(`Network build '${netName}' finished with code ${code}`);
-    if (code !== 0) console.error(`Network build output: ${output}`);
+    broadcastBuildLog(`\nBuild process finished with code ${code}`);
+    // Remove from active installs
+    installs.forEach(inst => {
+      const idx = activeInstalls.findIndex(s => s.name === inst.name);
+      if (idx !== -1) activeInstalls.splice(idx, 1);
+    });
   });
   child.unref();
   
