@@ -2,7 +2,7 @@
 #
 # mcserver-installer - Modern Minecraft Server Installation & Management CLI
 # Developer: devRaikou
-# Version: 1.85
+# Version: 1.86
 # Supported Platforms: Ubuntu, Debian (compatibility mode for other Linux/macOS)
 #
 
@@ -12,7 +12,7 @@ set -u
 set -o pipefail
 
 # --- Global Configurations ---
-APP_VERSION="1.85"
+APP_VERSION="1.86"
 DEVELOPER="devRaikou"
 APP_REPO="devRaikou/mcserver-installer"
 CONFIG_DIR="${HOME}/.mcserver-installer"
@@ -842,8 +842,7 @@ update_start_script_java_path() {
     local required_java
     required_java=$(get_required_java_version "$mc_ver" "$s_type")
 
-    verify_or_install_java "$required_java"
-    if [ $? -ne 0 ]; then
+    if ! verify_or_install_java "$required_java"; then
         return 1
     fi
 
@@ -2716,8 +2715,7 @@ start_minecraft_server() {
         s_type="bungeecord"
     fi
 
-    update_start_script_java_path "$server_path" "$s_type" "$s_ver"
-    if [ $? -ne 0 ]; then
+    if ! update_start_script_java_path "$server_path" "$s_type" "$s_ver"; then
         log_error "Java runtime setup failed. Cannot start server."
         sleep 2
         return 1
@@ -5246,9 +5244,7 @@ build_proxy_network() {
     local proxy_dir="${HOME}/minecraft/${proxy_name}"
     if [ "$proxy_sw" = "velocity" ]; then
         if [ -f "$proxy_dir/velocity.toml" ]; then
-            local sed_insert=$(echo -e "$velocity_servers" | sed 's/"/\\"/g')
-            sed -i "/^\[servers\]/a\\${sed_insert}" "$proxy_dir/velocity.toml"
-            sed -i "s/^try = \[.*\]/try = [\"${first_backend}\"]/" "$proxy_dir/velocity.toml"
+            INS="$(echo -e "$velocity_servers\ntry = [\"${first_backend}\"]")" awk '/^\[servers\]/{print; print ENVIRON["INS"]; next}1' "$proxy_dir/velocity.toml" > "$proxy_dir/tmp.toml" && mv "$proxy_dir/tmp.toml" "$proxy_dir/velocity.toml"
         else
             mkdir -p "$proxy_dir"
             cat > "$proxy_dir/velocity.toml" <<EOF
@@ -5279,8 +5275,8 @@ headless_install_server() {
     local version="$3"
     local port="$4"
     local ram="$5"
-    local backend_names="$6"
-    local backend_version="$7"
+    local backend_names="${6:-}"
+    local backend_version="${7:-}"
 
     if [ -z "$name" ] || [ -z "$software" ] || [ -z "$version" ] || [ -z "$port" ] || [ -z "$ram" ]; then
         echo "Error: Missing arguments." >&2
@@ -5456,12 +5452,12 @@ EOF
     fi
 
     local resolved_java="java"
-    if [ -n "$(find_java_binary "$java_ver")" ]; then
-        resolved_java=$(find_java_binary "$java_ver")
+    if [ -n "$(find_java_binary_path "$java_ver")" ]; then
+        resolved_java=$(find_java_binary_path "$java_ver")
     else
         install_java_package "$java_ver" &>/dev/null
-        if [ -n "$(find_java_binary "$java_ver")" ]; then
-            resolved_java=$(find_java_binary "$java_ver")
+        if [ -n "$(find_java_binary_path "$java_ver")" ]; then
+            resolved_java=$(find_java_binary_path "$java_ver")
         fi
     fi
 
@@ -5505,8 +5501,9 @@ EOF
     fi
 
     # Start Minecraft Server
-    start_minecraft_server "$inst_dir" &>/dev/null
-
+    if ! start_minecraft_server "$inst_dir" &>/dev/null; then
+        echo "Warning: Server installed but failed to start automatically." >&2
+    fi
     echo "SUCCESS: Server '${name}' successfully installed to '${inst_dir}' and started on port ${port}."
     return 0
 }
@@ -5758,7 +5755,7 @@ if [ $# -gt 0 ]; then
         exit $?
     elif [ "$1" = "--build-network" ]; then
         HEADLESS_MODE="true"
-        build_proxy_network "$2" "$3"
+        build_proxy_network "$2" "$3" "${4:-}" "${5:-}" "${6:-}" "${7:-}" "${8:-}" "${9:-}"
         exit $?
     else
         echo "Unknown argument: $1" >&2
