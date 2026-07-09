@@ -1721,7 +1721,7 @@ sudo certbot --nginx -d <span id="domain-success-placeholder" style="font-weight
     } catch (err) { select.innerHTML = `<option value="">Err</option>`; }
   }
 
-  let selectedSoftware = 'vanilla';
+
   function selectSoftware(sw) {
     selectedSoftware = sw;
     document.querySelectorAll('.sw-option').forEach(el => el.classList.remove('selected'));
